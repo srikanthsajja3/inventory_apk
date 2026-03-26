@@ -1,6 +1,7 @@
-import React from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator } from 'react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History } from 'lucide-react-native';
+import { supabase } from '../../supabase';
 
 interface ItemDetailsModalProps {
   isVisible: boolean;
@@ -8,6 +9,39 @@ interface ItemDetailsModalProps {
   item: any;
   onEdit: (item: any) => void;
 }
+
+const HistoryItem = ({ log }: any) => {
+  const date = new Date(log.created_at).toLocaleString();
+  const isPositive = log.quantity_changed >= 0;
+
+  return (
+    <View style={styles.historyItem}>
+      <View style={styles.historyHeader}>
+        <View style={[styles.typeBadge, { backgroundColor: log.type === 'IN' ? '#ecfdf5' : log.type === 'OUT' ? '#fef2f2' : '#f1f5f9' }]}>
+          <Text style={[styles.typeText, { color: log.type === 'IN' ? '#10b981' : log.type === 'OUT' ? '#ef4444' : '#64748b' }]}>
+            {log.type}
+          </Text>
+        </View>
+        <Text style={styles.historyDate}>{date}</Text>
+      </View>
+      
+      <View style={styles.historyContent}>
+        <View style={styles.historyMain}>
+          <Text style={styles.historyReason}>{log.reason}</Text>
+          <View style={styles.userRow}>
+            <User size={12} color="#94a3b8" />
+            <Text style={styles.historyUser}>Admin System</Text>
+          </View>
+        </View>
+        <View style={styles.qtyChange}>
+          <Text style={[styles.qtyChangeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
+            {isPositive ? '+' : ''}{log.quantity_changed}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
 
 const DetailRow = ({ label, value, icon: Icon }: any) => {
   if (value === null || value === undefined || value === '') return null;
@@ -32,6 +66,34 @@ const SectionHeader = ({ title }: { title: string }) => (
 );
 
 export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: ItemDetailsModalProps) {
+  const [logs, setLogs] = useState<any[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  useEffect(() => {
+    if (isVisible && item) {
+      fetchLogs();
+    }
+  }, [isVisible, item]);
+
+  const fetchLogs = async () => {
+    try {
+      setLoadingLogs(true);
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('item_id', item.id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      setLogs(data || []);
+    } catch (error: any) {
+      console.error('Logs Error:', error.message);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
   if (!item) return null;
 
   return (
@@ -46,6 +108,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* ... topInfo, grid sections ... */}
             <View style={styles.topInfo}>
               <View style={styles.imageContainer}>
                 {item.image_url ? (
@@ -81,13 +144,21 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
               <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}g` : null} icon={Scale} />
             </View>
 
-            <SectionHeader title="Stones & Diamonds" />
-            <View style={styles.grid}>
-              <DetailRow label="Dai Pcs" value={item.dai_pcs} icon={Hash} />
-              <DetailRow label="Dai Wt" value={item.dai_wt ? `${item.dai_wt} ct` : null} icon={Scale} />
-              <DetailRow label="Stone Pcs" value={item.clr_stone_pcs} icon={Hash} />
-              <DetailRow label="Stone Wt" value={item.clr_stone_wt ? `${item.clr_stone_wt} ct` : null} icon={Scale} />
-            </View>
+            <SectionHeader title="Activity History" />
+            {loadingLogs ? (
+              <ActivityIndicator color="#6366f1" style={{ marginVertical: 20 }} />
+            ) : logs.length > 0 ? (
+              <View style={styles.historyContainer}>
+                {logs.map((log) => (
+                  <HistoryItem key={log.id} log={log} />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.emptyHistory}>
+                <Clock size={24} color="#cbd5e1" />
+                <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
+              </View>
+            )}
 
             <SectionHeader title="Purchase & Labour" />
             <View style={styles.grid}>
@@ -136,6 +207,81 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
 }
 
 const styles = StyleSheet.create({
+  // ... existing styles ...
+  historyContainer: {
+    gap: 12,
+  },
+  historyItem: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  typeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  historyDate: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  historyContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyMain: {
+    flex: 1,
+  },
+  historyReason: {
+    fontSize: 13,
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  historyUser: {
+    fontSize: 11,
+    color: '#94a3b8',
+    fontWeight: '500',
+  },
+  qtyChange: {
+    paddingLeft: 12,
+  },
+  qtyChangeText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptyHistory: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    gap: 8,
+  },
+  emptyHistoryText: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

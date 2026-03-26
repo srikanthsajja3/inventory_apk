@@ -3,14 +3,20 @@ import { StyleSheet, View, Text, Modal, TouchableOpacity, FlatList, ActivityIndi
 import { X, Folder, ChevronRight, ArrowLeft, Check, Move } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 
+interface MoveItem {
+  id: string;
+  name: string;
+  type: 'item' | 'folder';
+}
+
 interface MoveModalProps {
   isVisible: boolean;
   onClose: () => void;
   onMove: () => void;
-  itemToMove: { id: string, name: string, type: 'item' | 'folder' } | null;
+  itemsToMove: MoveItem[];
 }
 
-export default function MoveModal({ isVisible, onClose, onMove, itemToMove }: MoveModalProps) {
+export default function MoveModal({ isVisible, onClose, onMove, itemsToMove }: MoveModalProps) {
   const [currentFolder, setCurrentFolder] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
@@ -35,9 +41,10 @@ export default function MoveModal({ isVisible, onClose, onMove, itemToMove }: Mo
         query = query.is('parent_id', null);
       }
 
-      // Don't show the folder itself as a destination
-      if (itemToMove?.type === 'folder') {
-        query = query.neq('id', itemToMove.id);
+      // Don't show the folders themselves as a destination
+      const folderIdsToMove = itemsToMove.filter(i => i.type === 'folder').map(i => i.id);
+      if (folderIdsToMove.length > 0) {
+        query = query.not('id', 'in', `(${folderIdsToMove.join(',')})`);
       }
 
       const { data, error } = await query.order('name');
@@ -51,27 +58,32 @@ export default function MoveModal({ isVisible, onClose, onMove, itemToMove }: Mo
   };
 
   const handleMove = async () => {
-    if (!itemToMove) return;
+    if (itemsToMove.length === 0) return;
 
     try {
       setMoving(true);
       const targetId = currentFolder ? currentFolder.id : null;
 
-      if (itemToMove.type === 'folder') {
+      const folderItems = itemsToMove.filter(i => i.type === 'folder');
+      const itemItems = itemsToMove.filter(i => i.type === 'item');
+
+      if (folderItems.length > 0) {
         const { error } = await supabase
           .from('categories')
           .update({ parent_id: targetId })
-          .eq('id', itemToMove.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('items')
-          .update({ category_id: targetId })
-          .eq('id', itemToMove.id);
+          .in('id', folderItems.map(f => f.id));
         if (error) throw error;
       }
 
-      Alert.alert('Success', `${itemToMove.name} moved successfully`);
+      if (itemItems.length > 0) {
+        const { error } = await supabase
+          .from('items')
+          .update({ category_id: targetId })
+          .in('id', itemItems.map(i => i.id));
+        if (error) throw error;
+      }
+
+      Alert.alert('Success', `${itemsToMove.length} item(s) moved successfully`);
       onMove();
       onClose();
     } catch (error: any) {
@@ -111,7 +123,9 @@ export default function MoveModal({ isVisible, onClose, onMove, itemToMove }: Mo
           <View style={styles.header}>
             <View>
               <Text style={styles.modalTitle}>Move to...</Text>
-              <Text style={styles.itemToMoveText}>Moving: {itemToMove?.name}</Text>
+              <Text style={styles.itemToMoveText}>
+                Moving: {itemsToMove.length === 1 ? itemsToMove[0].name : `${itemsToMove.length} items`}
+              </Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <X size={24} color="#64748b" />

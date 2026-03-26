@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
 import { FileUp, Image, CheckCircle2, XCircle, ChevronRight, Package } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { supabase } from '../../supabase';
 
 export default function ImportScreen() {
@@ -19,8 +20,14 @@ export default function ImportScreen() {
       if (!result.canceled) {
         setLoading(true);
         const file = result.assets[0];
-        const response = await fetch(file.uri);
-        const text = await response.text();
+        let text = '';
+
+        if (Platform.OS === 'web') {
+          const response = await fetch(file.uri);
+          text = await response.text();
+        } else {
+          text = await FileSystem.readAsStringAsync(file.uri);
+        }
         
         // Robust CSV Parser for Jewelry Data
         const rows = text.split(/\r?\n/).filter(row => row.trim() !== '');
@@ -97,33 +104,52 @@ export default function ImportScreen() {
 
   const handleImportCSV = async () => {
     if (csvData.length === 0) return;
-    
-    try {
-      setLoading(true);
-      
-      const { error } = await supabase
-        .from('items')
-        .upsert(csvData, { 
-          onConflict: 'sku',
-          ignoreDuplicates: false 
-        });
-      
-      if (error) throw error;
-      
-      Alert.alert('Success', `Successfully imported/updated ${csvData.length} items.`);
-      setCsvData([]);
-    } catch (error: any) {
-      console.error('Import Error Details:', error);
-      const errorMsg = error.message || JSON.stringify(error);
-      const errorDetail = error.details || '';
-      const errorHint = error.hint || '';
-      
+
+    const performImport = async () => {
+      try {
+        setLoading(true);
+        
+        const { error } = await supabase
+          .from('items')
+          .upsert(csvData, { 
+            onConflict: 'sku',
+            ignoreDuplicates: false 
+          });
+        
+        if (error) throw error;
+        
+        Alert.alert('Success', `Successfully imported/updated ${csvData.length} items.`);
+        setCsvData([]);
+      } catch (error: any) {
+        console.error('Import Error Details:', error);
+        const errorMsg = error.message || JSON.stringify(error);
+        const errorDetail = error.details || '';
+        const errorHint = error.hint || '';
+        
+        Alert.alert(
+          'Import Failed', 
+          `${errorMsg}\n\n${errorDetail}\n\n${errorHint}\n\nHint: Ensure you have run the SQL migration in Supabase Dashboard.`
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const message = `Are you sure you want to import ${csvData.length} items? This will update existing items with the same Label No.`;
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(message)) {
+        performImport();
+      }
+    } else {
       Alert.alert(
-        'Import Failed', 
-        `${errorMsg}\n\n${errorDetail}\n\n${errorHint}\n\nHint: Ensure you have run the SQL migration in Supabase Dashboard.`
+        'Confirm Import',
+        message,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Import', onPress: performImport }
+        ]
       );
-    } finally {
-      setLoading(false);
     }
   };
 

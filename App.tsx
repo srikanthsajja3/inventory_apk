@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { LayoutDashboard, Package, Scan, History, FileUp } from 'lucide-react-native';
+import { LayoutDashboard, Package, Scan, History, FileUp, Users } from 'lucide-react-native';
 
 // Import Real Screens
 import DashboardScreen from './src/screens/DashboardScreen';
@@ -9,11 +9,54 @@ import InventoryScreen from './src/screens/InventoryScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ImportScreen from './src/screens/ImportScreen';
+import VendorScreen from './src/screens/VendorScreen';
 import { useRole } from './src/hooks/useRole';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const { role, setRole, loading } = useRole();
+
+  useEffect(() => {
+    // Web specific history handling
+    if (Platform.OS === 'web') {
+      const handlePopState = (event: PopStateEvent) => {
+        if (event.state && event.state.tab) {
+          setActiveTab(event.state.tab);
+        } else {
+          setActiveTab('dashboard');
+        }
+      };
+      window.addEventListener('popstate', handlePopState);
+      // Initialize state
+      window.history.replaceState({ tab: activeTab }, '');
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+
+    const backAction = () => {
+      if (activeTab !== 'dashboard') {
+        setActiveTab('dashboard');
+        if (Platform.OS === 'web') {
+          window.history.pushState({ tab: 'dashboard' }, '');
+        }
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction,
+    );
+
+    return () => backHandler.remove();
+  }, [activeTab]);
+
+  const changeTab = (name: string) => {
+    setActiveTab(name);
+    if (Platform.OS === 'web') {
+      window.history.pushState({ tab: name }, '');
+    }
+  };
 
   if (loading) {
     return (
@@ -39,7 +82,7 @@ export default function App() {
             <View style={styles.loginLogo}>
               <Package size={60} color="#6366f1" />
             </View>
-            <Text style={styles.loginTitle}>InventoryPro</Text>
+            <Text style={styles.loginTitle}>MOKSHA JEWELS INVENTORY</Text>
             <Text style={styles.loginSubtitle}>Select your role to start testing</Text>
             
             <TouchableOpacity 
@@ -67,6 +110,7 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard': return <DashboardScreen />;
       case 'inventory': return <InventoryScreen />;
+      case 'vendor': return <VendorScreen />;
       case 'scan': return <ScanScreen />;
       case 'history': return <HistoryScreen />;
       case 'import': return <ImportScreen />;
@@ -77,7 +121,7 @@ export default function App() {
   const NavItem = ({ name, icon: Icon, label }: any) => (
     <TouchableOpacity 
       style={styles.navItem} 
-      onPress={() => setActiveTab(name)}
+      onPress={() => changeTab(name)}
     >
       <Icon size={24} color={activeTab === name ? '#6366f1' : '#94a3b8'} />
       <Text style={[styles.navLabel, { color: activeTab === name ? '#6366f1' : '#94a3b8' }]}>
@@ -92,7 +136,7 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View>
-            <Text style={styles.logo}>InventoryPro</Text>
+            <Text style={styles.logo}>MOKSHA JEWELS INVENTORY</Text>
             <Text style={styles.roleBadge}>{role.toUpperCase()} MODE</Text>
           </View>
           <TouchableOpacity onPress={() => setRole(null)} style={styles.logoutBtn}>
@@ -108,8 +152,9 @@ export default function App() {
           <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
           <NavItem name="inventory" icon={Package} label="Items" />
           <NavItem name="scan" icon={Scan} label="Scan" />
-          {<NavItem name="import" icon={FileUp} label="Import" />}
+          <NavItem name="vendor" icon={Users} label="Vendors" />
           <NavItem name="history" icon={History} label="History" />
+          <NavItem name="import" icon={FileUp} label="Import" />
         </View>
       </SafeAreaView>
     </SafeAreaProvider>

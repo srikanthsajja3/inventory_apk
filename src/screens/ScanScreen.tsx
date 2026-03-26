@@ -36,22 +36,31 @@ export default function ScanScreen() {
     try {
       const tableName = role === 'admin' ? 'items' : 'staff_items';
       
-      // Try searching by SKU/Barcode first (most common for external codes)
-      // then by ID (UUID) if it looks like one
-      let query = supabase.from(tableName).select('*').eq('sku', data);
-      
-      // Basic UUID check
-      if (data.length === 36 && data.includes('-')) {
-        query = supabase.from(tableName).select('*').or(`id.eq.${data},sku.eq.${data}`);
-      }
-
-      const { data: item, error } = await query.maybeSingle();
+      // Search specifically by SKU as requested since it's unique
+      const { data: item, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('sku', data)
+        .maybeSingle();
 
       if (error) throw error;
 
       if (item) {
         setItemFound(item);
       } else {
+        // If not found by SKU, try searching by ID as a fallback for internal codes
+        if (data.length === 36 && data.includes('-')) {
+          const { data: idItem, error: idError } = await supabase
+            .from(tableName)
+            .select('*')
+            .eq('id', data)
+            .maybeSingle();
+          
+          if (!idError && idItem) {
+            setItemFound(idItem);
+            return;
+          }
+        }
         // Not found - the UI will show an "Add New" option
       }
     } catch (error: any) {
