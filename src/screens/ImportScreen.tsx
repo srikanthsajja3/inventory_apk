@@ -49,16 +49,25 @@ export default function ImportScreen() {
 
           // Helper to parse dates (D/M/YYYY to YYYY-MM-DD)
           const parseDate = (val: string) => {
-            if (!val || val.trim() === '') return null;
+            if (!val || val.trim() === '' || val.includes('  /  /')) return null;
             const parts = val.trim().split('/');
             if (parts.length === 3) {
-              // Ensure YYYY-MM-DD format
-              const d = parts[0].padStart(2, '0');
-              const m = parts[1].padStart(2, '0');
-              const y = parts[2];
-              return `${y}-${m}-${d}`;
+              const d = parts[0].trim().padStart(2, '0');
+              const m = parts[1].trim().padStart(2, '0');
+              const y = parts[2].trim();
+              
+              // Validate that they are numbers and have reasonable values
+              if (/^\d+$/.test(d) && /^\d+$/.test(m) && /^\d+$/.test(y)) {
+                const day = parseInt(d);
+                const month = parseInt(m);
+                const year = parseInt(y);
+                
+                if (day > 0 && day <= 31 && month > 0 && month <= 12 && year > 1900) {
+                  return `${y}-${m}-${d}`;
+                }
+              }
             }
-            return val;
+            return null; // Return null for any invalid date string
           };
 
           return {
@@ -90,7 +99,12 @@ export default function ImportScreen() {
             stone_purchase_amt: cleanNum(cols[23]),
             huid: cols[24] || null
           };
-        }).filter(item => item.label_no);
+        }).filter(item => 
+          item.label_no && 
+          item.label_no.includes('-') && // Jewelry labels have a dash (e.g., GKC-1)
+          item.label_no !== 'LabelNo' && // Skip header if regex failed
+          !item.name.startsWith('Item ') // Ensure it has a category (cols[13])
+        );
 
         console.log('Sample Item for Import:', items[0]);
         setCsvData(items);
