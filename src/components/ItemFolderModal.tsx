@@ -61,7 +61,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     other_charges: '0',
     dia_purchase_amt: '0',
     stone_purchase_amt: '0',
-    huid: ''
+    huid: '',
+    stones_in_detail: '',
+    dai_rd: '0',
+    dai_pear: '0',
+    dai_stb: '0',
+    igi_fee: '0'
   });
 
   const isEdit = !!initialData;
@@ -97,7 +102,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           other_charges: String(initialData.other_charges || 0),
           dia_purchase_amt: String(initialData.dia_purchase_amt || 0),
           stone_purchase_amt: String(initialData.stone_purchase_amt || 0),
-          huid: initialData.huid || ''
+          huid: initialData.huid || '',
+          stones_in_detail: initialData.stones_in_detail || '',
+          dai_rd: String(initialData.dai_rd || 0),
+          dai_pear: String(initialData.dai_pear || 0),
+          dai_stb: String(initialData.dai_stb || 0),
+          igi_fee: String(initialData.igi_fee || 0)
         });
         setImage(initialData.image_url || null);
       } else {
@@ -128,7 +138,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           other_charges: '0',
           dia_purchase_amt: '0',
           stone_purchase_amt: '0',
-          huid: ''
+          huid: '',
+          stones_in_detail: '',
+          dai_rd: '0',
+          dai_pear: '0',
+          dai_stb: '0',
+          igi_fee: '0'
         });
         setImage(null);
         setType('item');
@@ -244,7 +259,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           other_charges: parseFloat(form.other_charges) || 0,
           dia_purchase_amt: parseFloat(form.dia_purchase_amt) || 0,
           stone_purchase_amt: parseFloat(form.stone_purchase_amt) || 0,
-          huid: form.huid || null
+          huid: form.huid || null,
+          stones_in_detail: form.stones_in_detail || null,
+          dai_rd: parseFloat(form.dai_rd) || 0,
+          dai_pear: parseFloat(form.dai_pear) || 0,
+          dai_stb: parseFloat(form.dai_stb) || 0,
+          igi_fee: parseFloat(form.igi_fee) || 0
         };
 
         if (isEdit) {
@@ -379,19 +399,19 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Gross Wt" 
+                      label="Net Wt" 
                       icon={Hash} 
-                      value={form.gross_wt} 
-                      onChangeText={(t: string) => setForm({...form, gross_wt: t})} 
+                      value={form.net_wt} 
+                      onChangeText={(t: string) => setForm({...form, net_wt: t})} 
                       keyboardType="numeric"
                     />
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Net Wt" 
+                      label="Gross Wt" 
                       icon={Hash} 
-                      value={form.net_wt} 
-                      onChangeText={(t: string) => setForm({...form, net_wt: t})} 
+                      value={form.gross_wt} 
+                      onChangeText={(t: string) => setForm({...form, gross_wt: t})} 
                       keyboardType="numeric"
                     />
                   </View>
@@ -421,7 +441,49 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Clr Stone Wt" 
+                      label="Dai Round (RD)" 
+                      icon={Hash} 
+                      value={form.dai_rd} 
+                      onChangeText={(t: string) => setForm({...form, dai_rd: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="Dai Pear" 
+                      icon={Hash} 
+                      value={form.dai_pear} 
+                      onChangeText={(t: string) => setForm({...form, dai_pear: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </Row>
+
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
+                      label="Dai STB/Baguette" 
+                      icon={Hash} 
+                      value={form.dai_stb} 
+                      onChangeText={(t: string) => setForm({...form, dai_stb: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="IGI Fee" 
+                      icon={Hash} 
+                      value={form.igi_fee} 
+                      onChangeText={(t: string) => setForm({...form, igi_fee: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </Row>
+
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
+                      label="Stone Wt" 
                       icon={Hash} 
                       value={form.clr_stone_wt} 
                       onChangeText={(t: string) => setForm({...form, clr_stone_wt: t})} 
@@ -430,7 +492,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Clr Stone Pcs" 
+                      label="Stone Pcs" 
                       icon={Hash} 
                       value={form.clr_stone_pcs} 
                       onChangeText={(t: string) => setForm({...form, clr_stone_pcs: t})} 
@@ -438,6 +500,13 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                     />
                   </View>
                 </Row>
+
+                <InputField 
+                  label="Stones in detail" 
+                  icon={Tag} 
+                  value={form.stones_in_detail} 
+                  onChangeText={(t: string) => setForm({...form, stones_in_detail: t})} 
+                />
 
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
@@ -463,7 +532,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Labour Amt" 
+                      label="Making (Labour Amt)" 
                       icon={Hash} 
                       value={form.labour_amt} 
                       onChangeText={(t: string) => setForm({...form, labour_amt: t})} 

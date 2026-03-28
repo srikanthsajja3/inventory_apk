@@ -10,10 +10,12 @@ import ScanScreen from './src/screens/ScanScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
 import ImportScreen from './src/screens/ImportScreen';
 import VendorScreen from './src/screens/VendorScreen';
+import EstimationScreen from './src/screens/EstimationScreen';
 import { useRole } from './src/hooks/useRole';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [estimationItem, setEstimationItem] = useState<any>(null);
   const { role, setRole, loading } = useRole();
 
   useEffect(() => {
@@ -33,6 +35,10 @@ export default function App() {
     }
 
     const backAction = () => {
+      if (estimationItem) {
+        setEstimationItem(null);
+        return true;
+      }
       if (activeTab !== 'dashboard') {
         setActiveTab('dashboard');
         if (Platform.OS === 'web') {
@@ -49,10 +55,11 @@ export default function App() {
     );
 
     return () => backHandler.remove();
-  }, [activeTab]);
+  }, [activeTab, estimationItem]);
 
   const changeTab = (name: string) => {
     setActiveTab(name);
+    setEstimationItem(null);
     if (Platform.OS === 'web') {
       window.history.pushState({ tab: name }, '');
     }
@@ -82,7 +89,7 @@ export default function App() {
             <View style={styles.loginLogo}>
               <Package size={60} color="#6366f1" />
             </View>
-            <Text style={styles.loginTitle}>MOKSHA JEWELS INVENTORY</Text>
+            <Text style={styles.loginTitle}>MOKSHA JEWELS VJA INVENTORY</Text>
             <Text style={styles.loginSubtitle}>Select your role to start testing</Text>
             
             <TouchableOpacity 
@@ -107,11 +114,20 @@ export default function App() {
   }
 
   const renderContent = () => {
+    if (estimationItem) {
+      return (
+        <EstimationScreen 
+          route={{ params: { item: estimationItem } }} 
+          navigation={{ goBack: () => setEstimationItem(null) }} 
+        />
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard': return <DashboardScreen />;
       case 'inventory': return <InventoryScreen />;
       case 'vendor': return <VendorScreen />;
-      case 'scan': return <ScanScreen />;
+      case 'scan': return <ScanScreen onEstimate={(item: any) => setEstimationItem(item)} />;
       case 'history': return <HistoryScreen />;
       case 'import': return <ImportScreen />;
       default: return <DashboardScreen />;
@@ -136,7 +152,7 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View>
-            <Text style={styles.logo}>MOKSHA JEWELS INVENTORY</Text>
+            <Text style={styles.logo}>MOKSHA JEWELS VJA INVENTORY</Text>
             <Text style={styles.roleBadge}>{role.toUpperCase()} MODE</Text>
           </View>
           <TouchableOpacity onPress={() => setRole(null)} style={styles.logoutBtn}>
@@ -152,9 +168,9 @@ export default function App() {
           <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
           <NavItem name="inventory" icon={Package} label="Items" />
           <NavItem name="scan" icon={Scan} label="Scan" />
-          <NavItem name="vendor" icon={Users} label="Vendors" />
+          {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" />}
           <NavItem name="history" icon={History} label="History" />
-          <NavItem name="import" icon={FileUp} label="Import" />
+          {role === 'admin' && <NavItem name="import" icon={FileUp} label="Import" />}
         </View>
       </SafeAreaView>
     </SafeAreaProvider>

@@ -5,15 +5,19 @@ import { supabase } from '../../supabase';
 
 interface VendorStats {
   name: string;
-  totalItems: number; // Different SKUs
-  totalQty: number;   // Total units in stock
-  totalNetWt: number; // Total weight in stock
-  soldQty: number;    // Total units sold
-  soldNetWt: number;  // Total weight sold
+  totalItems: number; 
+  totalQty: number;   
+  totalNetWt: number; 
+  goldNetWt: number;    // Net weight of gold-only items
+  diamondNetWt: number; // Gold weight of diamond items
+  diamondCt: number;    // Diamond carats/weight
+  soldQty: number;    
+  soldNetWt: number;  
 }
 
 export default function VendorScreen() {
   const [vendors, setVendors] = useState<VendorStats[]>([]);
+  const [totals, setTotals] = useState({ gold: 0, diamond: 0, carats: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
@@ -33,7 +37,7 @@ export default function VendorScreen() {
       // 1. Fetch all items to group by vendor
       const { data: items, error: itemsError } = await supabase
         .from('items')
-        .select('supplier_name, quantity, net_wt, id, name, sku');
+        .select('supplier_name, quantity, net_wt, dai_wt, id, name, sku');
       
       if (itemsError) throw itemsError;
 
@@ -67,6 +71,9 @@ export default function VendorScreen() {
 
       // 5. Group and calculate inventory stats
       const group: Record<string, VendorStats> = {};
+      let globalGold = 0;
+      let globalDiamond = 0;
+      let globalCarats = 0;
       
       items?.forEach(item => {
         const vendorName = item.supplier_name || 'Unknown Vendor';
@@ -76,6 +83,9 @@ export default function VendorScreen() {
             totalItems: 0,
             totalQty: 0,
             totalNetWt: 0,
+            goldNetWt: 0,
+            diamondNetWt: 0,
+            diamondCt: 0,
             soldQty: 0,
             soldNetWt: 0
           };
@@ -83,16 +93,30 @@ export default function VendorScreen() {
         
         const qty = (item.quantity || 0);
         const netWt = (parseFloat(item.net_wt) || 0);
+        const daiWt = (parseFloat(item.dai_wt) || 0);
         
         group[vendorName].totalItems += 1;
         group[vendorName].totalQty += qty;
         group[vendorName].totalNetWt += (qty * netWt);
         
+        // Split Gold vs Diamond
+        if (daiWt > 0) {
+          group[vendorName].diamondNetWt += (qty * netWt);
+          group[vendorName].diamondCt += (qty * daiWt);
+          globalDiamond += (qty * netWt);
+          globalCarats += (qty * daiWt);
+        } else {
+          group[vendorName].goldNetWt += (qty * netWt);
+          globalGold += (qty * netWt);
+        }
+        
         if (salesMap[vendorName]) {
           group[vendorName].soldQty = salesMap[vendorName].qty;
-          group[vendorName].soldNetWt = salesMap[vendorName].qty * netWt; // This is a bit simplified if net_wt varies per item in same vendor, but salesMap above handles it better
+          group[vendorName].soldNetWt = salesMap[vendorName].qty * netWt; 
         }
       });
+
+      setTotals({ gold: globalGold, diamond: globalDiamond, carats: globalCarats });
 
       // Re-assign sold stats from the more accurate salesMap
       Object.keys(group).forEach(vendorName => {
@@ -132,7 +156,7 @@ export default function VendorScreen() {
       if (itemIds.length > 0) {
         const { data: sales, error: salesError } = await supabase
           .from('transactions')
-          .select('*, items(name, sku, net_wt)')
+          .select('*, items(name, sku, net_wt, dai_wt)')
           .eq('type', 'OUT')
           .in('item_id', itemIds)
           .order('created_at', { ascending: false });
@@ -164,29 +188,23 @@ export default function VendorScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.vendorName}>{item.name}</Text>
-          <Text style={styles.vendorSubtitle}>{item.totalItems} SKUs</Text>
+          <Text style={styles.vendorSubtitle}>{item.totalItems} SKUs • {item.totalQty} items</Text>
         </View>
         <ChevronRight size={20} color="#cbd5e1" />
       </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statBox}>
-          <Package size={14} color="#6366f1" />
-          <Text style={styles.statLabel}>In Stock</Text>
-          <Text style={styles.statValue}>{item.totalQty}</Text>
-          <Text style={styles.statSubValue}>{item.totalNetWt.toFixed(2)}g</Text>
+          <Text style={[styles.statLabel, { color: '#f59e0b' }]}>Gold Stock</Text>
+          <Text style={styles.statValue}>{item.goldNetWt.toFixed(2)}g</Text>
         </View>
         <View style={[styles.statBox, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#f1f5f9' }]}>
-          <ShoppingCart size={14} color="#10b981" />
-          <Text style={styles.statLabel}>Sold</Text>
-          <Text style={styles.statValue}>{item.soldQty}</Text>
-          <Text style={styles.statSubValue}>{item.soldNetWt.toFixed(2)}g</Text>
+          <Text style={[styles.statLabel, { color: '#6366f1' }]}>Diamond Stock</Text>
+          <Text style={styles.statValue}>{item.diamondNetWt.toFixed(2)}g</Text>
         </View>
         <View style={styles.statBox}>
-          <Weight size={14} color="#f59e0b" />
-          <Text style={styles.statLabel}>Total Net Wt</Text>
-          <Text style={styles.statValue}>{(item.totalNetWt + item.soldNetWt).toFixed(2)}g</Text>
-          <Text style={styles.statSubValue}>Life-time</Text>
+          <Text style={[styles.statLabel, { color: '#10b981' }]}>Diamond Wt</Text>
+          <Text style={styles.statValue}>{item.diamondCt.toFixed(3)}ct</Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -199,7 +217,8 @@ export default function VendorScreen() {
         <Text style={styles.itemSku}>{item.sku}</Text>
       </View>
       <View style={styles.itemStats}>
-        <Text style={styles.itemWt}>{item.net_wt}g</Text>
+        <Text style={styles.itemWt}>G: {item.net_wt}g</Text>
+        {parseFloat(item.dai_wt) > 0 && <Text style={[styles.itemWt, { color: '#10b981' }]}>D: {item.dai_wt}ct</Text>}
         <View style={styles.qtyBadge}>
           <Text style={styles.qtyText}>{item.quantity}</Text>
         </View>
@@ -277,6 +296,26 @@ export default function VendorScreen() {
       <Text style={styles.title}>Vendor Analytics</Text>
       <Text style={styles.subtitle}>Performance and stock by supplier</Text>
 
+      {!loading && (
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryTitle}>Total Inventory (All Vendors)</Text>
+          <View style={styles.summaryGrid}>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryLabel, { color: '#f59e0b' }]}>Total Gold</Text>
+              <Text style={styles.summaryValue}>{totals.gold.toFixed(2)}g</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryLabel, { color: '#6366f1' }]}>Diamond Gold</Text>
+              <Text style={styles.summaryValue}>{totals.diamond.toFixed(2)}g</Text>
+            </View>
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryLabel, { color: '#10b981' }]}>Total Diamonds</Text>
+              <Text style={styles.summaryValue}>{totals.carats.toFixed(3)}ct</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
       {loading ? (
         <ActivityIndicator style={{ marginTop: 50 }} color="#6366f1" />
       ) : (
@@ -305,6 +344,43 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
     backgroundColor: '#f8fafc',
+  },
+  summaryCard: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: '#6366f1',
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+    borderWidth: 1,
+    borderColor: '#eef2ff',
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1e293b',
+    marginBottom: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e293b',
   },
   header: {
     flexDirection: 'row',

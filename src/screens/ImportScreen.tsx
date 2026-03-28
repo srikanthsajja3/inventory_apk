@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Platform } from 'react-native';
-import { FileUp, Image, CheckCircle2, XCircle, ChevronRight, Package } from 'lucide-react-native';
+import { FileUp, Image, CheckCircle2, XCircle, ChevronRight, Package, RefreshCcw } from 'lucide-react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -70,10 +70,13 @@ export default function ImportScreen() {
             return null; // Return null for any invalid date string
           };
 
+          const rawLabel = cols[0] || '';
+          const cleanLabel = rawLabel.replace(/-/g, '').trim();
+
           return {
-            name: `${cols[13] || 'Item'} ${cols[0] || ''}`.trim(), 
-            label_no: cols[0] || null,
-            sku: cols[0] || null,
+            name: `${cols[13] || 'Item'} ${cleanLabel}`.trim(), 
+            label_no: cleanLabel || null,
+            sku: cleanLabel || null,
             quantity: 1,
             pcs: parseInt(cols[1]) || 0,
             purity: cols[2] || null,
@@ -101,8 +104,7 @@ export default function ImportScreen() {
           };
         }).filter(item => 
           item.label_no && 
-          item.label_no.includes('-') && // Jewelry labels have a dash (e.g., GKC-1)
-          item.label_no !== 'LabelNo' && // Skip header if regex failed
+          item.label_no !== 'LabelNo' && // Skip header
           !item.name.startsWith('Item ') // Ensure it has a category (cols[13])
         );
 
@@ -236,6 +238,42 @@ export default function ImportScreen() {
     }
   };
 
+  const handleCleanupDatabase = async () => {
+    try {
+      setLoading(true);
+      const { data: items, error: fetchError } = await supabase
+        .from('items')
+        .select('id, sku, label_no, name')
+        .like('sku', '%-%');
+
+      if (fetchError) throw fetchError;
+      if (!items || items.length === 0) {
+        Alert.alert('Database Clean', 'No items with dashes found in SKUs.');
+        return;
+      }
+
+      let updated = 0;
+      for (const item of items) {
+        const cleanSku = item.sku.replace(/-/g, '').trim();
+        const cleanLabel = item.label_no ? item.label_no.replace(/-/g, '').trim() : cleanSku;
+        let newName = item.name;
+        if (item.name.includes(item.sku)) {
+          newName = item.name.replace(item.sku, cleanSku);
+        }
+        const { error: updateError } = await supabase
+          .from('items')
+          .update({ sku: cleanSku, label_no: cleanLabel, name: newName })
+          .eq('id', item.id);
+        if (!updateError) updated++;
+      }
+      Alert.alert('Cleanup Complete', `Successfully cleaned ${updated} existing records.`);
+    } catch (error: any) {
+      Alert.alert('Cleanup Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Data Entry Hub</Text>
@@ -259,6 +297,34 @@ export default function ImportScreen() {
             </TouchableOpacity>
           </View>
         )}
+      </View>
+
+      {/* Database Maintenance Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <RefreshCcw size={24} color="#f59e0b" />
+          <Text style={styles.sectionTitle}>Database Maintenance</Text>
+        </View>
+        <Text style={styles.description}>
+          Clean existing labels in the database (e.g., convert all "GKC-1" to "GKC1") to match your new format requirements.
+        </Text>
+        <TouchableOpacity 
+          style={[styles.pickBtn, { borderColor: '#f59e0b', borderStyle: 'solid' }]} 
+          onPress={() => {
+            const message = "This will remove all dashes from existing item SKUs and Labels in the database. Proceed?";
+            if (Platform.OS === 'web') {
+              if (window.confirm(message)) handleCleanupDatabase();
+            } else {
+              Alert.alert('Confirm Cleanup', message, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Proceed', onPress: handleCleanupDatabase }
+              ]);
+            }
+          }}
+          disabled={loading}
+        >
+          {loading ? <ActivityIndicator color="#f59e0b" /> : <Text style={[styles.pickBtnText, { color: '#f59e0b' }]}>Clean Existing SKUs (Remove Dashes)</Text>}
+        </TouchableOpacity>
       </View>
 
       {/* Photo Matching Section */}

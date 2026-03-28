@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler } from 'react-native';
-import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List } from 'lucide-react-native';
+import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
@@ -114,6 +114,8 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
 export default function InventoryScreen() {
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
+  const [locations, setLocations] = useState<string[]>([]);
+  const [selectedLocation, setSelectedLocation] = useState<string>('All Locations');
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [currentFolder, setCurrentFolder] = useState<any>(null);
@@ -132,6 +134,26 @@ export default function InventoryScreen() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const { role } = useRole();
+
+  useEffect(() => {
+    fetchLocations();
+  }, []);
+
+  const fetchLocations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('items')
+        .select('location')
+        .not('location', 'is', null);
+      
+      if (error) throw error;
+      
+      const uniqueLocations = Array.from(new Set(data.map(i => i.location))).sort();
+      setLocations(['All Locations', ...uniqueLocations]);
+    } catch (error) {
+      console.error('Error fetching locations:', error);
+    }
+  };
 
   useEffect(() => {
     // Web specific folder history handling
@@ -389,10 +411,20 @@ export default function InventoryScreen() {
   };
 
   // Combine folders and items for the list
+  const filteredItems = items.filter(item => {
+    const matchesSearch = search === '' || 
+      item.name?.toLowerCase().includes(search.toLowerCase()) ||
+      item.sku?.toLowerCase().includes(search.toLowerCase()) ||
+      item.label_no?.toLowerCase().includes(search.toLowerCase());
+    
+    const matchesLocation = selectedLocation === 'All Locations' || item.location === selectedLocation;
+    
+    return matchesSearch && matchesLocation;
+  });
+
   const displayData = search 
-    ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), 
-       ...items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()))]
-    : [...folders, ...items];
+    ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItems]
+    : [...folders, ...filteredItems];
 
   return (
     <View style={styles.container}>
@@ -458,14 +490,31 @@ export default function InventoryScreen() {
         </View>
       </View>
 
-      <View style={styles.searchBar}>
-        <Search size={20} color="#94a3b8" />
-        <TextInput 
-          style={styles.input}
-          placeholder="Search this folder..."
-          value={search}
-          onChangeText={setSearch}
-        />
+      <View style={styles.filterRow}>
+        <View style={styles.searchBar}>
+          <Search size={20} color="#94a3b8" />
+          <TextInput 
+            style={styles.input}
+            placeholder="Search by name, SKU, or Label..."
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+
+        <View style={styles.locationContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.locationScroll}>
+            {locations.map((loc) => (
+              <TouchableOpacity 
+                key={loc} 
+                onPress={() => setSelectedLocation(loc)}
+                style={[styles.locBadge, selectedLocation === loc && styles.activeLocBadge]}
+              >
+                <MapPin size={12} color={selectedLocation === loc ? 'white' : '#64748b'} />
+                <Text style={[styles.locBadgeText, selectedLocation === loc && styles.activeLocBadgeText]}>{loc}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
       </View>
 
       {selectionMode && (
@@ -687,16 +736,51 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   searchBar: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 15,
-    marginBottom: 20,
     gap: 10,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+  },
+  filterRow: {
+    flexDirection: 'column',
+    gap: 12,
+    marginBottom: 20,
+  },
+  locationContainer: {
+    backgroundColor: 'transparent',
+  },
+  locationScroll: {
+    flexDirection: 'row',
+  },
+  locBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    gap: 6,
+  },
+  activeLocBadge: {
+    backgroundColor: '#6366f1',
+    borderColor: '#6366f1',
+  },
+  locBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  activeLocBadgeText: {
+    color: '#fff',
   },
   selectionBar: {
     flexDirection: 'row',

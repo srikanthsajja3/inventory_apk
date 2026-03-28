@@ -1,30 +1,108 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, ActivityIndicator, RefreshControl } from 'react-native';
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock } from 'lucide-react-native';
+import { StyleSheet, View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock, Settings, X, Save, RefreshCw } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+import { useRole } from '../hooks/useRole';
+
+const MasterRatesModal = ({ isVisible, onClose }: any) => {
+  const [rates, setRates] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) fetchRates();
+  }, [isVisible]);
+
+  const fetchRates = async () => {
+    setLoading(true);
+    const { data } = await supabase.from('master_rates').select('*').order('category');
+    setRates(data || []);
+    setLoading(false);
+  };
+
+  const handleUpdate = (id: string, value: string) => {
+    setRates(rates.map(r => r.id === id ? { ...r, value: parseFloat(value) || 0 } : r));
+  };
+
+  const saveRates = async () => {
+    setSaving(true);
+    try {
+      for (const rate of rates) {
+        await supabase.from('master_rates').update({ value: rate.value }).eq('id', rate.id);
+      }
+      Alert.alert('Success', 'Rates updated successfully');
+      onClose();
+    } catch (e) {
+      Alert.alert('Error', 'Failed to save rates');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal visible={isVisible} animationType="slide" transparent={true}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Master Rates Management</Text>
+            <TouchableOpacity onPress={onClose}><X size={24} color="#64748b" /></TouchableOpacity>
+          </View>
+          
+          <ScrollView style={styles.modalBody}>
+            {loading ? (
+              <ActivityIndicator size="large" color="#6366f1" style={{ marginTop: 40 }} />
+            ) : (
+              rates.map(rate => (
+                <View key={rate.id} style={styles.rateInputGroup}>
+                  <Text style={styles.rateLabel}>{rate.label}</Text>
+                  <View style={styles.rateInputWrapper}>
+                    <TextInput
+                      style={styles.rateInput}
+                      value={String(rate.value)}
+                      onChangeText={(v) => handleUpdate(rate.id, v)}
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </View>
+              ))
+            )}
+          </ScrollView>
+
+          <TouchableOpacity 
+            style={[styles.saveBtn, saving && { opacity: 0.7 }]} 
+            onPress={saveRates}
+            disabled={saving}
+          >
+            {saving ? <ActivityIndicator color="white" /> : <Save size={20} color="white" />}
+            <Text style={styles.saveBtnText}>Save All Rates</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function DashboardScreen() {
   const [stats, setStats] = useState({ total: 0, lowStock: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showRatesModal, setShowRatesModal] = useState(false);
+  const { role } = useRole();
 
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
-      // 1. Fetch Total Items
       const { count: totalCount, error: totalError } = await supabase
         .from('items')
         .select('*', { count: 'exact', head: true });
 
-      // 2. Fetch Low Stock Items (Quantity < 5)
       const { count: lowCount, error: lowError } = await supabase
         .from('items')
         .select('*', { count: 'exact', head: true })
         .lt('quantity', 5);
 
-      // 3. Fetch Recent Transactions
       const { data: activity, error: activityError } = await supabase
         .from('transactions')
         .select(`
@@ -74,22 +152,45 @@ export default function DashboardScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
       }
     >
-      <Text style={styles.title}>Inventory Overview</Text>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.welcomeText}>Welcome Back,</Text>
+          <Text style={styles.title}>Inventory Overview</Text>
+        </View>
+        {role === 'admin' && (
+          <TouchableOpacity 
+            style={styles.ratesBtn}
+            onPress={() => setShowRatesModal(true)}
+          >
+            <Settings size={20} color="#6366f1" />
+          </TouchableOpacity>
+        )}
+      </View>
       
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: '#e0f2fe' }]}>
-          <Package size={24} color="#0369a1" />
+        <View style={[styles.statCard, { backgroundColor: '#eef2ff' }]}>
+          <View style={[styles.iconBadge, { backgroundColor: '#6366f115' }]}>
+            <Package size={24} color="#6366f1" />
+          </View>
           <Text style={styles.statValue}>{stats.total}</Text>
           <Text style={styles.statLabel}>Total Items</Text>
         </View>
-        <View style={[styles.statCard, { backgroundColor: '#fee2e2' }]}>
-          <AlertTriangle size={24} color="#b91c1c" />
+        <View style={[styles.statCard, { backgroundColor: '#fef2f2' }]}>
+          <View style={[styles.iconBadge, { backgroundColor: '#ef444415' }]}>
+            <AlertTriangle size={24} color="#ef4444" />
+          </View>
           <Text style={styles.statValue}>{stats.lowStock}</Text>
           <Text style={styles.statLabel}>Low Stock</Text>
         </View>
       </View>
 
-      <Text style={styles.sectionTitle}>Recent Activity</Text>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <TouchableOpacity onPress={onRefresh}>
+          <RefreshCw size={16} color="#64748b" />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.activityList}>
         {recentActivity.length > 0 ? (
           recentActivity.map((item) => (
@@ -108,6 +209,13 @@ export default function DashboardScreen() {
           </View>
         )}
       </View>
+
+      <MasterRatesModal 
+        isVisible={showRatesModal} 
+        onClose={() => setShowRatesModal(false)} 
+      />
+      
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -141,18 +249,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  welcomeText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '600',
+  },
   title: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: '800',
     color: '#1e293b',
-    marginBottom: 20,
+  },
+  ratesBtn: {
+    padding: 12,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 30,
+    marginBottom: 15,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#1e293b',
-    marginTop: 30,
-    marginBottom: 15,
   },
   statsRow: {
     flexDirection: 'row',
@@ -161,7 +293,7 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     padding: 20,
-    borderRadius: 20,
+    borderRadius: 24,
     alignItems: 'flex-start',
     elevation: 2,
     shadowColor: '#000',
@@ -170,19 +302,20 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
   statValue: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '800',
     color: '#1e293b',
-    marginTop: 10,
+    marginTop: 12,
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748b',
-    fontWeight: '500',
+    fontWeight: '600',
+    marginTop: 4,
   },
   activityList: {
     backgroundColor: '#fff',
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -194,42 +327,109 @@ const styles = StyleSheet.create({
   activityItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
+    padding: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   iconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activityInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: 15,
   },
   activityText: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1e293b',
   },
   activityTime: {
     fontSize: 12,
     color: '#94a3b8',
+    marginTop: 2,
   },
   activityQty: {
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   emptyActivity: {
-    padding: 30,
+    padding: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
     color: '#94a3b8',
-    marginTop: 8,
+    marginTop: 12,
     fontSize: 14,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    padding: 24,
+    height: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  modalBody: {
+    flex: 1,
+  },
+  rateInputGroup: {
+    marginBottom: 20,
+  },
+  rateLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  rateInputWrapper: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    paddingHorizontal: 15,
+  },
+  rateInput: {
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#1e293b',
+    fontWeight: '700',
+  },
+  saveBtn: {
+    backgroundColor: '#6366f1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 18,
+    borderRadius: 18,
+    gap: 12,
+    marginTop: 20,
+    marginBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  saveBtnText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

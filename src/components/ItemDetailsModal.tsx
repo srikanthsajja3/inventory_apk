@@ -139,9 +139,16 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
             <SectionHeader title="Weights & Pieces" />
             <View style={styles.grid}>
               <DetailRow label="Pcs" value={item.pcs} icon={Package} />
-              <DetailRow label="Gross Wt" value={item.gross_wt ? `${item.gross_wt}g` : null} icon={Scale} />
               <DetailRow label="Net Wt" value={item.net_wt ? `${item.net_wt}g` : null} icon={Scale} />
+              <DetailRow label="Gross Wt" value={item.gross_wt ? `${item.gross_wt}g` : null} icon={Scale} />
               <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}g` : null} icon={Scale} />
+            </View>
+
+            <SectionHeader title="Stones & Detail" />
+            <View style={styles.grid}>
+              <DetailRow label="Stone Wt" value={item.clr_stone_wt ? `${item.clr_stone_wt}g` : null} icon={Scale} />
+              <DetailRow label="Stone Pcs" value={item.clr_stone_pcs} icon={Hash} />
+              <DetailRow label="Stones Detail" value={item.stones_in_detail} icon={FileText} />
             </View>
 
             <SectionHeader title="Activity History" />

@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import ItemFolderModal from '../components/ItemFolderModal';
 
-export default function ScanScreen() {
+const DetailBadge = ({ label, value, icon: Icon, color = "#6366f1" }: any) => {
+  if (value === null || value === undefined || value === '') return null;
+  return (
+    <View style={styles.detailBadge}>
+      <View style={[styles.badgeIcon, { backgroundColor: `${color}10` }]}>
+        <Icon size={14} color={color} />
+      </View>
+      <View>
+        <Text style={styles.badgeLabel}>{label}</Text>
+        <Text style={styles.badgeValue}>{value}</Text>
+      </View>
+    </View>
+  );
+};
+
+export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) => void }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [itemFound, setItemFound] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [scannedData, setScannedData] = useState<string>('');
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [manualSku, setManualSku] = useState('');
   const { role } = useRole();
 
   if (!permission) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
@@ -29,18 +45,26 @@ export default function ScanScreen() {
   }
 
   const handleBarcodeScanned = async ({ data }: any) => {
+    if (scanned || loading) return;
+    
+    // Clean scanned data to remove dashes (GKC-1 becomes GKC1)
+    const cleanData = data.replace(/-/g, '').trim();
+    searchSku(cleanData);
+  };
+
+  const searchSku = async (sku: string) => {
     setScanned(true);
-    setScannedData(data);
+    setScannedData(sku);
     setLoading(true);
 
     try {
       const tableName = role === 'admin' ? 'items' : 'staff_items';
       
-      // Search specifically by SKU as requested since it's unique
+      // Search specifically by cleaned SKU
       const { data: item, error } = await supabase
         .from(tableName)
         .select('*')
-        .eq('sku', data)
+        .eq('sku', sku)
         .maybeSingle();
 
       if (error) throw error;
@@ -48,12 +72,12 @@ export default function ScanScreen() {
       if (item) {
         setItemFound(item);
       } else {
-        // If not found by SKU, try searching by ID as a fallback for internal codes
-        if (data.length === 36 && data.includes('-')) {
+        // Fallback for internal IDs if it looks like a UUID
+        if (sku.length === 36 && sku.includes('-')) {
           const { data: idItem, error: idError } = await supabase
             .from(tableName)
             .select('*')
-            .eq('id', data)
+            .eq('id', sku)
             .maybeSingle();
           
           if (!idError && idItem) {
@@ -61,7 +85,6 @@ export default function ScanScreen() {
             return;
           }
         }
-        // Not found - the UI will show an "Add New" option
       }
     } catch (error: any) {
       Alert.alert("Error", error.message);
@@ -69,6 +92,12 @@ export default function ScanScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleManualSearch = () => {
+    if (!manualSku.trim()) return;
+    searchSku(manualSku.trim());
+    setManualSku('');
   };
 
   const adjustStock = async (amount: number) => {
@@ -121,6 +150,26 @@ export default function ScanScreen() {
           <View style={styles.overlay}>
             <View style={styles.scanTarget} />
             <Text style={styles.hint}>Align QR Code within the frame</Text>
+            
+            <View style={styles.manualEntryContainer}>
+              <View style={styles.manualInputWrapper}>
+                <Keyboard size={20} color="#94a3b8" style={styles.manualIcon} />
+                <TextInput
+                  style={styles.manualInput}
+                  placeholder="Manual SKU Entry"
+                  placeholderTextColor="#94a3b8"
+                  value={manualSku}
+                  onChangeText={setManualSku}
+                  autoCapitalize="characters"
+                />
+                <TouchableOpacity 
+                  style={styles.manualBtn}
+                  onPress={handleManualSearch}
+                >
+                  <Text style={styles.manualBtnText}>Find</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
       ) : (
@@ -128,51 +177,91 @@ export default function ScanScreen() {
           {loading && !itemFound ? (
             <ActivityIndicator size="large" color="#6366f1" />
           ) : itemFound ? (
-            <View style={styles.resultCard}>
-              <TouchableOpacity style={styles.closeIcon} onPress={() => { setScanned(false); setItemFound(null); }}>
-                <X size={24} color="#64748b" />
-              </TouchableOpacity>
-
-              {itemFound.image_url ? (
-                <Image source={{ uri: itemFound.image_url }} style={styles.itemImage} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Package size={48} color="#cbd5e1" />
-                </View>
-              )}
-              
-              <Text style={styles.itemName}>{itemFound.name}</Text>
-              <Text style={styles.itemSku}>{itemFound.sku || 'No SKU'}</Text>
-
-              <View style={styles.stockControl}>
-                <TouchableOpacity 
-                  style={[styles.adjustBtn, { backgroundColor: '#fee2e2' }]} 
-                  onPress={() => adjustStock(-1)}
-                  disabled={loading}
-                >
-                  <Minus size={24} color="#ef4444" />
-                </TouchableOpacity>
-                
-                <View style={styles.qtyDisplay}>
-                  <Text style={styles.qtyValue}>{itemFound.quantity}</Text>
-                  <Text style={styles.qtyLabel}>In Stock</Text>
-                </View>
-
-                <TouchableOpacity 
-                  style={[styles.adjustBtn, { backgroundColor: '#dcfce7' }]} 
-                  onPress={() => adjustStock(1)}
-                  disabled={loading}
-                >
-                  <Plus size={24} color="#22c55e" />
+            <View style={styles.fullWidthCard}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.headerTitle}>Scanned Product</Text>
+                <TouchableOpacity style={styles.closeBtn} onPress={() => { setScanned(false); setItemFound(null); }}>
+                  <X size={20} color="#64748b" />
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity 
-                style={styles.resetBtn}
-                onPress={() => { setScanned(false); setItemFound(null); }}
-              >
-                <Text style={styles.resetBtnText}>Done</Text>
-              </TouchableOpacity>
+              <ScrollView style={styles.resultScroll} showsVerticalScrollIndicator={false}>
+                <View style={styles.itemTopSection}>
+                  {itemFound.image_url ? (
+                    <Image source={{ uri: itemFound.image_url }} style={styles.itemImage} />
+                  ) : (
+                    <View style={styles.imagePlaceholder}>
+                      <Package size={48} color="#cbd5e1" />
+                    </View>
+                  )}
+                  <View style={styles.itemBasicInfo}>
+                    <Text style={styles.itemName}>{itemFound.name}</Text>
+                    <Text style={styles.itemSku}>{itemFound.sku || 'No SKU'}</Text>
+                    {itemFound.supplier_name && (
+                      <View style={styles.vendorBadge}>
+                        <Text style={styles.vendorText}>{itemFound.supplier_name}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.detailGrid}>
+                  <DetailBadge label="Net Weight" value={itemFound.net_wt ? `${itemFound.net_wt}g` : '0g'} icon={Scale} color="#6366f1" />
+                  <DetailBadge label="Gross Weight" value={itemFound.gross_wt ? `${itemFound.gross_wt}g` : '0g'} icon={Scale} color="#8b5cf6" />
+                  <DetailBadge label="Stone Wt" value={itemFound.clr_stone_wt ? `${itemFound.clr_stone_wt}g` : '0g'} icon={Scale} color="#10b981" />
+                  <DetailBadge label="Wastage" value={itemFound.wastage ? `${itemFound.wastage}g` : '0g'} icon={Scale} color="#f59e0b" />
+                  <DetailBadge label="Making" value={itemFound.labour_amt ? `₹${itemFound.labour_amt}` : '₹0'} icon={IndianRupee} color="#6366f1" />
+                  <DetailBadge label="Purity" value={itemFound.purity} icon={Tag} color="#f59e0b" />
+                  <DetailBadge label="HUID" value={itemFound.huid} icon={FileText} color="#ef4444" />
+                  <DetailBadge label="Label No" value={itemFound.label_no} icon={Hash} color="#64748b" />
+                  <DetailBadge label="Stones Detail" value={itemFound.stones_in_detail} icon={Info} color="#8b5cf6" />
+                </View>
+
+                {/* Buttons moved under details */}
+                <View style={styles.inlineControls}>
+                  <View style={styles.stockControl}>
+                    <TouchableOpacity 
+                      style={[styles.adjustBtn, { backgroundColor: '#fee2e2' }]} 
+                      onPress={() => adjustStock(-1)}
+                      disabled={loading}
+                    >
+                      <Minus size={20} color="#ef4444" />
+                    </TouchableOpacity>
+                    
+                    <View style={styles.qtyDisplay}>
+                      <Text style={styles.qtyValue}>{itemFound.quantity}</Text>
+                      <Text style={styles.qtyLabel}>In Stock</Text>
+                    </View>
+
+                    <TouchableOpacity 
+                      style={[styles.adjustBtn, { backgroundColor: '#dcfce7' }]} 
+                      onPress={() => adjustStock(1)}
+                      disabled={loading}
+                    >
+                      <Plus size={20} color="#22c55e" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity 
+                      style={styles.estimateBtn}
+                      onPress={() => onEstimate && onEstimate(itemFound)}
+                    >
+                      <Calculator size={20} color="white" />
+                      <Text style={styles.doneBtnText}>Estimation</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={styles.doneBtn}
+                      onPress={() => { setScanned(false); setItemFound(null); }}
+                    >
+                      <Text style={styles.doneBtnText}>Done</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                
+                <View style={{ height: 60 }} />
+              </ScrollView>
             </View>
           ) : (
             <View style={styles.notFoundCard}>
@@ -208,8 +297,8 @@ export default function ScanScreen() {
         isVisible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
         onSave={onAddSuccess}
-        currentFolderId={null} // Root for new scans, or could let user pick
-        initialData={{ sku: scannedData }} // Pass scanned data as initial SKU
+        currentFolderId={null} 
+        initialData={{ sku: scannedData }}
       />
     </View>
   );
@@ -253,6 +342,39 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.5,
   },
+  manualEntryContainer: {
+    width: '80%',
+    marginTop: 40,
+  },
+  manualInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    height: 54,
+  },
+  manualIcon: {
+    marginRight: 10,
+  },
+  manualInput: {
+    flex: 1,
+    height: '100%',
+    color: '#1e293b',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  manualBtn: {
+    backgroundColor: '#6366f1',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  manualBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
   message: {
     textAlign: 'center',
     marginBottom: 20,
@@ -272,46 +394,69 @@ const styles = StyleSheet.create({
   resultContainer: {
     flex: 1,
     backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    padding: 20,
+    justifyContent: 'flex-end',
   },
-  resultCard: {
+  fullWidthCard: {
     backgroundColor: '#fff',
-    borderRadius: 32,
-    padding: 24,
-    alignItems: 'center',
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    height: '85%',
+    width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 20,
     elevation: 5,
   },
-  closeIcon: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    padding: 5,
-  },
-  itemImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 24,
-    marginBottom: 16,
-  },
-  imagePlaceholder: {
-    width: 140,
-    height: 140,
-    backgroundColor: '#f8fafc',
-    borderRadius: 24,
+  resultHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+    padding: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
-  itemName: {
-    fontSize: 22,
+  headerTitle: {
+    fontSize: 18,
     fontWeight: '800',
     color: '#1e293b',
-    textAlign: 'center',
+  },
+  closeBtn: {
+    padding: 8,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+  },
+  resultScroll: {
+    flex: 1,
+    padding: 24,
+  },
+  itemTopSection: {
+    flexDirection: 'row',
+    gap: 20,
+    marginBottom: 24,
+  },
+  itemImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+  },
+  imagePlaceholder: {
+    width: 100,
+    height: 100,
+    backgroundColor: '#f8fafc',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  itemBasicInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  itemName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#1e293b',
   },
   itemSku: {
     fontSize: 14,
@@ -319,17 +464,70 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
+  vendorBadge: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+  },
+  vendorText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  detailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  detailBadge: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+    gap: 10,
+  },
+  badgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeLabel: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '600',
+  },
+  badgeValue: {
+    fontSize: 13,
+    color: '#1e293b',
+    fontWeight: '800',
+  },
+  inlineControls: {
+    marginTop: 24,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
+  },
   stockControl: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 30,
-    marginTop: 32,
-    marginBottom: 32,
+    justifyContent: 'space-between',
+    marginBottom: 16,
   },
   adjustBtn: {
-    width: 56,
-    height: 56,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -337,32 +535,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qtyValue: {
-    fontSize: 42,
+    fontSize: 24,
     fontWeight: '900',
     color: '#1e293b',
   },
   qtyLabel: {
-    fontSize: 12,
+    fontSize: 9,
     color: '#94a3b8',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
-  resetBtn: {
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  estimateBtn: {
+    flex: 1,
+    backgroundColor: '#6366f1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 14,
+    gap: 8,
+  },
+  doneBtn: {
+    flex: 1,
     backgroundColor: '#1e293b',
-    width: '100%',
-    paddingVertical: 18,
-    borderRadius: 18,
+    paddingVertical: 12,
+    borderRadius: 14,
     alignItems: 'center',
   },
-  resetBtnText: {
+  doneBtnText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
   },
   notFoundCard: {
     backgroundColor: '#fff',
     borderRadius: 32,
     padding: 30,
+    margin: 20,
     alignItems: 'center',
   },
   notFoundTitle: {
