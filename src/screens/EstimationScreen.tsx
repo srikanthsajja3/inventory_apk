@@ -1,112 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList } from 'react-native';
-import { X, Scale, Tag, IndianRupee, Calculator, DollarSign, Info, RefreshCw, Repeat, Plus, Trash2, ChevronDown } from 'lucide-react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList, useWindowDimensions, KeyboardAvoidingView, SafeAreaView } from 'react-native';
+import { X, IndianRupee, RefreshCw, ChevronDown, TrendingUp, Plus, Trash2 } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 
 interface MasterRate {
   key: string;
   value: number;
-  label: string;
-  category: string;
 }
 
 interface StoneMaster {
   id: string;
   name: string;
   category: string;
-  sub_category: string;
-  min_wt: number;
-  max_wt: number;
   rate: number;
 }
 
-interface CalculatedStone {
+interface DynamicStone {
   id: string;
-  type: string;
+  label: string;
   weight: string;
-  pcs: string;
   rate: string;
-  category: string;
+  category: 'Stone' | 'Beads' | 'Diamond';
 }
 
 const num = (val: string | number) => parseFloat(String(val)) || 0;
 
-const EditableRow = ({ label, value, onChange, unit, rate, onRateChange, showPcs, pcsValue, onPcsChange, slabValue }: any) => (
-  <View style={styles.calcRow}>
-    <View style={{ flex: 1 }}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.editableInput}
-          value={value}
-          onChangeText={onChange}
-          keyboardType="numeric"
-        />
-        <Text style={styles.unitText}>{unit}</Text>
-      </View>
-    </View>
-
-    {showPcs && (
-      <View style={{ flex: 0.6, marginLeft: 10 }}>
-        <Text style={styles.label}>Pcs</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.editableInput}
-            value={pcsValue}
-            onChangeText={onPcsChange}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
-    )}
-
-    {slabValue !== undefined && (
-      <View style={{ flex: 0.7, marginLeft: 10 }}>
-        <Text style={styles.label}>Slab</Text>
-        <View style={[styles.inputContainer, { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' }]}>
-          <Text style={[styles.editableInput, { color: '#64748b' }]} numberOfLines={1}>{slabValue}</Text>
-        </View>
-      </View>
-    )}
-    
-    {onRateChange !== undefined && (
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={styles.rateLabelSmall}>Rate</Text>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.editableInput}
-            value={String(rate)}
-            onChangeText={onRateChange}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
-    )}
-  </View>
-);
-
 const StonePickerModal = ({ isVisible, onClose, onSelect, stones, category }: any) => {
-  const filteredStones = stones.filter((s: any) => s.category === category || !category);
-  const uniqueNames = Array.from(new Set(filteredStones.map((s: any) => s.name)));
+  const [search, setSearch] = useState('');
+  const filteredStones = stones.filter((s: any) => 
+    (s.category.toLowerCase() === category.toLowerCase() || !category) &&
+    (s.name.toLowerCase().includes(search.toLowerCase()))
+  );
+  const uniqueStones = Array.from(new Set(filteredStones.map((s: any) => s.name)))
+    .map(name => filteredStones.find((s: any) => s.name === name));
 
   return (
-    <Modal visible={isVisible} transparent animationType="slide">
+    <Modal visible={isVisible} transparent animationType="fade">
       <View style={styles.modalOverlay}>
         <View style={styles.pickerContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>Select {category}</Text>
-            <TouchableOpacity onPress={onClose}><X size={24} color="#64748b" /></TouchableOpacity>
+            <TouchableOpacity onPress={onClose}><X size={20} color="#64748b" /></TouchableOpacity>
           </View>
+          <TextInput 
+            style={styles.compactSearch} 
+            placeholder="Search..." 
+            value={search}
+            onChangeText={setSearch}
+          />
           <FlatList
-            data={uniqueNames}
-            keyExtractor={(item) => item}
+            data={uniqueStones}
+            keyExtractor={(item: any) => item.id}
             renderItem={({ item }) => (
-              <TouchableOpacity 
-                style={styles.pickerItem} 
-                onPress={() => { onSelect(item); onClose(); }}
-              >
-                <Text style={styles.pickerItemText}>{item}</Text>
+              <TouchableOpacity style={styles.pickerItem} onPress={() => { onSelect(item); onClose(); }}>
+                <Text style={styles.pickerItemText}>{item.name} <Text style={{fontWeight:'400', fontSize:10}}>₹{item.rate}</Text></Text>
               </TouchableOpacity>
             )}
           />
@@ -116,41 +64,73 @@ const StonePickerModal = ({ isVisible, onClose, onSelect, stones, category }: an
   );
 };
 
+const SpreadsheetRow = ({ label, weight, rate, amount, onWeightChange, onRateChange, onLabelPress, onRemove, editable = true, bg = '#fff', labelColor = '#1e293b', isTablet, unit = "" }: any) => {
+  const fontSize = isTablet ? 13 : 10;
+  const rowHeight = isTablet ? 40 : 28;
+
+  return (
+    <View style={[styles.ssRow, { backgroundColor: bg, height: rowHeight }]}>
+      <View style={[styles.ssCell, { flex: 1.4, borderRightWidth: 1, flexDirection: 'row', alignItems: 'center' }]}>
+        {onRemove && <TouchableOpacity onPress={onRemove} style={{ marginRight: 2 }}><Trash2 size={10} color="#ef4444" /></TouchableOpacity>}
+        <TouchableOpacity style={{ flex: 1 }} onPress={onLabelPress} disabled={!onLabelPress}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={[styles.ssLabel, { color: labelColor, fontSize: fontSize }]} numberOfLines={1}>{label}</Text>
+            {onLabelPress && <ChevronDown size={8} color={labelColor} opacity={0.5} />}
+          </View>
+        </TouchableOpacity>
+      </View>
+      <View style={[styles.ssCell, { flex: 1, borderRightWidth: 1, flexDirection: 'row' }]}>
+        {editable ? (
+          <TextInput style={[styles.ssInput, { fontSize: fontSize, flex: 1 }]} value={String(weight)} onChangeText={onWeightChange} keyboardType="numeric" selectTextOnFocus />
+        ) : (
+          <Text style={[styles.ssText, { fontSize: fontSize }]}>{weight}</Text>
+        )}
+        {unit ? <Text style={{fontSize: fontSize - 2, color: '#94a3b8'}}>{unit}</Text> : null}
+      </View>
+      <View style={[styles.ssCell, { flex: 1.2, borderRightWidth: 1 }]}>
+        {editable && onRateChange ? (
+          <TextInput style={[styles.ssInput, { fontSize: fontSize }]} value={String(rate)} onChangeText={onRateChange} keyboardType="numeric" selectTextOnFocus />
+        ) : (
+          <Text style={[styles.ssText, { fontSize: fontSize }]}>{rate}</Text>
+        )}
+      </View>
+      <View style={[styles.ssCell, { flex: 1.6 }]}>
+        <Text style={[styles.ssText, { textAlign: 'right', fontWeight: '900', fontSize: fontSize }]} numberOfLines={1}>{amount}</Text>
+      </View>
+    </View>
+  );
+};
+
 export default function EstimationScreen({ route, navigation }: any) {
   const { item } = route.params;
-  const { role } = useRole();
+  const { width, height } = useWindowDimensions();
+  const isTablet = width > 768;
   const [loading, setLoading] = useState(true);
-  const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
   const [stoneMaster, setStoneMaster] = useState<StoneMaster[]>([]);
-  const [showPicker, setShowPicker] = useState<{ visible: boolean, category: string, index: number | null }>({ visible: false, category: '', index: null });
+  const [showPicker, setShowPicker] = useState({ visible: false, category: '', targetId: '' });
   
   const [calcData, setCalcData] = useState({
+    gross_wt: String(item.gross_wt || 0),
     net_wt: String(item.net_wt || 0),
-    labour_rate: String(item.labour_rate || 0),
-    wastage: String(item.wastage || 0),
-    igi_fee: String(item.igi_fee || 0),
+    making_gold_rate: '550',
+    making_diamond_rate: '1200',
+    wastage_pct: String(item.wastage || '5.77'),
+    igi_wt: String(item.igi_wt || '0'),
+    igi_fee: String(item.igi_fee || '0'),
+    tax_pct: '3',
     purity: item.purity || '18KT',
+    name: item.name || 'Product',
+    category_id: '33',
   });
 
-  const [calcRates, setCalcRates] = useState({
-    gold_22kt: 0,
-    gold_18kt: 0,
-    tax_gst: 10.5,
-    usd_to_inr: 83.5,
-  });
-
-  const [dynamicDiamonds, setDynamicDiamonds] = useState<CalculatedStone[]>([
-    { id: '1', type: 'VVS-EF-RD', weight: String(item.dai_rd || 0), pcs: '1', rate: '0', category: 'Diamond' },
-    { id: '2', type: 'Shape Diamonds', weight: String(item.dai_pear || 0), pcs: '1', rate: '0', category: 'Diamond' }
+  const [goldRate, setGoldRate] = useState(7201.76);
+  const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>([
+    { id: 'd1', label: 'D.Rd', weight: String(item.dai_rd || 0), rate: '65000', category: 'Diamond' },
+    { id: 'd2', label: 'D.PEAR', weight: String(item.dai_pear || 0), rate: '125000', category: 'Diamond' },
+    { id: 's1', label: 'Stone', weight: String(item.clr_stone_wt || 0), rate: '2500', category: 'Stone' }
   ]);
 
-  const [dynamicStones, setDynamicStones] = useState<CalculatedStone[]>([
-    { id: 's1', type: 'C. S. (COLOR STONE)', weight: String(item.clr_stone_wt || 0), pcs: '1', rate: '0', category: 'Stone' }
-  ]);
-
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     try {
@@ -159,282 +139,113 @@ export default function EstimationScreen({ route, navigation }: any) {
         supabase.from('master_rates').select('*'),
         supabase.from('stone_master').select('*')
       ]);
-
-      if (ratesRes.error) throw ratesRes.error;
-      if (stonesRes.error) throw stonesRes.error;
-
-      const ratesMap: any = { ...calcRates };
-      ratesRes.data.forEach((r: MasterRate) => {
-        ratesMap[r.key] = r.value;
-      });
-      setCalcRates(ratesMap);
+      if (ratesRes.error || stonesRes.error) throw new Error('Fetch failed');
       setStoneMaster(stonesRes.data);
-
-      // Auto-calculate rates for initial items
-      setDynamicDiamonds(prev => prev.map(d => ({ ...d, rate: String(lookupRate(d.type, num(d.weight), num(d.pcs), stonesRes.data)) })));
-      setDynamicStones(prev => prev.map(s => ({ ...s, rate: String(lookupRate(s.type, num(s.weight), num(s.pcs), stonesRes.data)) })));
-
-    } catch (error: any) {
-      Alert.alert('Error', 'Failed to fetch master data');
-    } finally {
-      setLoading(false);
-    }
+      const goldRateKey = calcData.purity.includes('22') ? 'gold_22kt' : 'gold_18kt';
+      setGoldRate(ratesRes.data.find((r: MasterRate) => r.key === goldRateKey)?.value || 7201.76);
+    } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  const lookupRate = (name: string, weight: number, pcs: number, master: StoneMaster[]) => {
-    if (!master || master.length === 0) return 0;
-    const matches = master.filter(m => m.name === name);
-    if (matches.length === 0) return 0;
-    
-    // Slab logic: weight / pcs
-    const slab = pcs > 0 ? weight / pcs : weight;
-    
-    // Range-based lookup (Diamond)
-    const rangeMatch = matches.find(m => slab >= m.min_wt && slab <= m.max_wt);
-    if (rangeMatch) return rangeMatch.rate;
-    
-    // Fallback to first fixed rate
-    return matches[0].rate;
+  const addStoneRow = () => {
+    setDynamicStones([...dynamicStones, { id: Math.random().toString(36).substr(2, 9), label: 'New', weight: '0', rate: '0', category: 'Stone' }]);
   };
 
-  const addRow = (category: 'Diamond' | 'Stone') => {
-    const newRow = { id: Math.random().toString(), type: category === 'Diamond' ? 'VVS-EF-RD' : 'AQUAMARINE', weight: '0', pcs: '1', rate: '0', category };
-    if (category === 'Diamond') setDynamicDiamonds([...dynamicDiamonds, newRow]);
-    else setDynamicStones([...dynamicStones, newRow]);
-  };
-
-  const updateRow = (id: string, field: string, value: string, category: string) => {
-    const updateFn = category === 'Diamond' ? setDynamicDiamonds : setDynamicStones;
-    updateFn(prev => prev.map(row => {
-      if (row.id === id) {
-        const updated = { ...row, [field]: value };
-        if (field === 'type' || field === 'weight' || field === 'pcs') {
-          updated.rate = String(lookupRate(updated.type, num(updated.weight), num(updated.pcs), stoneMaster));
-        }
-        return updated;
-      }
-      return row;
-    }));
-  };
-
-  const removeRow = (id: string, category: string) => {
-    const updateFn = category === 'Diamond' ? setDynamicDiamonds : setDynamicStones;
-    updateFn(prev => prev.filter(r => r.id !== id));
-  };
-
-  // Calculations
-  const currentGoldRate = calcData.purity.includes('22') ? calcRates.gold_22kt : calcRates.gold_18kt;
-  const metalValue = num(calcData.net_wt) * currentGoldRate;
-  const diamondValue = dynamicDiamonds.reduce((acc, d) => acc + (num(d.weight) * num(d.rate)), 0);
-  const stoneValue = dynamicStones.reduce((acc, s) => acc + (num(s.weight) * num(s.rate)), 0);
-  const makingCharge = num(calcData.net_wt) * num(calcData.labour_rate);
-  const wastageCharge = metalValue * (num(calcData.wastage) / 100);
+  const goldValue = num(calcData.net_wt) * goldRate;
+  const diamondWeightGrams = dynamicStones.filter(s => s.category === 'Diamond').reduce((acc, s) => acc + num(s.weight), 0) * 0.2; 
+  const makingGold = num(calcData.net_wt) * num(calcData.making_gold_rate);
+  const makingDiamond = diamondWeightGrams * num(calcData.making_diamond_rate);
+  const wastageCharge = goldValue * (num(calcData.wastage_pct) / 100);
   const igiFee = num(calcData.igi_fee);
+  const componentsTotal = goldValue + dynamicStones.reduce((acc, s) => acc + (num(s.weight) * num(s.rate)), 0);
+  const subTotal = componentsTotal + makingGold + makingDiamond + wastageCharge + igiFee;
+  const totalINR = subTotal + (subTotal * (num(calcData.tax_pct) / 100));
 
-  const subTotal = metalValue + diamondValue + stoneValue + makingCharge + wastageCharge + igiFee;
-  const taxAmount = subTotal * (calcRates.tax_gst / 100);
-  const totalINR = subTotal + taxAmount;
+  const format = (val: number) => val.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 
-  const formatValue = (val: number) => {
-    if (currency === 'USD') {
-      const usdVal = val / calcRates.usd_to_inr;
-      return `$${usdVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-    return `₹${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator color="#6366f1" /></View>;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><X size={24} color="#1e293b" /></TouchableOpacity>
-        <View style={{ alignItems: 'center' }}>
-          <Text style={styles.title}>Live Calculator</Text>
-          {role === 'admin' && (
-            <TouchableOpacity style={styles.currencyToggle} onPress={() => setCurrency(currency === 'INR' ? 'USD' : 'INR')}>
-              <Repeat size={12} color="#6366f1" /><Text style={styles.currencyToggleText}>{currency} MODE</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={20} color="#6366f1" /></TouchableOpacity>
+    <SafeAreaView style={styles.container}>
+      <View style={styles.compactHeader}>
+        <TouchableOpacity onPress={() => navigation.goBack()}><X size={20} color="#1e293b" /></TouchableOpacity>
+        <Text style={styles.compactTitle}>Estimator</Text>
+        <TouchableOpacity onPress={fetchData}><RefreshCw size={18} color="#6366f1" /></TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-        <View style={styles.itemCard}>
-          <Text style={styles.itemName}>{item.name}</Text>
-          <View style={styles.purityToggle}>
-            {['18KT', '22KT'].map(p => (
-              <TouchableOpacity key={p} style={[styles.purityBtn, calcData.purity === p && styles.purityBtnActive]} onPress={() => setCalcData({...calcData, purity: p})}>
-                <Text style={[styles.purityText, calcData.purity === p && styles.purityTextActive]}>{p}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+      <View style={styles.compactInfoRow}>
+        <View style={styles.infoBadge}><Text style={styles.badgeText}>CAT {calcData.category_id}</Text></View>
+        <TouchableOpacity style={styles.puritySmall} onPress={() => setCalcData({...calcData, purity: calcData.purity === '18KT' ? '22KT' : '18KT'})}>
+          <Text style={styles.puritySmallText}>{calcData.purity}</Text>
+        </TouchableOpacity>
+        <Text style={styles.itemNameSmall} numberOfLines={1}>{calcData.name}</Text>
+        <View style={styles.totalBadge}><Text style={styles.totalBadgeText}>₹{format(totalINR)}</Text></View>
+      </View>
 
-        <View style={styles.section}>
-          <SectionHeader title="Metal" icon={Scale} />
-          <EditableRow 
-            label="Net weight" value={calcData.net_wt} onChange={(v: string) => setCalcData({...calcData, net_wt: v})} unit="g"
-            rate={currentGoldRate} onRateChange={(v: string) => setCalcRates({...calcRates, [calcData.purity.includes('22') ? 'gold_22kt' : 'gold_18kt']: num(v)})}
+      <View style={styles.grossCompact}>
+        <Text style={styles.grossLabel}>GROSS WT</Text>
+        <TextInput style={styles.grossInput} value={calcData.gross_wt} onChangeText={(v) => setCalcData({...calcData, gross_wt: v})} keyboardType="numeric" />
+      </View>
+
+      <View style={styles.spreadsheetContainer}>
+        <SpreadsheetRow label="N.WT (GOLD)" weight={calcData.net_wt} rate={goldRate} amount={format(goldValue)} onWeightChange={(v: any) => setCalcData({...calcData, net_wt: v})} onRateChange={(v: any) => setGoldRate(num(v))} bg="#eff6ff" isTablet={isTablet} />
+        
+        {dynamicStones.map((s, idx) => (
+          <SpreadsheetRow 
+            key={s.id} label={s.label} weight={s.weight} rate={s.rate} amount={format(num(s.weight) * num(s.rate))} 
+            onWeightChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v} : ds))} 
+            onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v} : ds))} 
+            onLabelPress={() => setShowPicker({ visible: true, category: s.category, targetId: s.id })} 
+            onRemove={idx > 2 ? () => setDynamicStones(dynamicStones.filter(ds => ds.id !== s.id)) : null}
+            bg={idx % 2 === 0 ? "#fff" : "#f8fafc"} isTablet={isTablet} 
           />
-        </View>
+        ))}
 
-        <View style={styles.section}>
-          <View style={styles.dynamicHeader}>
-            <SectionHeader title="Diamonds" icon={Tag} />
-            <TouchableOpacity style={styles.addSmallBtn} onPress={() => addRow('Diamond')}>
-              <Plus size={14} color="white" /><Text style={styles.addSmallText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-          {dynamicDiamonds.map((d, index) => {
-            const slab = num(d.pcs) > 0 ? (num(d.weight) / num(d.pcs)).toFixed(3) : d.weight;
-            return (
-              <View key={d.id} style={styles.dynamicRow}>
-                <View style={styles.dynamicTop}>
-                  <TouchableOpacity 
-                    style={styles.typeSelector} 
-                    onPress={() => setShowPicker({ visible: true, category: 'Diamond', index: index })}
-                  >
-                    <Text style={styles.typeText} numberOfLines={1}>{d.type}</Text>
-                    <ChevronDown size={14} color="#64748b" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removeRow(d.id, 'Diamond')}><Trash2 size={18} color="#ef4444" /></TouchableOpacity>
-                </View>
-                <EditableRow 
-                  label="Weight" value={d.weight} onChange={(v: string) => updateRow(d.id, 'weight', v, 'Diamond')} unit="ct"
-                  showPcs={true} pcsValue={d.pcs} onPcsChange={(v: string) => updateRow(d.id, 'pcs', v, 'Diamond')}
-                  slabValue={slab}
-                  rate={d.rate} onRateChange={(v: string) => updateRow(d.id, 'rate', v, 'Diamond')}
-                />
-              </View>
-            );
-          })}
-        </View>
+        <TouchableOpacity style={styles.miniAddBtn} onPress={addStoneRow}><Plus size={12} color="#6366f1" /><Text style={styles.miniAddText}>Add Stone</Text></TouchableOpacity>
+        
+        <SpreadsheetRow label="Make(Gold)" weight={calcData.net_wt} unit="g" rate={calcData.making_gold_rate} amount={format(makingGold)} onRateChange={(v: any) => setCalcData({...calcData, making_gold_rate: v})} bg="#fff7ed" />
+        <SpreadsheetRow label="Make(Diam)" weight={(diamondWeightGrams).toFixed(2)} unit="g" rate={calcData.making_diamond_rate} amount={format(makingDiamond)} onRateChange={(v: any) => setCalcData({...calcData, making_diamond_rate: v})} bg="#fff7ed" />
+        <SpreadsheetRow label="Wastage" weight={calcData.wastage_pct} unit="%" rate="" amount={format(wastageCharge)} onWeightChange={(v: any) => setCalcData({...calcData, wastage_pct: v})} bg="#fff7ed" />
+        <SpreadsheetRow label="IGI" weight={calcData.igi_wt} rate="" amount={format(igiFee)} onWeightChange={(v: any) => setCalcData({...calcData, igi_wt: v})} bg="#fff7ed" />
+        
+        <SpreadsheetRow label="Subtotal" weight="" rate="" amount={format(subTotal)} editable={false} bg="#2563eb" labelColor="#fff" isTablet={isTablet} />
+        <SpreadsheetRow label="TAX" weight={calcData.tax_pct} unit="%" rate="" amount={format(subTotal * (num(calcData.tax_pct) / 100))} onWeightChange={(v: any) => setCalcData({...calcData, tax_pct: v})} bg="#dbeafe" isTablet={isTablet} />
+        <SpreadsheetRow label="FINAL TOTAL" weight="" rate="" amount={format(totalINR)} editable={false} bg="#f59e0b" labelColor="#fff" isTablet={isTablet} />
+      </View>
 
-        <View style={styles.section}>
-          <View style={styles.dynamicHeader}>
-            <SectionHeader title="Other Stones" icon={Info} />
-            <TouchableOpacity style={styles.addSmallBtn} onPress={() => addRow('Stone')}>
-              <Plus size={14} color="white" /><Text style={styles.addSmallText}>Add</Text>
-            </TouchableOpacity>
-          </View>
-          {dynamicStones.map((s, index) => {
-            const slab = num(s.pcs) > 0 ? (num(s.weight) / num(s.pcs)).toFixed(3) : s.weight;
-            return (
-              <View key={s.id} style={styles.dynamicRow}>
-                <View style={styles.dynamicTop}>
-                  <TouchableOpacity 
-                    style={styles.typeSelector} 
-                    onPress={() => setShowPicker({ visible: true, category: 'Stone', index: index })}
-                  >
-                    <Text style={styles.typeText} numberOfLines={1}>{s.type}</Text>
-                    <ChevronDown size={14} color="#64748b" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => removeRow(s.id, 'Stone')}><Trash2 size={18} color="#ef4444" /></TouchableOpacity>
-                </View>
-                <EditableRow 
-                  label="Weight" value={s.weight} onChange={(v: string) => updateRow(s.id, 'weight', v, 'Stone')} unit="ct"
-                  showPcs={true} pcsValue={s.pcs} onPcsChange={(v: string) => updateRow(s.id, 'pcs', v, 'Stone')}
-                  slabValue={slab}
-                  rate={s.rate} onRateChange={(v: string) => updateRow(s.id, 'rate', v, 'Stone')}
-                />
-              </View>
-            );
-          })}
-        </View>
-
-        <View style={styles.section}>
-          <SectionHeader title="Labor & Tax" icon={Calculator} />
-          <EditableRow label="Making /g" value={calcData.labour_rate} onChange={(v: string) => setCalcData({...calcData, labour_rate: v})} unit="₹" />
-          <EditableRow label="Wastage %" value={calcData.wastage} onChange={(v: string) => setCalcData({...calcData, wastage: v})} unit="%" />
-          <EditableRow label="IGI / Cert" value={calcData.igi_fee} onChange={(v: string) => setCalcData({...calcData, igi_fee: v})} unit="₹" />
-          <EditableRow label="GST Tax %" value={String(calcRates.tax_gst)} onChange={(v: string) => setCalcRates({...calcRates, tax_gst: num(v)})} unit="%" />
-        </View>
-
-        <View style={styles.summarySection}>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Sub-Total</Text><Text style={styles.summaryValue}>{formatValue(subTotal)}</Text></View>
-          <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tax Amount</Text><Text style={styles.summaryValue}>{formatValue(taxAmount)}</Text></View>
-          <View style={styles.divider} />
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Price</Text>
-            <Text style={styles.totalValue}>{formatValue(totalINR)}</Text>
-          </View>
-          {currency === 'USD' && <Text style={styles.exchangeRateText}>Conversion Rate: 1 USD = ₹{calcRates.usd_to_inr}</Text>}
-        </View>
-        <View style={{ height: 100 }} />
-      </ScrollView>
-
-      <StonePickerModal 
-        isVisible={showPicker.visible} 
-        onClose={() => setShowPicker({ ...showPicker, visible: false })}
-        category={showPicker.category}
-        stones={stoneMaster}
-        onSelect={(name: string) => {
-          if (showPicker.index !== null) {
-            const list = showPicker.category === 'Diamond' ? dynamicDiamonds : dynamicStones;
-            updateRow(list[showPicker.index].id, 'type', name, showPicker.category);
-          }
-        }}
-      />
-    </View>
+      <StonePickerModal isVisible={showPicker.visible} onClose={() => setShowPicker({ ...showPicker, visible: false })} category={showPicker.category} stones={stoneMaster} onSelect={(s: any) => setDynamicStones(dynamicStones.map(ds => ds.id === showPicker.targetId ? { ...ds, label: s.name, rate: String(s.rate), category: s.category } : ds))} />
+    </SafeAreaView>
   );
 }
 
-const SectionHeader = ({ title, icon: Icon }: any) => (
-  <View style={styles.sectionHeader}>
-    <Icon size={18} color="#6366f1" />
-    <Text style={styles.sectionTitle}>{title}</Text>
-  </View>
-);
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' },
-  loadingText: { marginTop: 12, color: '#64748b', fontWeight: '600' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: Platform.OS === 'ios' ? 60 : 20, paddingBottom: 20, paddingHorizontal: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  backBtn: { padding: 8 },
-  refreshBtn: { padding: 8, backgroundColor: '#eef2ff', borderRadius: 10 },
-  title: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-  body: { flex: 1, padding: 20 },
-  itemCard: { backgroundColor: '#fff', borderRadius: 24, padding: 20, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  itemName: { fontSize: 18, fontWeight: '800', color: '#1e293b', textAlign: 'center' },
-  purityToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4, marginTop: 16 },
-  purityBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
-  purityBtnActive: { backgroundColor: '#fff', elevation: 1 },
-  purityText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
-  purityTextActive: { color: '#6366f1' },
-  section: { backgroundColor: '#fff', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#f1f5f9' },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#64748b', textTransform: 'uppercase', letterSpacing: 1 },
-  dynamicHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  addSmallBtn: { backgroundColor: '#6366f1', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, gap: 4 },
-  addSmallText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  dynamicRow: { borderBottomWidth: 1, borderBottomColor: '#f1f5f9', marginBottom: 15, paddingBottom: 10 },
-  dynamicTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  typeSelector: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 10, borderRadius: 10, marginRight: 15, justifyContent: 'space-between' },
-  typeText: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
-  calcRow: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 16 },
-  label: { fontSize: 13, color: '#64748b', fontWeight: '600', marginBottom: 8 },
-  rateLabelSmall: { fontSize: 11, color: '#94a3b8', fontWeight: '600', marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', paddingHorizontal: 12 },
-  editableInput: { flex: 1, paddingVertical: 10, fontSize: 16, color: '#1e293b', fontWeight: '700' },
-  unitText: { fontSize: 12, color: '#94a3b8', fontWeight: '700', marginLeft: 4 },
-  summarySection: { backgroundColor: '#1e293b', borderRadius: 24, padding: 24, marginBottom: 20 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
-  summaryLabel: { color: '#94a3b8', fontSize: 14, fontWeight: '600' },
-  summaryValue: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  divider: { height: 1, backgroundColor: '#334155', marginVertical: 16 },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  totalLabel: { color: '#fff', fontSize: 18, fontWeight: '800' },
-  totalValue: { color: '#6366f1', fontSize: 24, fontWeight: '900' },
-  exchangeRateText: { color: '#94a3b8', fontSize: 11, textAlign: 'center', marginTop: 12, fontStyle: 'italic' },
-  currencyToggle: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eef2ff', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, gap: 6, marginTop: 4 },
-  currencyToggleText: { fontSize: 10, fontWeight: '700', color: '#6366f1' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  pickerContent: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, height: '60%' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-  pickerItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  pickerItemText: { fontSize: 16, color: '#1e293b', fontWeight: '600' }
+  container: { flex: 1, backgroundColor: '#f1f5f9' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  compactHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff' },
+  compactTitle: { fontSize: 14, fontWeight: '900', color: '#0f172a' },
+  compactInfoRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, gap: 6 },
+  infoBadge: { backgroundColor: '#e2e8f0', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  badgeText: { fontSize: 9, fontWeight: '800', color: '#475569' },
+  puritySmall: { backgroundColor: '#f5f3ff', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1, borderColor: '#ddd6fe' },
+  puritySmallText: { fontSize: 10, fontWeight: '900', color: '#7c3aed' },
+  itemNameSmall: { flex: 1, fontSize: 11, fontWeight: '700', color: '#334155', marginLeft: 4 },
+  totalBadge: { backgroundColor: '#0f172a', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  totalBadgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  grossCompact: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ecfdf5', marginHorizontal: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#bbf7d0', marginBottom: 6 },
+  grossLabel: { fontSize: 9, fontWeight: '900', color: '#059669', marginRight: 10 },
+  grossInput: { fontSize: 16, fontWeight: '900', color: '#064e3b', flex: 1, padding: 0 },
+  spreadsheetContainer: { backgroundColor: '#fff', marginHorizontal: 6, borderRadius: 12, elevation: 4, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+  ssRow: { flexDirection: 'row', borderBottomWidth: 1, borderColor: '#f1f5f9' },
+  ssCell: { justifyContent: 'center', paddingHorizontal: 6, borderColor: '#f1f5f9' },
+  ssLabel: { fontWeight: '800' },
+  ssText: { color: '#0f172a', fontWeight: '700' },
+  ssInput: { color: '#1e293b', fontWeight: '900', padding: 0 },
+  miniAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 4, backgroundColor: '#f8fafc', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  miniAddText: { fontSize: 10, fontWeight: '800', color: '#6366f1' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
+  pickerContent: { backgroundColor: '#fff', borderRadius: 16, padding: 12, width: '85%', maxHeight: '70%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  modalTitle: { fontSize: 14, fontWeight: '900' },
+  compactSearch: { backgroundColor: '#f1f5f9', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, marginBottom: 10 },
+  pickerItem: { paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  pickerItemText: { fontSize: 13, fontWeight: '700' }
 });

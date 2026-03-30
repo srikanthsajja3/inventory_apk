@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator  } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import ItemFolderModal from '../components/ItemFolderModal';
@@ -216,52 +216,51 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
                   <DetailBadge label="Label No" value={itemFound.label_no} icon={Hash} color="#64748b" />
                   <DetailBadge label="Stones Detail" value={itemFound.stones_in_detail} icon={Info} color="#8b5cf6" />
                 </View>
-
-                {/* Buttons moved under details */}
-                <View style={styles.inlineControls}>
-                  <View style={styles.stockControl}>
-                    <TouchableOpacity 
-                      style={[styles.adjustBtn, { backgroundColor: '#fee2e2' }]} 
-                      onPress={() => adjustStock(-1)}
-                      disabled={loading}
-                    >
-                      <Minus size={20} color="#ef4444" />
-                    </TouchableOpacity>
-                    
-                    <View style={styles.qtyDisplay}>
-                      <Text style={styles.qtyValue}>{itemFound.quantity}</Text>
-                      <Text style={styles.qtyLabel}>In Stock</Text>
-                    </View>
-
-                    <TouchableOpacity 
-                      style={[styles.adjustBtn, { backgroundColor: '#dcfce7' }]} 
-                      onPress={() => adjustStock(1)}
-                      disabled={loading}
-                    >
-                      <Plus size={20} color="#22c55e" />
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.actionRow}>
-                    <TouchableOpacity 
-                      style={styles.estimateBtn}
-                      onPress={() => onEstimate && onEstimate(itemFound)}
-                    >
-                      <Calculator size={20} color="white" />
-                      <Text style={styles.doneBtnText}>Estimation</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity 
-                      style={styles.doneBtn}
-                      onPress={() => { setScanned(false); setItemFound(null); }}
-                    >
-                      <Text style={styles.doneBtnText}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
                 
-                <View style={{ height: 60 }} />
+                <View style={{ height: 150 }} />
               </ScrollView>
+
+              <View style={styles.stickyControls}>
+                <View style={styles.stockControl}>
+                  <TouchableOpacity 
+                    style={[styles.adjustBtn, { backgroundColor: '#fee2e2' }]} 
+                    onPress={() => adjustStock(-1)}
+                    disabled={loading}
+                  >
+                    <Minus size={20} color="#ef4444" />
+                  </TouchableOpacity>
+                  
+                  <View style={styles.qtyDisplay}>
+                    <Text style={styles.qtyValue}>{itemFound.quantity}</Text>
+                    <Text style={styles.qtyLabel}>In Stock</Text>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.adjustBtn, { backgroundColor: '#dcfce7' }]} 
+                    onPress={() => adjustStock(1)}
+                    disabled={loading}
+                  >
+                    <Plus size={20} color="#22c55e" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.actionRow}>
+                  <TouchableOpacity 
+                    style={styles.estimateBtn}
+                    onPress={() => onEstimate && onEstimate(itemFound)}
+                  >
+                    <Calculator size={20} color="white" />
+                    <Text style={styles.doneBtnText}>Estimation</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.doneBtn}
+                    onPress={() => { setScanned(false); setItemFound(null); }}
+                  >
+                    <Text style={styles.doneBtnText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           ) : (
             <View style={styles.notFoundCard}>
@@ -510,24 +509,27 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     fontWeight: '800',
   },
-  inlineControls: {
-    marginTop: 24,
-    padding: 16,
+  stickyControls: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     backgroundColor: '#fff',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
   },
   stockControl: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   adjustBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 12,
+    width: 50,
+    height: 50,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -535,19 +537,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   qtyValue: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: '900',
     color: '#1e293b',
   },
   qtyLabel: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#94a3b8',
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   estimateBtn: {
     flex: 1,
@@ -555,20 +557,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 14,
-    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 10,
   },
   doneBtn: {
     flex: 1,
     backgroundColor: '#1e293b',
-    paddingVertical: 12,
-    borderRadius: 14,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
   },
   doneBtnText: {
     color: '#fff',
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
   notFoundCard: {
