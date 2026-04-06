@@ -110,12 +110,24 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
             {/* ... topInfo, grid sections ... */}
             <View style={styles.topInfo}>
-              <View style={styles.imageContainer}>
-                {item.image_url ? (
-                  <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+              <View style={styles.imageSection}>
+                {item.image_urls && item.image_urls.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
+                    {item.image_urls.map((url: string, index: number) => (
+                      <View key={index} style={styles.imageWrapper}>
+                        <Image source={{ uri: url }} style={styles.itemImage} />
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : item.image_url ? (
+                  <View style={styles.imageContainer}>
+                    <Image source={{ uri: item.image_url }} style={styles.itemImage} />
+                  </View>
                 ) : (
-                  <View style={styles.imagePlaceholder}>
-                    <Package size={48} color="#cbd5e1" />
+                  <View style={styles.imageContainer}>
+                    <View style={styles.imagePlaceholder}>
+                      <Package size={48} color="#cbd5e1" />
+                    </View>
                   </View>
                 )}
               </View>
@@ -323,6 +335,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 24,
     gap: 20,
+  },
+  imageSection: {
+    width: 100,
+    height: 100,
+  },
+  multiImageContainer: {
+    width: 100,
+    height: 100,
+  },
+  imageWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginRight: 8,
   },
   imageContainer: {
     width: 100,

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator  } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3  } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
-import ItemFolderModal from '../components/ItemFolderModal';
+import StoneEntryModal from '../components/StoneEntryModal';
 
 const DetailBadge = ({ label, value, icon: Icon, color = "#6366f1" }: any) => {
   if (value === null || value === undefined || value === '') return null;
@@ -135,7 +135,7 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
     setScanned(false);
     setItemFound(null);
     setIsAddModalVisible(false);
-    Alert.alert("Success", "Item added successfully");
+    Alert.alert("Success", "Item updated successfully");
   };
 
   return (
@@ -187,13 +187,27 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
 
               <ScrollView style={styles.resultScroll} showsVerticalScrollIndicator={false}>
                 <View style={styles.itemTopSection}>
-                  {itemFound.image_url ? (
-                    <Image source={{ uri: itemFound.image_url }} style={styles.itemImage} />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Package size={48} color="#cbd5e1" />
-                    </View>
-                  )}
+                  <View style={styles.imageSection}>
+                    {itemFound.image_urls && itemFound.image_urls.length > 0 ? (
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
+                        {itemFound.image_urls.map((url: string, index: number) => (
+                          <View key={index} style={styles.imageWrapper}>
+                            <Image source={{ uri: url }} style={styles.itemImage} />
+                          </View>
+                        ))}
+                      </ScrollView>
+                    ) : itemFound.image_url ? (
+                      <View style={styles.imageContainer}>
+                        <Image source={{ uri: itemFound.image_url }} style={styles.itemImage} />
+                      </View>
+                    ) : (
+                      <View style={styles.imageContainer}>
+                        <View style={styles.imagePlaceholder}>
+                          <Package size={48} color="#cbd5e1" />
+                        </View>
+                      </View>
+                    )}
+                  </View>
                   <View style={styles.itemBasicInfo}>
                     <Text style={styles.itemName}>{itemFound.name}</Text>
                     <Text style={styles.itemSku}>{itemFound.sku || 'No SKU'}</Text>
@@ -246,11 +260,19 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
 
                 <View style={styles.actionRow}>
                   <TouchableOpacity 
+                    style={[styles.estimateBtn, { backgroundColor: '#1e293b' }]}
+                    onPress={() => setIsAddModalVisible(true)}
+                  >
+                    <Edit3 size={18} color="white" />
+                    <Text style={styles.doneBtnText}>Stones</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
                     style={styles.estimateBtn}
                     onPress={() => onEstimate && onEstimate(itemFound)}
                   >
-                    <Calculator size={20} color="white" />
-                    <Text style={styles.doneBtnText}>Estimation</Text>
+                    <Calculator size={18} color="white" />
+                    <Text style={styles.doneBtnText}>Estimate</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
@@ -292,12 +314,12 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
         </View>
       )}
 
-      <ItemFolderModal
+      <StoneEntryModal
         isVisible={isAddModalVisible}
         onClose={() => setIsAddModalVisible(false)}
         onSave={onAddSuccess}
-        currentFolderId={null} 
-        initialData={{ sku: scannedData }}
+        initialSku={scannedData}
+        initialData={itemFound}
       />
     </View>
   );
@@ -433,10 +455,36 @@ const styles = StyleSheet.create({
     gap: 20,
     marginBottom: 24,
   },
-  itemImage: {
+  imageSection: {
+    width: 100,
+    height: 100,
+  },
+  multiImageContainer: {
+    width: 100,
+    height: 100,
+  },
+  imageWrapper: {
     width: 100,
     height: 100,
     borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginRight: 8,
+  },
+  imageContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 20,
+    backgroundColor: '#f8fafc',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
   },
   imagePlaceholder: {
     width: 100,

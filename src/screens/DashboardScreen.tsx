@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform } from 'react-native';
-import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock, Settings, X, Save, RefreshCw } from 'lucide-react-native';
+import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock, Settings, X, Save, RefreshCw, Coins } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 
@@ -82,7 +82,7 @@ const MasterRatesModal = ({ isVisible, onClose }: any) => {
   );
 };
 
-export default function DashboardScreen() {
+export default function DashboardScreen({ onUpdateGoldRate }: { onUpdateGoldRate?: () => void }) {
   const [stats, setStats] = useState({ total: 0, lowStock: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -157,14 +157,23 @@ export default function DashboardScreen() {
           <Text style={styles.welcomeText}>Welcome Back,</Text>
           <Text style={styles.title}>Inventory Overview</Text>
         </View>
-        {role === 'admin' && (
+        <View style={{ flexDirection: 'row', gap: 10 }}>
           <TouchableOpacity 
             style={styles.ratesBtn}
-            onPress={() => setShowRatesModal(true)}
+            onPress={onUpdateGoldRate}
           >
-            <Settings size={20} color="#6366f1" />
+            <Coins size={20} color="#f59e0b" />
           </TouchableOpacity>
-        )}
+          
+          {role === 'admin' && (
+            <TouchableOpacity 
+              style={styles.ratesBtn}
+              onPress={() => setShowRatesModal(true)}
+            >
+              <Settings size={20} color="#6366f1" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
       
       <View style={styles.statsRow}>

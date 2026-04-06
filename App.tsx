@@ -11,12 +11,14 @@ import HistoryScreen from './src/screens/HistoryScreen';
 import ImportScreen from './src/screens/ImportScreen';
 import VendorScreen from './src/screens/VendorScreen';
 import EstimationScreen from './src/screens/EstimationScreen';
+import GoldRateScreen from './src/screens/GoldRateScreen';
 import { useRole } from './src/hooks/useRole';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [estimationItem, setEstimationItem] = useState<any>(null);
-  const { role, setRole, loading } = useRole();
+  const [showGoldRate, setShowGoldRate] = useState(false);
+  const { role, setRole } = useRole();
 
   useEffect(() => {
     // Web specific history handling
@@ -29,82 +31,42 @@ export default function App() {
         }
       };
       window.addEventListener('popstate', handlePopState);
-      // Initialize state
-      window.history.replaceState({ tab: activeTab }, '');
       return () => window.removeEventListener('popstate', handlePopState);
     }
+  }, []);
 
-    const backAction = () => {
-      if (estimationItem) {
-        setEstimationItem(null);
-        return true;
-      }
-      if (activeTab !== 'dashboard') {
-        setActiveTab('dashboard');
-        if (Platform.OS === 'web') {
-          window.history.pushState({ tab: 'dashboard' }, '');
-        }
-        return true;
-      }
-      return false;
-    };
-
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction,
-    );
-
-    return () => backHandler.remove();
-  }, [activeTab, estimationItem]);
-
-  const changeTab = (name: string) => {
-    setActiveTab(name);
-    setEstimationItem(null);
+  const changeTab = (tab: string) => {
+    setActiveTab(tab);
     if (Platform.OS === 'web') {
-      window.history.pushState({ tab: name }, '');
+      window.history.pushState({ tab }, '', `?tab=${tab}`);
     }
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.centerContent, { backgroundColor: '#f8fafc' }]}>
-        <ActivityIndicator size="large" color="#6366f1" />
-        <Text style={{ marginTop: 20, color: '#64748b' }}>Initializing System...</Text>
-        <TouchableOpacity 
-          style={{ marginTop: 40 }} 
-          onPress={() => setRole('admin')}
-        >
-          <Text style={{ color: '#6366f1', fontWeight: '600' }}>Skip Loading (Debug)</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  // Choose Role if not set
   if (!role) {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={styles.loginContainer}>
+          <StatusBar barStyle="dark-content" />
           <View style={styles.loginContent}>
             <View style={styles.loginLogo}>
               <Package size={60} color="#6366f1" />
             </View>
-            <Text style={styles.loginTitle}>MOKSHA JEWELS VJA INVENTORY</Text>
-            <Text style={styles.loginSubtitle}>Select your role to start testing</Text>
+            <Text style={styles.loginTitle}>Moksha Jewels</Text>
+            <Text style={styles.loginSubtitle}>VJA Inventory Manager</Text>
             
             <TouchableOpacity 
-              style={[styles.loginBtn, { backgroundColor: '#6366f1' }]} 
+              style={[styles.loginBtn, { backgroundColor: '#1e293b' }]}
               onPress={() => setRole('admin')}
             >
-              <LayoutDashboard size={20} color="white" />
+              <Users size={24} color="white" />
               <Text style={styles.loginBtnText}>Login as Admin</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.loginBtn, { backgroundColor: '#1e293b' }]} 
+              style={[styles.loginBtn, { backgroundColor: '#6366f1' }]}
               onPress={() => setRole('staff')}
             >
-              <Scan size={20} color="white" />
+              <Package size={24} color="white" />
               <Text style={styles.loginBtnText}>Login as Staff</Text>
             </TouchableOpacity>
           </View>
@@ -114,23 +76,22 @@ export default function App() {
   }
 
   const renderContent = () => {
+    if (showGoldRate) {
+      return <GoldRateScreen onBack={() => setShowGoldRate(false)} />;
+    }
+
     if (estimationItem) {
-      return (
-        <EstimationScreen 
-          route={{ params: { item: estimationItem } }} 
-          navigation={{ goBack: () => setEstimationItem(null) }} 
-        />
-      );
+      return <EstimationScreen route={{ params: { item: estimationItem } }} navigation={{ goBack: () => setEstimationItem(null) }} />;
     }
 
     switch (activeTab) {
-      case 'dashboard': return <DashboardScreen />;
+      case 'dashboard': return <DashboardScreen onUpdateGoldRate={() => setShowGoldRate(true)} />;
       case 'inventory': return <InventoryScreen />;
       case 'vendor': return <VendorScreen />;
       case 'scan': return <ScanScreen onEstimate={(item: any) => setEstimationItem(item)} />;
       case 'history': return <HistoryScreen />;
       case 'import': return <ImportScreen />;
-      default: return <DashboardScreen />;
+      default: return <DashboardScreen onUpdateGoldRate={() => setShowGoldRate(true)} />;
     }
   };
 
@@ -152,7 +113,7 @@ export default function App() {
         <StatusBar barStyle="dark-content" />
         <View style={styles.header}>
           <View>
-            <Text style={styles.logo}>MOKSHA JEWELS VJA INVENTORY</Text>
+            <Text style={styles.logo}>MOKSHA JEWELS VJA</Text>
             <Text style={styles.roleBadge}>{role.toUpperCase()} MODE</Text>
           </View>
           <TouchableOpacity onPress={() => setRole(null)} style={styles.logoutBtn}>

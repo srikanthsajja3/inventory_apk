@@ -33,8 +33,9 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
 export default function ItemFolderModal({ isVisible, onClose, onSave, currentFolderId, initialData }: ItemFolderModalProps) {
   const [type, setType] = useState<'item' | 'folder'>('item');
   const [loading, setLoading] = useState(false);
-  const [image, setImage] = useState<string | null>(null);
+  const [images, setImages] = useState<any[]>([]); // Array of { uri, base64 }
   const [form, setForm] = useState({
+    // ... existing form fields ...
     name: '',
     sku: '',
     quantity: '0',
@@ -109,8 +110,17 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           dai_stb: String(initialData.dai_stb || 0),
           igi_fee: String(initialData.igi_fee || 0)
         });
-        setImage(initialData.image_url || null);
+        
+        // Handle initial images
+        if (initialData.image_urls && initialData.image_urls.length > 0) {
+          setImages(initialData.image_urls.map((url: string) => ({ uri: url })));
+        } else if (initialData.image_url) {
+          setImages([{ uri: initialData.image_url }]);
+        } else {
+          setImages([]);
+        }
       } else {
+        // Reset form
         setForm({
           name: '',
           sku: '',
@@ -145,13 +155,13 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           dai_stb: '0',
           igi_fee: '0'
         });
-        setImage(null);
+        setImages([]);
         setType('item');
       }
     }
   }, [isVisible, initialData]);
 
-  const pickImage = async () => {
+  const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
@@ -160,47 +170,57 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsMultipleSelection: true,
       quality: 0.5,
       base64: true,
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
-      // If we have base64, we can store it to upload later
-      (setImage as any).base64 = result.assets[0].base64;
+      const newImages = result.assets.map(asset => ({
+        uri: asset.uri,
+        base64: asset.base64
+      }));
+      setImages([...images, ...newImages]);
     }
   };
 
-  const uploadImage = async (uri: string): Promise<string | null> => {
-    try {
-      // If it's already a supabase URL, don't re-upload
-      if (uri.includes('supabase.co')) return uri;
+  const uploadImages = async (imageAssets: any[]): Promise<string[]> => {
+    const uploadedUrls: string[] = [];
 
-      const base64 = (setImage as any).base64;
-      if (!base64) return uri; // Fallback
+    for (const asset of imageAssets) {
+      if (asset.uri.includes('supabase.co')) {
+        uploadedUrls.push(asset.uri);
+        continue;
+      }
 
-      const fileName = `${Date.now()}.jpg`;
-      const filePath = `items/${fileName}`;
+      if (!asset.base64) {
+        uploadedUrls.push(asset.uri);
+        continue;
+      }
 
-      const { data, error } = await supabase.storage
-        .from('item-images')
-        .upload(filePath, decode(base64), {
-          contentType: 'image/jpeg'
-        });
+      try {
+        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+        const filePath = `items/${fileName}`;
 
-      if (error) throw error;
+        const { error } = await supabase.storage
+          .from('item-images')
+          .upload(filePath, decode(asset.base64), {
+            contentType: 'image/jpeg'
+          });
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('item-images')
-        .getPublicUrl(filePath);
+        if (error) throw error;
 
-      return publicUrl;
-    } catch (error) {
-      console.error('Upload error:', error);
-      return null;
+        const { data: { publicUrl } } = supabase.storage
+          .from('item-images')
+          .getPublicUrl(filePath);
+
+        uploadedUrls.push(publicUrl);
+      } catch (error) {
+        console.error('Upload error:', error);
+      }
     }
+
+    return uploadedUrls;
   };
 
   const handleSave = async () => {
@@ -212,10 +232,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     try {
       setLoading(true);
       
-      let imageUrl = image;
-      if (image && !image.includes('supabase.co')) {
-        imageUrl = await uploadImage(image);
-      }
+      const uploadedUrls = await uploadImages(images);
 
       if (type === 'folder') {
         if (isEdit) {
@@ -231,13 +248,14 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           if (error) throw error;
         }
       } else {
-        const payload = {
+        const payload: any = {
           name: form.name,
           sku: form.sku || null,
           quantity: parseInt(form.quantity) || 0,
           location: form.location || null,
           description: form.description || null,
-          image_url: imageUrl,
+          image_url: uploadedUrls[0] || null,
+          image_urls: uploadedUrls,
           label_no: form.label_no || null,
           pcs: parseInt(form.pcs) || 0,
           purity: form.purity || null,
@@ -329,22 +347,26 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {type === 'item' && (
-              <View style={styles.imagePickerContainer}>
-                <TouchableOpacity style={styles.imagePicker} onPress={pickImage}>
-                  {image ? (
-                    <Image source={{ uri: image }} style={styles.previewImage} />
-                  ) : (
-                    <View style={styles.imagePlaceholder}>
-                      <Camera size={32} color="#94a3b8" />
-                      <Text style={styles.imagePlaceholderText}>Add Photo</Text>
+              <View style={styles.imagePickerSection}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
+                  {images.map((img, index) => (
+                    <View key={index} style={styles.imagePickerWrapper}>
+                      <Image source={{ uri: img.uri }} style={styles.previewImage} />
+                      <TouchableOpacity 
+                        style={styles.removeImageSmall} 
+                        onPress={() => setImages(images.filter((_, i) => i !== index))}
+                      >
+                        <X size={12} color="white" />
+                      </TouchableOpacity>
                     </View>
-                  )}
-                </TouchableOpacity>
-                {image && (
-                  <TouchableOpacity style={styles.removeImage} onPress={() => setImage(null)}>
-                    <X size={16} color="white" />
+                  ))}
+                  <TouchableOpacity style={styles.imagePickerSmall} onPress={pickImages}>
+                    <View style={styles.imagePlaceholderSmall}>
+                      <Camera size={24} color="#94a3b8" />
+                      <Text style={styles.imagePlaceholderTextSmall}>Add</Text>
+                    </View>
                   </TouchableOpacity>
-                )}
+                </ScrollView>
               </View>
             )}
 
@@ -739,51 +761,63 @@ const styles = StyleSheet.create({
   typeBtnTextActive: {
     color: 'white',
   },
-  imagePickerContainer: {
-    alignItems: 'center',
+  imagePickerSection: {
     marginBottom: 24,
   },
-  imagePicker: {
-    width: 120,
-    height: 120,
-    borderRadius: 24,
+  imagesScrollView: {
+    flexDirection: 'row',
+    paddingBottom: 10,
+  },
+  imagePickerWrapper: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
+    marginRight: 12,
+    position: 'relative',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+  },
+  imagePickerSmall: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
     backgroundColor: '#f8fafc',
     borderWidth: 2,
     borderColor: '#e2e8f0',
     borderStyle: 'dashed',
-    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholderSmall: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  imagePlaceholderTextSmall: {
+    fontSize: 10,
+    color: '#94a3b8',
+    fontWeight: '700',
+  },
+  removeImageSmall: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(239, 68, 68, 0.8)',
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewImage: {
     width: '100%',
     height: '100%',
   },
-  imagePlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  imagePlaceholderText: {
-    fontSize: 12,
-    color: '#94a3b8',
-    fontWeight: '600',
-  },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  removeImage: {
-    position: 'absolute',
-    top: -8,
-    right: '30%',
-    backgroundColor: '#ef4444',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
   },
   form: {
     flex: 1,

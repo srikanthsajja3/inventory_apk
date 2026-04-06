@@ -196,7 +196,7 @@ export default function ImportScreen() {
         // 1. Find the item
         const { data: item } = await supabase
           .from('items')
-          .select('id')
+          .select('id, image_url, image_urls')
           .eq('name', productName)
           .single();
 
@@ -209,19 +209,29 @@ export default function ImportScreen() {
             type: photo.mimeType || 'image/jpeg',
           } as any);
 
+          // Use a timestamp to allow duplicate filenames for same product
+          const timestamp = Date.now();
+          const storagePath = `${item.id}/${timestamp}_${fileName}`;
+
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('item-images')
-            .upload(`${item.id}/${fileName}`, formData as any);
+            .upload(storagePath, formData as any);
 
           if (!uploadError) {
             const { data: { publicUrl } } = supabase.storage
               .from('item-images')
-              .getPublicUrl(`${item.id}/${fileName}`);
+              .getPublicUrl(storagePath);
 
-            // 3. Update Item image_url
+            // 3. Update Item image_urls (append) and image_url (if empty)
+            const currentUrls = item.image_urls || [];
+            const newUrls = [...currentUrls, publicUrl];
+            
             await supabase
               .from('items')
-              .update({ image_url: publicUrl })
+              .update({ 
+                image_url: item.image_url || publicUrl,
+                image_urls: newUrls 
+              })
               .eq('id', item.id);
             
             matched++;
