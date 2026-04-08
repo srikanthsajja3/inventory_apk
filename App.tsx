@@ -37,6 +37,8 @@ export default function App() {
 
   const changeTab = (tab: string) => {
     setActiveTab(tab);
+    setEstimationItem(null);
+    setShowGoldRate(false);
     if (Platform.OS === 'web') {
       window.history.pushState({ tab }, '', `?tab=${tab}`);
     }

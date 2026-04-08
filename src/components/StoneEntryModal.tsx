@@ -84,6 +84,45 @@ const StonePickerModal = ({ isVisible, onClose, onSelect, stones }: any) => {
   );
 };
 
+const num = (val: string | number) => parseFloat(String(val)) || 0;
+
+const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]) => {
+  const normalizedName = name.toLowerCase().trim();
+  const w = num(weight);
+  const p = num(pcs);
+  if (w === 0 || p === 0 || !master || master.length === 0) return null;
+  
+  // Average size per stone (Carats per Piece)
+  const avgSize = w / p;
+  
+  // Find all matches and sort by the tightest weight range (most specific slab)
+  const matches = master.filter(s => {
+    const masterName = s.name.toLowerCase().trim();
+    const masterCat = s.category.toLowerCase().trim();
+    
+    const isNameMatch = masterName.includes(normalizedName) || normalizedName.includes(masterName);
+    const isCatMatch = masterCat === normalizedName;
+    
+    return (isNameMatch || isCatMatch) &&
+           avgSize >= num(s.min_wt) &&
+           avgSize <= num(s.max_wt);
+  });
+
+  if (matches.length === 0) return null;
+
+  // Sort by range width (max - min) to get the most specific slab
+  matches.sort((a, b) => (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt)));
+  
+  let rate = matches[0].rate;
+  
+  // Apply ₹1000 discount for Emerald or Ruby varieties
+  if (normalizedName.includes('emerald') || normalizedName.includes('ruby')) {
+    rate = num(rate) - 1000;
+  }
+  
+  return rate;
+};
+
 export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku, initialData }: StoneEntryModalProps) {
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -197,6 +236,19 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
     }
   }, [isVisible, initialSku, initialData]);
 
+  useEffect(() => {
+    if (stoneMaster.length > 0 && dynamicStones.length > 0) {
+      const updated = dynamicStones.map(s => {
+        const dRate = getDynamicRate(s.name, num(s.weight), num(s.pcs), stoneMaster);
+        return dRate ? { ...s, rate: String(dRate) } : s;
+      });
+      // Only set if actually changed to avoid loop
+      if (JSON.stringify(updated) !== JSON.stringify(dynamicStones)) {
+        setDynamicStones(updated);
+      }
+    }
+  }, [stoneMaster]);
+
   const fetchCategories = async () => {
     try {
       const { data, error } = await supabase.from('categories').select('id, name').order('name');
@@ -300,33 +352,33 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
       const totalStoneWt = dynamicStones.reduce((acc, s) => acc + (parseFloat(s.weight) || 0), 0);
       const totalStonePcs = dynamicStones.reduce((acc, s) => acc + (parseInt(s.pcs) || 0), 0);
 
-      const payload = {
-        name: form.name,
-        sku: form.sku || null,
-        category_id: selectedCategory,
-        quantity: parseInt(form.quantity) || 0,
-        location: form.location || null,
-        description: form.description || null,
-        image_url: uploadedUrls[0] || null,
-        image_urls: uploadedUrls,
-        label_no: form.label_no || null,
-        pcs: parseInt(form.pcs) || 0,
-        purity: form.purity || null,
-        gross_wt: parseFloat(form.gross_wt) || 0,
-        net_wt: parseFloat(form.net_wt) || 0,
-        dai_wt: parseFloat(form.dai_wt) || 0,
-        dai_pcs: parseInt(form.dai_pcs) || 0,
-        clr_stone_wt: totalStoneWt || parseFloat(form.clr_stone_wt) || 0,
-        clr_stone_pcs: totalStonePcs || parseInt(form.clr_stone_pcs) || 0,
-        stones_in_detail: JSON.stringify(dynamicStones),
-        wastage: parseFloat(form.wastage) || 0,
-        labour_rate: parseFloat(form.labour_rate) || 0,
-        labour_amt: parseFloat(form.labour_amt) || 0,
-        other_charges: parseFloat(form.other_charges) || 0,
-        dia_purchase_amt: parseFloat(form.dia_purchase_amt) || 0,
-        stone_purchase_amt: parseFloat(form.stone_purchase_amt) || 0,
-        huid: form.huid || null
-      };
+    const payload = {
+      name: form.name,
+      sku: form.sku || null,
+      category_id: selectedCategory,
+      quantity: parseInt(form.quantity) || 0,
+      location: form.location || null,
+      description: form.description || null,
+      image_url: uploadedUrls[0] || null,
+      image_urls: uploadedUrls,
+      label_no: form.label_no || null,
+      pcs: parseInt(form.pcs) || 0,
+      purity: form.purity || null,
+      gross_wt: parseFloat(form.gross_wt) || 0,
+      net_wt: parseFloat(form.net_wt) || 0,
+      dai_wt: parseFloat(form.dai_wt) || 0,
+      dai_pcs: parseInt(form.dai_pcs) || 0,
+      clr_stone_wt: totalStoneWt || parseFloat(form.clr_stone_wt) || 0,
+      clr_stone_pcs: totalStonePcs || parseInt(form.clr_stone_pcs) || 0,
+      stones_in_detail: JSON.stringify(dynamicStones),
+      wastage: parseFloat(form.wastage) || 0,
+      labour_rate: form.labour_rate ? parseFloat(form.labour_rate) : (form.name.trim().toUpperCase().startsWith('D') ? 1200 : 550),
+      labour_amt: parseFloat(form.labour_amt) || 0,
+      other_charges: parseFloat(form.other_charges) || 0,
+      dia_purchase_amt: parseFloat(form.dia_purchase_amt) || 0,
+      stone_purchase_amt: parseFloat(form.stone_purchase_amt) || 0,
+      huid: form.huid || null
+    };
 
       let error;
       if (isEdit) {
@@ -436,8 +488,9 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
               <View style={styles.stoneList}>
                 <View style={styles.stoneHeaderRow}>
                   <Text style={[styles.stoneHeaderText, { flex: 2 }]}>Stone Name</Text>
-                  <Text style={[styles.stoneHeaderText, { flex: 1 }]}>Weight</Text>
-                  <Text style={[styles.stoneHeaderText, { flex: 1 }]}>Pcs</Text>
+                  <Text style={[styles.stoneHeaderText, { flex: 0.8 }]}>Weight</Text>
+                  <Text style={[styles.stoneHeaderText, { flex: 0.8 }]}>Pcs</Text>
+                  <Text style={[styles.stoneHeaderText, { flex: 1.2 }]}>Rate</Text>
                   <View style={{ width: 30 }} />
                 </View>
                 {dynamicStones.map((stone) => (
@@ -450,19 +503,28 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
                       <ChevronDown size={14} color="#94a3b8" />
                     </TouchableOpacity>
                     <TextInput 
-                      style={[styles.stoneInput, { flex: 1 }]} 
+                      style={[styles.stoneInput, { flex: 0.8 }]} 
                       value={stone.weight} 
-                      onChangeText={(v) => updateStoneRow(stone.id, { weight: v })}
+                      onChangeText={(v) => {
+                        const newRate = getDynamicRate(stone.name, num(v), num(stone.pcs), stoneMaster);
+                        updateStoneRow(stone.id, { weight: v, rate: newRate ? String(newRate) : stone.rate });
+                      }}
                       keyboardType="numeric"
                       placeholder="Wt"
                     />
                     <TextInput 
-                      style={[styles.stoneInput, { flex: 1 }]} 
+                      style={[styles.stoneInput, { flex: 0.8 }]} 
                       value={stone.pcs} 
-                      onChangeText={(v) => updateStoneRow(stone.id, { pcs: v })}
+                      onChangeText={(v) => {
+                        const newRate = getDynamicRate(stone.name, num(stone.weight), num(v), stoneMaster);
+                        updateStoneRow(stone.id, { pcs: v, rate: newRate ? String(newRate) : stone.rate });
+                      }}
                       keyboardType="numeric"
                       placeholder="Pcs"
                     />
+                    <View style={[styles.stoneRateBox, { flex: 1.2 }]}>
+                      <Text style={styles.stoneRateText}>₹{num(stone.rate).toLocaleString('en-IN')}</Text>
+                    </View>
                     <TouchableOpacity onPress={() => removeStoneRow(stone.id)} style={styles.removeStoneBtn}>
                       <Trash2 size={16} color="#ef4444" />
                     </TouchableOpacity>
@@ -509,11 +571,15 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
         isVisible={showPicker.visible} 
         onClose={() => setShowPicker({ ...showPicker, visible: false })} 
         stones={stoneMaster}
-        onSelect={(s: any) => updateStoneRow(showPicker.targetId, { 
-          name: s.name, 
-          rate: String(s.rate), 
-          category: s.category 
-        })}
+        onSelect={(s: any) => {
+          const n = s.name.toLowerCase().trim();
+          const finalName = (n === 'vvs' || n === 'ef' || n === 'rd' || n === 'vvs-ef-rd') ? 'Diamond' : s.name;
+          updateStoneRow(showPicker.targetId, { 
+            name: finalName, 
+            rate: String(s.rate), 
+            category: s.category 
+          });
+        }}
       />
     </Modal>
   );
@@ -758,6 +824,21 @@ const styles = StyleSheet.create({
     height: 30,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stoneRateBox: {
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 6,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stoneRateText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#6366f1',
   },
   emptyStones: {
     alignItems: 'center',
