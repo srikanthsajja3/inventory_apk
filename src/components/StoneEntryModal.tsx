@@ -41,7 +41,30 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
 
 const StonePickerModal = ({ isVisible, onClose, onSelect, stones }: any) => {
   const [search, setSearch] = useState('');
-  const filteredStones = stones.filter((s: any) => 
+  
+  // SIMPLIFY PICKER: Group "Shape Diamonds" and "VVS-EF-RD" into single options
+  const simplifiedStones = stones.reduce((acc: any[], current: any) => {
+    const name = current.name.toLowerCase();
+    const subCat = (current.sub_category || '').toUpperCase();
+    
+    const isShape = name.includes('shape') && name.includes('diamond');
+    const isRD = name.includes('vvs') || name.includes('ef') || subCat === 'RD';
+    
+    if (isShape) {
+      if (!acc.find(s => s.id === 'shape-group')) {
+        acc.push({ ...current, id: 'shape-group', name: 'Shape Diamonds', category: 'Diamond', sub_category: 'SHAPE', isGroup: true });
+      }
+    } else if (isRD) {
+      if (!acc.find(s => s.id === 'rd-group')) {
+        acc.push({ ...current, id: 'rd-group', name: 'Diamond (VVS-EF-RD)', category: 'Diamond', sub_category: 'RD', isGroup: true });
+      }
+    } else {
+      acc.push(current);
+    }
+    return acc;
+  }, []);
+
+  const filteredStones = simplifiedStones.filter((s: any) => 
     s.name.toLowerCase().includes(search.toLowerCase()) || 
     s.category.toLowerCase().includes(search.toLowerCase())
   );
@@ -73,7 +96,9 @@ const StonePickerModal = ({ isVisible, onClose, onSelect, stones }: any) => {
               >
                 <View>
                   <Text style={styles.pickerItemName}>{item.name}</Text>
-                  <Text style={styles.pickerItemCat}>{item.category} • Current Rate: ₹{item.rate}</Text>
+                  <Text style={styles.pickerItemCat}>
+                    {item.isGroup ? 'Auto-calculates rate based on WT/PCS' : `${item.category} • Rate: ₹${item.rate}`}
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}
@@ -92,30 +117,31 @@ const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]
   const p = num(pcs);
   if (w === 0 || p === 0 || !master || master.length === 0) return null;
   
-  // Average size per stone (Carats per Piece)
   const avgSize = w / p;
   
-  // Find all matches and sort by the tightest weight range (most specific slab)
   const matches = master.filter(s => {
-    const masterName = s.name.toLowerCase().trim();
-    const masterCat = s.category.toLowerCase().trim();
+    const mName = s.name.toLowerCase().trim();
+    const mCat = s.category.toLowerCase().trim();
+    const mSubCat = (s.sub_category || '').toUpperCase().trim();
     
-    const isNameMatch = masterName.includes(normalizedName) || normalizedName.includes(masterName);
-    const isCatMatch = masterCat === normalizedName;
+    // Check if it's a VVS/RD match
+    const isRD = (normalizedName.includes('vvs') || normalizedName.includes('ef') || normalizedName === 'diamond') && mSubCat === 'RD';
+    const isShape = normalizedName.includes('shape') && mSubCat === 'SHAPE';
     
-    return (isNameMatch || isCatMatch) &&
+    // Generic match fallback
+    const isGenericMatch = mName.includes(normalizedName) || normalizedName.includes(mName) || mCat === normalizedName;
+    
+    return (isRD || isShape || isGenericMatch) &&
            avgSize >= num(s.min_wt) &&
            avgSize <= num(s.max_wt);
   });
 
   if (matches.length === 0) return null;
 
-  // Sort by range width (max - min) to get the most specific slab
+  // Sort by range width to get most specific slab
   matches.sort((a, b) => (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt)));
   
   let rate = matches[0].rate;
-  
-  // Apply ₹1000 discount for Emerald or Ruby varieties
   if (normalizedName.includes('emerald') || normalizedName.includes('ruby')) {
     rate = num(rate) - 1000;
   }

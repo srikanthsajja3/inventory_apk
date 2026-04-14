@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler } from 'react-native';
-import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin } from 'lucide-react-native';
+import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import ItemFolderModal from '../components/ItemFolderModal';
@@ -22,7 +23,11 @@ const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode,
       </View>
     )}
     <View style={viewMode === 'grid' ? styles.folderIconGrid : styles.folderIcon}>
-      <Folder size={viewMode === 'grid' ? 40 : 28} color="#6366f1" fill="#eef2ff" />
+      {item.isVirtual ? (
+        <QrCode size={viewMode === 'grid' ? 40 : 28} color="#6366f1" />
+      ) : (
+        <Folder size={viewMode === 'grid' ? 40 : 28} color="#6366f1" fill="#eef2ff" />
+      )}
     </View>
     <View style={viewMode === 'grid' ? styles.infoGrid : styles.info}>
       <Text style={styles.folderName} numberOfLines={1}>{item.name}</Text>
@@ -47,7 +52,7 @@ const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode,
   </TouchableOpacity>
 );
 
-const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selectionMode, isSelected, onSelect, viewMode }: any) => (
+const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selectionMode, isSelected, onSelect, viewMode, onMoveBack, isExhibitionFolder }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.itemCardGrid : styles.itemCard, 
@@ -92,6 +97,15 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
 
         {!selectionMode && (
           <View style={styles.controls}>
+            {isExhibitionFolder && (
+              <TouchableOpacity 
+                style={[styles.actionBtn, { backgroundColor: '#e0f2fe' }]} 
+                onPress={() => onMoveBack(item)}
+                title="Move Back"
+              >
+                <ArrowLeft size={16} color="#0284c7" />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
               <Edit2 size={16} color="#6366f1" />
             </TouchableOpacity>
@@ -111,7 +125,7 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
   </TouchableOpacity>
 );
 
-export default function InventoryScreen() {
+export default function InventoryScreen({ navigation }: { navigation?: any }) {
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
@@ -129,11 +143,25 @@ export default function InventoryScreen() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [itemsToMove, setItemsToMove] = useState<any[]>([]);
+  const [isScanning, setIsScanning] = useState(false);
+  const [skuInput, setSkuInput] = useState('');
   
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [cameraActive, setCameraActive] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
   
   const { role } = useRole();
+  // const navigation = useNavigation(); // REMOVED
+
+  const EXHIBITION_FOLDER = { id: 'virtual-exhibition', name: 'Exhibition', isVirtual: true };
+
+  const handleBarcodeScanned = ({ data }: any) => {
+    if (data) {
+      setCameraActive(false);
+      addToExhibition(data);
+    }
+  };
 
   useEffect(() => {
     fetchLocations();
@@ -160,14 +188,11 @@ export default function InventoryScreen() {
     if (Platform.OS === 'web') {
       const handlePopState = (event: PopStateEvent) => {
         if (event.state && event.state.type === 'folder') {
-          // Find the folder in history or reset
           const prevFolderId = event.state.folderId;
           if (!prevFolderId) {
             setCurrentFolder(null);
             setHistory([]);
           } else {
-            // Find folder in current items/folders or history
-            // Actually, simpler to just set the folder from state if we stored it
             setCurrentFolder(event.state.folder || null);
           }
         }
@@ -187,7 +212,7 @@ export default function InventoryScreen() {
         navigateBack();
         return true;
       }
-      return false; // Let App.tsx handle it
+      return false;
     };
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
@@ -225,6 +250,9 @@ export default function InventoryScreen() {
   };
 
   const calculateStats = () => {
+    if (!items || items.length === 0) {
+      return { folders: folders.length, items: 0, totalQty: 0, totalValue: 0 };
+    }
     const totalItems = items.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
     const totalValue = items.reduce((acc, item) => {
       const qty = parseInt(item.quantity) || 0;
@@ -250,6 +278,40 @@ export default function InventoryScreen() {
       setLoading(true);
       const parentId = currentFolder ? currentFolder.id : null;
 
+      if (currentFolder?.id === 'virtual-exhibition') {
+        // Fetch items in exhibition
+        const { data: exItems, error: exError } = await supabase
+          .from('items')
+          .select('*')
+          .eq('in_exhibition', true);
+        
+        if (exError) throw exError;
+
+        // Auto-revert logic: Filter out items > 24 hours and background update them
+        const now = Date.now();
+        const activeItems: any[] = [];
+        const expiredIds: string[] = [];
+
+        (exItems || []).forEach(item => {
+          const addedAt = new Date(item.exhibition_added_at).getTime();
+          if (now - addedAt < 24 * 60 * 60 * 1000) {
+            activeItems.push(item);
+          } else {
+            expiredIds.push(item.id);
+          }
+        });
+
+        if (expiredIds.length > 0) {
+          // Background update
+          supabase.from('items').update({ in_exhibition: false }).in('id', expiredIds).then();
+        }
+
+        setFolders([]);
+        setItems(activeItems);
+        setLoading(false);
+        return;
+      }
+
       // 1. Fetch Subfolders
       let catQuery = supabase.from('categories').select('*');
       if (parentId) {
@@ -260,10 +322,15 @@ export default function InventoryScreen() {
       const { data: catData, error: catError } = await catQuery.order('name');
 
       if (catError) throw catError;
-      setFolders(catData || []);
+      
+      const combinedFolders = catData || [];
+      if (!parentId) {
+        combinedFolders.unshift(EXHIBITION_FOLDER);
+      }
+      setFolders(combinedFolders);
 
       // 2. Fetch Items in this folder
-      const tableName = role === 'admin' ? 'items' : 'staff_items';
+      const tableName = 'items';
       let query = supabase.from(tableName).select('*');
       
       if (parentId) {
@@ -274,10 +341,68 @@ export default function InventoryScreen() {
 
       const { data: itemData, error: itemError } = await query.order('name');
       if (itemError) throw itemError;
-      setItems(itemData || []);
+
+      // Filter out items that are currently in exhibition (within 24 hours)
+      const now = Date.now();
+      const filteredItems = (itemData || []).filter(item => {
+        if (item.in_exhibition) {
+          const addedAt = new Date(item.exhibition_added_at).getTime();
+          return now - addedAt >= 24 * 60 * 60 * 1000;
+        }
+        return true;
+      });
+
+      setItems(filteredItems);
 
     } catch (error: any) {
       console.error('Fetch Error:', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addToExhibition = async (sku: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('items')
+        .update({ 
+          in_exhibition: true, 
+          exhibition_added_at: new Date().toISOString() 
+        })
+        .eq('sku', sku.trim().toUpperCase())
+        .select();
+      
+      if (error) throw error;
+      if (data && data.length > 0) {
+        Alert.alert('Success', `Item "${data[0].name}" added to Exhibition for 24 hours.`);
+        fetchContents();
+        setSkuInput('');
+        setIsScanning(false);
+      } else {
+        Alert.alert('Not Found', 'No item found with this SKU.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const moveBackFromExhibition = async (item: any) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase
+        .from('items')
+        .update({ in_exhibition: false, exhibition_added_at: null })
+        .eq('id', item.id);
+      
+      if (error) throw error;
+      
+      Alert.alert('Success', `Item "${item.name}" moved back to its original folder.`);
+      fetchContents();
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -444,6 +569,14 @@ export default function InventoryScreen() {
         </View>
         
         <View style={styles.headerActions}>
+          {currentFolder?.id === 'virtual-exhibition' && (
+            <TouchableOpacity 
+              onPress={() => setIsScanning(true)} 
+              style={[styles.refreshButton, { backgroundColor: '#6366f1' }]}
+            >
+              <QrCode size={20} color="white" />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity 
             onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} 
             style={styles.refreshButton}
@@ -591,6 +724,8 @@ export default function InventoryScreen() {
                 isSelected={isSelected}
                 onSelect={toggleSelect}
                 viewMode={viewMode}
+                onMoveBack={moveBackFromExhibition}
+                isExhibitionFolder={currentFolder?.id === 'virtual-exhibition'}
               />
             );
           }}
@@ -634,6 +769,11 @@ export default function InventoryScreen() {
         onClose={() => setIsDetailsVisible(false)}
         item={selectedItem}
         onEdit={openEditModal}
+        onEstimate={(item) => {
+          setIsDetailsVisible(false);
+          // @ts-ignore
+          navigation.navigate('Estimation', { item });
+        }}
       />
 
       <MoveModal
@@ -642,6 +782,73 @@ export default function InventoryScreen() {
         onMove={fetchContents}
         itemsToMove={itemsToMove}
       />
+
+      <Modal visible={isScanning} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.qrCard, { width: '90%', maxWidth: 400 }]}>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => { setIsScanning(false); setCameraActive(false); }}>
+              <X size={24} color="#64748b" />
+            </TouchableOpacity>
+            
+            <QrCode size={40} color="#6366f1" style={{ marginBottom: 15 }} />
+            <Text style={styles.qrTitle}>Add to Exhibition</Text>
+            
+            {cameraActive ? (
+              <View style={{ width: '100%', height: 300, borderRadius: 20, overflow: 'hidden', marginBottom: 20 }}>
+                <CameraView
+                  style={{ flex: 1 }}
+                  onBarcodeScanned={handleBarcodeScanned}
+                  barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                />
+                <TouchableOpacity 
+                  style={{ position: 'absolute', bottom: 15, alignSelf: 'center', backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20 }}
+                  onPress={() => setCameraActive(false)}
+                >
+                  <Text style={{ color: 'white', fontWeight: '700' }}>Type Manually</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <Text style={[styles.qrHint, { textAlign: 'center', marginBottom: 20 }]}>Enter SKU or use camera to scan QR code</Text>
+                
+                <TextInput 
+                  style={[styles.input, { width: '100%', backgroundColor: '#f1f5f9', padding: 15, borderRadius: 12, marginBottom: 15, maxHeight: 50 }]}
+                  placeholder="ENTER SKU (e.g. RING001)"
+                  value={skuInput}
+                  onChangeText={setSkuInput}
+                  autoCapitalize="characters"
+                  autoFocus
+                />
+
+                <View style={{ flexDirection: 'row', gap: 10, width: '100%', marginBottom: 10 }}>
+                  <TouchableOpacity 
+                    style={[styles.addButton, { flex: 2, height: 50, borderRadius: 12 }]} 
+                    onPress={() => addToExhibition(skuInput)}
+                  >
+                    <Text style={{ color: 'white', fontWeight: '800' }}>ADD</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.addButton, { flex: 1, height: 50, borderRadius: 12, backgroundColor: '#1e293b' }]} 
+                    onPress={async () => {
+                      if (!permission?.granted) {
+                        const { granted } = await requestPermission();
+                        if (!granted) {
+                          Alert.alert("Permission Denied", "Camera permission is required to scan QR codes.");
+                          return;
+                        }
+                      }
+                      setCameraActive(true);
+                    }}
+                  >
+                    <Camera size={20} color="white" />
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -668,6 +875,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 5,
+      }
+    }),
   },
   title: {
     fontSize: 24,
@@ -690,6 +906,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+    })
   },
   activeSelectionBtn: {
     backgroundColor: '#6366f1',
@@ -702,6 +921,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }
+    })
   },
   summaryBar: {
     flexDirection: 'row',
@@ -713,6 +935,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f1f5f9',
     justifyContent: 'space-between',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 10px rgba(0,0,0,0.03)' }
+    })
   },
   summaryItem: {
     flex: 1,
@@ -746,6 +971,9 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+    })
   },
   filterRow: {
     flexDirection: 'column',
@@ -769,6 +997,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#f1f5f9',
     gap: 6,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+    })
   },
   activeLocBadge: {
     backgroundColor: '#6366f1',
@@ -809,6 +1040,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 8,
     gap: 6,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+    })
   },
   selectionActionText: {
     fontSize: 13,
@@ -843,6 +1077,9 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     elevation: 1,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+    })
   },
   folderCardGrid: {
     flex: 1,
@@ -851,6 +1088,9 @@ const styles = StyleSheet.create({
     padding: 12,
     alignItems: 'flex-start',
     elevation: 1,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+    })
   },
   selectedCard: {
     borderColor: '#6366f1',
@@ -898,6 +1138,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.01)' }
+    })
   },
   itemCardGrid: {
     flex: 1,
@@ -907,6 +1150,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     borderWidth: 1,
     borderColor: '#f1f5f9',
+    ...Platform.select({
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.01)' }
+    })
   },
   itemIcon: {
     width: 48,
@@ -1062,6 +1308,16 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     padding: 30,
     alignItems: 'center',
+    elevation: 5,
+    ...Platform.select({
+      web: { boxShadow: '0 10px 40px rgba(0,0,0,0.1)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.1,
+        shadowRadius: 20,
+      }
+    })
   },
   closeBtn: {
     position: 'absolute',
@@ -1083,3 +1339,4 @@ const styles = StyleSheet.create({
     color: '#64748b',
   }
 });
+

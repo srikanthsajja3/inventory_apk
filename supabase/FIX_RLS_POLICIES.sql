@@ -1,60 +1,45 @@
--- 1. Profiles Table for Roles
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY, -- Removed auth.users reference for mock system
-  role TEXT CHECK (role IN ('admin', 'staff')) DEFAULT 'staff' NOT NULL,
-  full_name TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
+-- RUN THIS IN SUPABASE SQL EDITOR TO FIX DATA UPDATES
+-- This allows our mock login system to bypass official Supabase Auth RLS
 
--- 2. Enhance Items Table
-ALTER TABLE items ADD COLUMN IF NOT EXISTS cost_price NUMERIC(10, 2);
-ALTER TABLE items ADD COLUMN IF NOT EXISTS supplier_name TEXT;
-ALTER TABLE items ADD COLUMN IF NOT EXISTS supplier_contact TEXT;
+-- 0. Remove the restricted view that was hiding columns
+DROP VIEW IF EXISTS staff_items;
 
--- 3. Create Staff View (Hides sensitive info)
-CREATE OR REPLACE VIEW staff_items AS
-SELECT id, name, sku, barcode, description, category_id, quantity, unit, location, image_url, min_stock_level, created_at, updated_at
-FROM items;
-
--- 4. Enable RLS on Profiles
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+-- 1. Enable RLS on all tables
 ALTER TABLE items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE master_rates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stone_master ENABLE ROW LEVEL SECURITY;
 
--- 5. Updated RLS Policies to allow PUBLIC (Anon) access since we use a Mock Auth system
-
+-- 2. Create Public (Anon) Policies for ALL operations
+-- Items
+DROP POLICY IF EXISTS "Public access to items" ON items;
 DROP POLICY IF EXISTS "Admins have full access to items" ON items;
+DROP POLICY IF EXISTS "Staff can read items" ON items;
 CREATE POLICY "Public access to items" ON items FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Transactions
+DROP POLICY IF EXISTS "Public access to transactions" ON transactions;
 DROP POLICY IF EXISTS "Anyone can insert transactions" ON transactions;
 CREATE POLICY "Public access to transactions" ON transactions FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Categories
 DROP POLICY IF EXISTS "Public access to categories" ON categories;
+DROP POLICY IF EXISTS "Allow public read categories" ON categories;
+DROP POLICY IF EXISTS "Allow public write categories" ON categories;
 CREATE POLICY "Public access to categories" ON categories FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Profiles
 DROP POLICY IF EXISTS "Public access to profiles" ON profiles;
+DROP POLICY IF EXISTS "Users can read own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
 CREATE POLICY "Public access to profiles" ON profiles FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Master Rates
 DROP POLICY IF EXISTS "Public access to master_rates" ON master_rates;
 CREATE POLICY "Public access to master_rates" ON master_rates FOR ALL TO anon USING (true) WITH CHECK (true);
 
+-- Stone Master
 DROP POLICY IF EXISTS "Public access to stone_master" ON stone_master;
 CREATE POLICY "Public access to stone_master" ON stone_master FOR ALL TO anon USING (true) WITH CHECK (true);
-
--- 6. Trigger for updated_at
-CREATE OR REPLACE FUNCTION update_modified_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = now();
-    RETURN NEW;
-END;
-$$ language 'plpgsql';
-
-DROP TRIGGER IF EXISTS update_items_modtime ON items;
-CREATE TRIGGER update_items_modtime
-    BEFORE UPDATE ON items
-    FOR EACH ROW
-    EXECUTE PROCEDURE update_modified_column();

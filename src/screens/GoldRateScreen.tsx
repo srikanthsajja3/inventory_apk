@@ -39,25 +39,52 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const handle24KChange = (value: string) => {
+    const rate24k = parseFloat(value) || 0;
+    
+    if (rate24k === 0 && value === '') {
+       setRates({
+        gold_24kt: '',
+        gold_22kt: '',
+        gold_18kt: ''
+      });
+      return;
+    }
+
+    setRates({
+      gold_24kt: value,
+      gold_22kt: Math.round(rate24k * 0.92).toString(),
+      gold_18kt: Math.round(rate24k * 0.75).toString()
+    });
+  };
+
   const handleSave = async () => {
     try {
       setSaving(true);
       const updates = Object.entries(rates).map(([key, value]) => ({
         key,
-        value: parseFloat(value) || 0,
+        value: parseFloat(String(value)) || 0,
         updated_at: new Date().toISOString()
       }));
 
-      for (const update of updates) {
-        const { error } = await supabase
-          .from('master_rates')
-          .upsert(update, { onConflict: 'key' });
-        if (error) throw error;
+      console.log('[GoldRate] Saving updates:', updates);
+
+      // Single batch upsert is safer and faster
+      const { error, data } = await supabase
+        .from('master_rates')
+        .upsert(updates, { onConflict: 'key' });
+
+      if (error) {
+        console.error('[GoldRate] Supabase error:', error);
+        throw error;
       }
 
-      Alert.alert('Success', 'Gold rates updated successfully!');
+      console.log('[GoldRate] Save success:', data);
+      Alert.alert('Success', 'Gold rates updated successfully across all devices!');
+      fetchRates(); // Refresh to confirm
     } catch (error: any) {
-      Alert.alert('Update Failed', error.message);
+      console.error('[GoldRate] Catch error:', error);
+      Alert.alert('Update Failed', error.message || 'Check your internet or Supabase policies');
     } finally {
       setSaving(false);
     }
@@ -87,7 +114,7 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
           <RateInput 
             label="24K Gold Rate" 
             value={rates.gold_24kt} 
-            onChange={(v) => setRates({...rates, gold_24kt: v})} 
+            onChange={handle24KChange} 
             color="#f59e0b"
           />
           <RateInput 

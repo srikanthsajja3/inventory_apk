@@ -12,12 +12,14 @@ const num = (val: string | number) => parseFloat(String(val)) || 0;
 
 const renameStone = (name: string) => {
   const n = name.toUpperCase().trim();
-  if (n.includes('VVS') || n.includes('EF') || n.includes('RD') || n === 'DIAMOND') return 'Diamond';
+  // Match "Diamond (VVS-EF-RD)" or individual markers
+  if (n.includes('VVS') || n.includes('EF') || n.includes('RD') || n === 'DIAMOND') return 'Diamond (VVS-EF-RD)';
+  if (n.includes('SHAPE')) return 'Shape Diamonds';
   return name;
 };
 
-const getDynamicRate = (label: string, weight: number, pcs: number, master: any[]) => {
-  const normalizedLabel = label.toLowerCase().trim();
+const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]) => {
+  const normalizedName = name.toLowerCase().trim();
   const w = num(weight);
   const p = num(pcs);
   if (w === 0 || p === 0 || !master || master.length === 0) return null;
@@ -25,40 +27,35 @@ const getDynamicRate = (label: string, weight: number, pcs: number, master: any[
   const avgSize = w / p;
   
   const matches = master.filter(s => {
-    const masterName = s.name.toLowerCase().trim();
-    const masterCat = s.category.toLowerCase().trim();
-    const masterSubCat = (s.sub_category || '').toLowerCase().trim();
+    const mName = s.name.toLowerCase().trim();
+    const mCat = s.category.toLowerCase().trim();
+    const mSubCat = (s.sub_category || '').toUpperCase().trim();
     
-    const isNameMatch = masterName.includes(normalizedLabel) || normalizedLabel.includes(masterName);
-    const isCatMatch = masterCat === normalizedLabel;
+    // Logic must match StoneEntryModal exactly
+    const isRD = (normalizedName.includes('vvs') || normalizedName.includes('ef') || normalizedName === 'diamond') && mSubCat === 'RD';
+    const isShape = normalizedName.includes('shape') && mSubCat === 'SHAPE';
     
-    return (isNameMatch || isCatMatch) &&
+    const isGenericMatch = mName.includes(normalizedName) || normalizedName.includes(mName) || mCat === normalizedName;
+    
+    return (isRD || isShape || isGenericMatch) &&
            avgSize >= num(s.min_wt) &&
            avgSize <= num(s.max_wt);
   });
 
   if (matches.length === 0) return null;
 
-  // If label is "Diamond", prioritize sub_category "RD" (VVS-EF-RD)
-  if (normalizedLabel === 'diamond') {
-    const rdMatch = matches.find(m => (m.sub_category || '').toUpperCase().trim() === 'RD');
-    if (rdMatch) return rdMatch.rate;
-  }
-
-  // Fallback: Sort by range width (most specific slab)
+  // Sort by range width to get most specific slab
   matches.sort((a, b) => (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt)));
   
   let rate = matches[0].rate;
-  
-  // Apply ₹1000 discount for Emerald or Ruby varieties
-  if (normalizedLabel.includes('emerald') || normalizedLabel.includes('ruby')) {
+  if (normalizedName.includes('emerald') || normalizedName.includes('ruby')) {
     rate = num(rate) - 1000;
   }
   
   return rate;
 };
 
-const SpreadsheetRow = ({ label, subLabel, weight, subWeight, pcs, rate, amount, onWeightChange, onPcsChange, onRateChange, editable = true, bg = '#fff', labelColor = '#1e293b', isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
+const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightChange, onPcsChange, onRateChange, editable = true, bg = '#fff', labelColor = '#1e293b', isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
   const headerFontSize = isTablet ? 12 : 9;
   const rowHeight = isHeader ? (isTablet ? 45 : 30) : (subLabel ? (isTablet ? 90 : 65) : (isTablet ? 60 : 40));
@@ -77,7 +74,6 @@ const SpreadsheetRow = ({ label, subLabel, weight, subWeight, pcs, rate, amount,
 
   return (
     <View style={[styles.ssRow, { backgroundColor: bg, height: rowHeight }]}>
-      {/* Particulars */}
       <View style={[styles.ssCell, { flex: 1.8 }]}>
         <Text style={[styles.ssLabel, { color: labelColor, fontSize: fontSize, fontWeight: '800' }]} numberOfLines={1}>{label}</Text>
         {subLabel && (
@@ -100,7 +96,6 @@ const SpreadsheetRow = ({ label, subLabel, weight, subWeight, pcs, rate, amount,
         )}
       </View>
       
-      {/* Weight (CT/WT) */}
       <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
         {editable ? (
           <TextInput 
@@ -109,25 +104,21 @@ const SpreadsheetRow = ({ label, subLabel, weight, subWeight, pcs, rate, amount,
             onChangeText={onWeightChange} 
             keyboardType="numeric" 
             placeholder="0.00"
-            placeholderTextColor="#cbd5e1"
             selectTextOnFocus
           />
         ) : (
           <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{weight}</Text>
         )}
-        {subWeight && <Text style={{ fontSize: fontSize - 1, width: '100%', textAlign: 'center', fontWeight: '800', color: '#10b981', marginTop: 2 }}>+ {subWeight}</Text>}
       </View>
 
-      {/* PCS */}
       <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
         {editable && onPcsChange ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', color: '#6366f1', fontWeight: '800', textAlign: 'center' }]} 
             value={String(pcs || '')} 
             onChangeText={onPcsChange} 
-            keyboardType="numeric"
+            keyboardType="numeric" 
             placeholder="P"
-            placeholderTextColor="#cbd5e1"
             selectTextOnFocus
           />
         ) : (
@@ -135,24 +126,21 @@ const SpreadsheetRow = ({ label, subLabel, weight, subWeight, pcs, rate, amount,
         )}
       </View>
 
-      {/* Rate */}
       <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
         {editable && onRateChange ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
             value={String(rate || '')} 
             onChangeText={onRateChange} 
-            keyboardType="numeric"
+            keyboardType="numeric" 
             placeholder="0"
-            placeholderTextColor="#cbd5e1"
             selectTextOnFocus
           />
         ) : (
-          <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{rate ? rate.toLocaleString('en-IN') : '-'}</Text>
+          <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{rate ? num(rate).toLocaleString('en-IN') : '-'}</Text>
         )}
       </View>
       
-      {/* Amount */}
       <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
         <Text style={[styles.ssText, { textAlign: 'right', fontWeight: '800', fontSize: fontSize, color: '#0f172a' }]} numberOfLines={1}>
           {amount}
@@ -176,9 +164,7 @@ export default function EstimationScreen({ route, navigation }: any) {
     const defaultLabor = isDiamond ? '1200' : '550';
     return {
       gross_wt: String(item.gross_wt || 0),
-      net_wt: '0',
-      labour_wt: '0',
-      cert_wt: '0',
+      net_wt: String(item.net_wt || 0), 
       cert_rate: '950',
       making_gold_rate: defaultLabor,
       wastage_pct: String(item.wastage || '22'),
@@ -195,146 +181,104 @@ export default function EstimationScreen({ route, navigation }: any) {
         stones = JSON.parse(item.stones_in_detail);
       } else {
         stones = [
-          { id: 'd1', name: 'Diamond', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: '65000', category: 'Diamond' },
-          { id: 's1', name: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: '3500', category: 'Stone' }
+          { id: 'd1', label: 'Diamond (VVS-EF-RD)', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: '65000', category: 'Diamond' },
+          { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: '3500', category: 'Stone' }
         ];
       }
-    } catch (e) {
-      stones = [];
-    }
-
-    return stones.map((s: any) => {
-      const renamedLabel = renameStone(s.name || s.label || 'Stone');
-      return {
-        id: s.id || Math.random().toString(36).substr(2, 9),
-        label: renamedLabel,
-        weight: String(s.weight || 0),
-        pcs: String(s.pcs || 0),
-        rate: String(s.rate || 0),
-        category: s.category || 'Stone'
-      };
-    });
+    } catch (e) { stones = []; }
+    return stones.map((s: any) => ({
+      id: s.id || Math.random().toString(36).substr(2, 9),
+      label: renameStone(s.name || s.label || 'Stone'),
+      weight: String(s.weight || 0),
+      pcs: String(s.pcs || 0),
+      rate: String(s.rate || 0),
+      category: s.category || 'Stone'
+    }));
   };
 
   const [calcData, setCalcData] = useState(getInitialCalcData);
   const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>(getInitialStones);
 
-  // Smart Defaults: Update weights automatically when Gross or Stones change
-  useEffect(() => {
-    const totalStoneCarats = dynamicStones.reduce((acc, s) => acc + num(s.weight), 0);
-    const diamondCarats = dynamicStones
-      .filter(s => s.label.toLowerCase() === 'diamond')
-      .reduce((acc, s) => acc + num(s.weight), 0);
-    
-    const newNetWt = num(calcData.gross_wt) - (totalStoneCarats / 5);
-
-    setCalcData(prev => ({
-      ...prev,
-      net_wt: newNetWt.toFixed(3),
-      labour_wt: newNetWt.toFixed(3),
-      cert_wt: diamondCarats.toFixed(3)
-    }));
-  }, [calcData.gross_wt, dynamicStones, calcData.wastage_pct]);
-
   useEffect(() => { fetchData(); }, []);
 
-  // Update rates once stoneMaster is loaded
+  // Update rates when stones or master list changes
   useEffect(() => {
-    if (stoneMaster.length > 0) {
-      setDynamicStones(prev => prev.map(s => {
+    if (stoneMaster.length > 0 && dynamicStones.length > 0) {
+      const updated = dynamicStones.map(s => {
         const dRate = getDynamicRate(s.label, num(s.weight), num(s.pcs), stoneMaster);
         return dRate ? { ...s, rate: String(dRate) } : s;
-      }));
+      });
+      // Check for actual changes to prevent render loop
+      const hasChanges = updated.some((s, idx) => s.rate !== dynamicStones[idx].rate);
+      if (hasChanges) {
+        setDynamicStones(updated);
+      }
     }
-  }, [stoneMaster]);
+  }, [stoneMaster, dynamicStones]);
 
   useEffect(() => {
     if (Object.keys(rateMap).length > 0) {
-      let currentRate = 0;
       const p = calcData.purity.toLowerCase();
-      if (p.includes('24')) currentRate = rateMap.gold_24kt || 0;
-      else if (p.includes('22')) currentRate = rateMap.gold_22kt || 0;
-      else currentRate = rateMap.gold_18kt || 0;
-      
-      setGoldRate(currentRate);
+      setGoldRate(p.includes('24') ? rateMap.gold_24kt : p.includes('22') ? rateMap.gold_22kt : rateMap.gold_18kt);
     }
   }, [calcData.purity, rateMap]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      
-      // RESET VALUES TO DEFAULT ON RELOAD
-      setCalcData(getInitialCalcData());
-      setDynamicStones(getInitialStones());
-
       const [ratesRes, stonesRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
         supabase.from('stone_master').select('*')
       ]);
-      if (ratesRes.error || stonesRes.error) throw new Error('Fetch failed');
-      
-      // Update state with fetched data
       setStoneMaster(stonesRes.data || []);
-      
       const newRateMap: any = {};
       ratesRes.data?.forEach(r => { newRateMap[r.key] = r.value; });
       setRateMap(newRateMap);
-
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 
-  const formatNum = (v: number) => {
-    if (v === 0) return '0';
-    // Match the user's precision from the example
-    return v.toLocaleString('en-IN', { maximumFractionDigits: 3, minimumFractionDigits: 0 });
-  };
+  const formatNum = (v: number) => v === 0 ? '0' : v.toLocaleString('en-IN', { maximumFractionDigits: 3, minimumFractionDigits: 0 });
 
+  // CALCULATIONS
   const totalStoneCarats = dynamicStones.reduce((acc, s) => acc + num(s.weight), 0);
-  const totalDiamondCarats = dynamicStones
-    .filter(s => s.label.toLowerCase() === 'diamond')
+  const diamondCarats = dynamicStones
+    .filter(s => {
+      const label = s.label.toLowerCase();
+      // Combine BOTH RD and SHAPE for certification charges
+      return label.includes('diamond') || label.includes('vvs') || label.includes('ef') || label.includes('rd') || label.includes('shape');
+    })
     .reduce((acc, s) => acc + num(s.weight), 0);
-  const certCharges = totalDiamondCarats * 950;
 
-  const calculatedNetWt = num(calcData.gross_wt) - (totalStoneCarats / 5);
-  const billingWt = calculatedNetWt * (1 + (num(calcData.wastage_pct) / 100));
+  const netWtFromDb = num(calcData.net_wt);
+  const billingWt = netWtFromDb * (1 + (num(calcData.wastage_pct) / 100));
+  const goldValue = billingWt * goldRate;
   
-  const goldValueWithWastage = billingWt * goldRate;
   const stonesTotal = dynamicStones.reduce((acc, s) => acc + (num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate)), 0);
-  const makingGoldAmt = calculatedNetWt * num(calcData.making_gold_rate);
+  const certCharges = diamondCarats * num(calcData.cert_rate);
+  const makingGoldAmt = netWtFromDb * num(calcData.making_gold_rate);
   
-  const subTotal = goldValueWithWastage + stonesTotal + makingGoldAmt + certCharges;
-  const totalINR = subTotal + (subTotal * (num(calcData.tax_pct) / 100));
+  const subTotal = goldValue + stonesTotal + makingGoldAmt + certCharges;
+  const totalINR = subTotal * (1 + (num(calcData.tax_pct) / 100));
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <X size={isTablet ? 28 : 20} color="#1e293b" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><X size={isTablet ? 28 : 20} color="#1e293b" /></TouchableOpacity>
         <View style={styles.headerTitleWrapper}>
           <CalcIcon size={isTablet ? 24 : 18} color="#6366f1" />
           <Text style={[styles.headerTitle, { fontSize: isTablet ? 20 : 16 }]}>Bill Estimator</Text>
         </View>
-        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}>
-          <RefreshCw size={isTablet ? 24 : 18} color="#6366f1" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color="#6366f1" /></TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        
-        {/* Info Section */}
         <View style={[styles.infoWrapper, isTablet && styles.infoWrapperTablet]}>
           <View style={[styles.infoCard, isTablet && { flex: 1, marginBottom: 0 }]}>
             <View style={styles.infoRow}>
               <View style={styles.skuBadge}><Text style={styles.skuText}>SKU: {item.sku || 'NEW'}</Text></View>
-              <TouchableOpacity 
-                style={styles.purityBadge} 
-                onPress={() => setCalcData({...calcData, purity: calcData.purity === '18KT' ? '22KT' : '18KT'})}
-              >
+              <TouchableOpacity style={styles.purityBadge} onPress={() => setCalcData({...calcData, purity: calcData.purity === '18KT' ? '22KT' : '18KT'})}>
                 <Text style={styles.purityText}>{calcData.purity}</Text>
                 <ChevronDown size={10} color="#7c3aed" />
               </TouchableOpacity>
@@ -344,16 +288,10 @@ export default function EstimationScreen({ route, navigation }: any) {
 
           <View style={[styles.grossSection, isTablet && { flex: 0.8, marginBottom: 0, marginLeft: 16 }]}>
             <Text style={styles.grossLabel}>GROSS WEIGHT (G)</Text>
-            <TextInput 
-              style={[styles.grossInput, { fontSize: isTablet ? 32 : 24, fontWeight: '900' }]} 
-              value={calcData.gross_wt} 
-              onChangeText={(v) => setCalcData({...calcData, gross_wt: v})} 
-              keyboardType="numeric" 
-            />
+            <TextInput style={[styles.grossInput, { fontSize: isTablet ? 32 : 24, fontWeight: '900' }]} value={calcData.gross_wt} onChangeText={(v) => setCalcData({...calcData, gross_wt: v})} keyboardType="numeric" />
           </View>
         </View>
 
-        {/* Spreadsheet Table */}
         <View style={styles.tableContainer}>
           <SpreadsheetRow isHeader isTablet={isTablet} />
           
@@ -363,12 +301,11 @@ export default function EstimationScreen({ route, navigation }: any) {
             showSubInput={true}
             subValue={calcData.wastage_pct}
             onSubValueChange={(v: any) => setCalcData({...calcData, wastage_pct: v})}
-            weight={calcData.net_wt} 
-            pcs=""
+            weight={formatNum(netWtFromDb)} 
+            subWeight={`+ ${formatNum(billingWt - netWtFromDb)}g`}
             rate={goldRate} 
-            amount={formatNum(goldValueWithWastage)} 
+            amount={formatNum(goldValue)} 
             onWeightChange={(v: any) => setCalcData({...calcData, net_wt: v})}
-            onRateChange={(v: any) => setGoldRate(num(v))}
             bg="#f0f9ff" 
             labelColor="#0369a1"
             isTablet={isTablet} 
@@ -383,24 +320,12 @@ export default function EstimationScreen({ route, navigation }: any) {
               rate={s.rate} 
               amount={formatNum(num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate))} 
               onWeightChange={(v: any) => {
-                const newStones = dynamicStones.map(ds => {
-                  if (ds.id === s.id) {
-                    const dynamicRate = getDynamicRate(ds.label, num(v), num(ds.pcs), stoneMaster);
-                    return {...ds, weight: v, rate: dynamicRate ? String(dynamicRate) : ds.rate};
-                  }
-                  return ds;
-                });
-                setDynamicStones(newStones);
+                const newRate = getDynamicRate(s.label, num(v), num(s.pcs), stoneMaster);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: newRate ? String(newRate) : ds.rate} : ds));
               }} 
               onPcsChange={(v: any) => {
-                const newStones = dynamicStones.map(ds => {
-                  if (ds.id === s.id) {
-                    const dynamicRate = getDynamicRate(ds.label, num(ds.weight), num(v), stoneMaster);
-                    return {...ds, pcs: v, rate: dynamicRate ? String(dynamicRate) : ds.rate};
-                  }
-                  return ds;
-                });
-                setDynamicStones(newStones);
+                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate} : ds));
               }} 
               onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v} : ds))} 
               bg={idx % 2 === 0 ? "#fff" : "#f8fafc"} 
@@ -408,13 +333,12 @@ export default function EstimationScreen({ route, navigation }: any) {
             />
           ))}
           
-          {num(calcData.cert_wt) > 0 && (
+          {diamondCarats > 0 && (
             <SpreadsheetRow 
-              label="Certification Charges" 
-              weight={calcData.cert_wt} 
+              label="Certification" 
+              weight={formatNum(diamondCarats)} 
               rate={calcData.cert_rate} 
-              amount={formatNum(num(calcData.cert_wt) * num(calcData.cert_rate))} 
-              onWeightChange={(v: any) => setCalcData({...calcData, cert_wt: v})}
+              amount={formatNum(certCharges)} 
               onRateChange={(v: any) => setCalcData({...calcData, cert_rate: v})}
               bg="#fdf2f8" 
               labelColor="#be185d"
@@ -426,16 +350,14 @@ export default function EstimationScreen({ route, navigation }: any) {
 
           <SpreadsheetRow 
             label="Labour Charges" 
-            weight={calcData.labour_wt} 
+            weight={formatNum(netWtFromDb)} 
             rate={calcData.making_gold_rate} 
-            amount={formatNum(num(calcData.labour_wt) * num(calcData.making_gold_rate))} 
-            onWeightChange={(v: any) => setCalcData({...calcData, labour_wt: v})}
+            amount={formatNum(makingGoldAmt)} 
             onRateChange={(v: any) => setCalcData({...calcData, making_gold_rate: v})} 
             bg="#fffbeb" 
             isTablet={isTablet} 
           />
           
-          {/* Detailed Summary */}
           <View style={styles.summaryContainer}>
             <View style={styles.summaryLine}>
               <Text style={styles.summaryLabel}>Sub-Total Value</Text>
@@ -444,12 +366,7 @@ export default function EstimationScreen({ route, navigation }: any) {
             <View style={styles.summaryLine}>
               <View style={{flexDirection:'row', alignItems:'center', gap: 8}}>
                 <Text style={styles.summaryLabel}>GST (%)</Text>
-                <TextInput 
-                  style={[styles.gstInput, { fontWeight: '800' }]} 
-                  value={calcData.tax_pct} 
-                  onChangeText={(v) => setCalcData({...calcData, tax_pct: v})}
-                  keyboardType="numeric"
-                />
+                <TextInput style={[styles.gstInput, { fontWeight: '800' }]} value={calcData.tax_pct} onChangeText={(v) => setCalcData({...calcData, tax_pct: v})} keyboardType="numeric" />
               </View>
               <Text style={[styles.summaryValue, { fontWeight: '800', fontSize: isTablet ? 18 : 14 }]}>₹{formatNum(subTotal * (num(calcData.tax_pct) / 100))}</Text>
             </View>
@@ -490,7 +407,6 @@ const styles = StyleSheet.create({
   ssRow: { flexDirection: 'row', alignItems: 'center' },
   ssCell: { height: '100%', justifyContent: 'center', paddingHorizontal: 8 },
   headerLabel: { fontWeight: '900', color: '#f8fafc', letterSpacing: 0.5 },
-  labelWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 },
   ssLabel: { fontWeight: '800' },
   ssText: { color: '#1e293b' },
   ssInput: { color: '#1e293b', padding: 0, height: '100%' },

@@ -1,24 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History } from 'lucide-react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2 } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+import { useRole } from '../hooks/useRole';
 
 interface ItemDetailsModalProps {
   isVisible: boolean;
   onClose: () => void;
   item: any;
   onEdit: (item: any) => void;
+  onEstimate?: (item: any) => void;
 }
 
 const HistoryItem = ({ log }: any) => {
   const date = new Date(log.created_at).toLocaleString();
   const isPositive = log.quantity_changed >= 0;
+  const isScan = log.type === 'SCAN';
 
   return (
     <View style={styles.historyItem}>
       <View style={styles.historyHeader}>
-        <View style={[styles.typeBadge, { backgroundColor: log.type === 'IN' ? '#ecfdf5' : log.type === 'OUT' ? '#fef2f2' : '#f1f5f9' }]}>
-          <Text style={[styles.typeText, { color: log.type === 'IN' ? '#10b981' : log.type === 'OUT' ? '#ef4444' : '#64748b' }]}>
+        <View style={[styles.typeBadge, { 
+          backgroundColor: isScan ? '#eef2ff' : log.type === 'IN' ? '#ecfdf5' : log.type === 'OUT' ? '#fef2f2' : '#f1f5f9' 
+        }]}>
+          <Text style={[styles.typeText, { 
+            color: isScan ? '#6366f1' : log.type === 'IN' ? '#10b981' : log.type === 'OUT' ? '#ef4444' : '#64748b' 
+          }]}>
             {log.type}
           </Text>
         </View>
@@ -30,14 +37,16 @@ const HistoryItem = ({ log }: any) => {
           <Text style={styles.historyReason}>{log.reason}</Text>
           <View style={styles.userRow}>
             <User size={12} color="#94a3b8" />
-            <Text style={styles.historyUser}>Admin System</Text>
+            <Text style={styles.historyUser}>{log.reason.includes('by') ? log.reason.split('by')[1].trim().split('(')[0].trim() : 'System'}</Text>
           </View>
         </View>
-        <View style={styles.qtyChange}>
-          <Text style={[styles.qtyChangeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
-            {isPositive ? '+' : ''}{log.quantity_changed}
-          </Text>
-        </View>
+        {!isScan && (
+          <View style={styles.qtyChange}>
+            <Text style={[styles.qtyChangeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
+              {isPositive ? '+' : ''}{log.quantity_changed}
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -65,15 +74,68 @@ const SectionHeader = ({ title }: { title: string }) => (
   </View>
 );
 
-export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: ItemDetailsModalProps) {
+const EstimationBadge = ({ item }: { item: any }) => {
+  const [goldRate, setGoldRate] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchGoldRate = async () => {
+      try {
+        const { data } = await supabase
+          .from('master_rates')
+          .select('value')
+          .eq('key', 'gold_18kt')
+          .single();
+        if (data) setGoldRate(data.value);
+      } catch (e) {
+        console.error('Gold Rate Error:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchGoldRate();
+  }, [item.id]);
+
+  if (loading || !goldRate) return null;
+
+  const num = (v: any) => parseFloat(String(v)) || 0;
+  const grossWt = num(item.gross_wt);
+  const wastagePct = num(item.wastage || 22);
+  const netWt = num(item.net_wt) || (grossWt * 0.8);
+  const billingWt = netWt * (1 + (wastagePct / 100));
+  const goldValue = billingWt * goldRate;
+  
+  const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
+  const laborRate = isDiamond ? 1200 : 550;
+  
+  const stonesValue = (num(item.dai_wt) * 65000) + (num(item.clr_stone_wt) * 3500);
+  const certCharges = isDiamond ? (num(item.dai_wt) * 950) : 0;
+  const makingValue = netWt * laborRate;
+  const total = (goldValue + stonesValue + makingValue + certCharges) * 1.03;
+
+  return (
+    <View style={styles.estimationBadge}>
+      <View style={styles.estIconContainer}>
+        <IndianRupee size={16} color="#059669" />
+      </View>
+      <View>
+        <Text style={styles.estLabel}>Approx. Estimate (18KT)</Text>
+        <Text style={styles.estValue}>₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+      </View>
+    </View>
+  );
+};
+
+export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onEstimate }: ItemDetailsModalProps) {
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const { role } = useRole();
 
   useEffect(() => {
     if (isVisible && item) {
       fetchLogs();
     }
-  }, [isVisible, item]);
+  }, [isVisible, item, role]);
 
   const fetchLogs = async () => {
     try {
@@ -82,11 +144,15 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
         .from('transactions')
         .select('*')
         .eq('item_id', item.id)
-        .order('created_at', { ascending: false })
-        .limit(10);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setLogs(data || []);
+      
+      const filteredLogs = role === 'admin' 
+        ? data 
+        : (data || []).filter(log => log.type !== 'SCAN');
+        
+      setLogs(filteredLogs || []);
     } catch (error: any) {
       console.error('Logs Error:', error.message);
     } finally {
@@ -108,7 +174,6 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
           </View>
 
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            {/* ... topInfo, grid sections ... */}
             <View style={styles.topInfo}>
               <View style={styles.imageSection}>
                 {item.image_urls && item.image_urls.length > 0 ? (
@@ -140,6 +205,8 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
               </View>
             </View>
 
+            <EstimationBadge item={item} />
+
             <SectionHeader title="Identification" />
             <View style={styles.grid}>
               <DetailRow label="Label No" value={item.label_no} icon={Hash} />
@@ -161,6 +228,12 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
               <DetailRow label="Stone Wt" value={item.clr_stone_wt ? `${item.clr_stone_wt}g` : null} icon={Scale} />
               <DetailRow label="Stone Pcs" value={item.clr_stone_pcs} icon={Hash} />
               <DetailRow label="Stones Detail" value={item.stones_in_detail} icon={FileText} />
+            </View>
+
+            <SectionHeader title="Scan Tracking" />
+            <View style={styles.grid}>
+              <DetailRow label="Last Scanned By" value={item.last_scanned_by} icon={User} />
+              <DetailRow label="Last Scanned At" value={item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : null} icon={Clock} />
             </View>
 
             <SectionHeader title="Activity History" />
@@ -209,15 +282,29 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit }: I
           </ScrollView>
 
           <View style={styles.footer}>
-            <TouchableOpacity 
-              style={styles.editButton} 
-              onPress={() => {
-                onClose();
-                onEdit(item);
-              }}
-            >
-              <Text style={styles.editButtonText}>Edit Item</Text>
-            </TouchableOpacity>
+            <View style={styles.footerActions}>
+              <TouchableOpacity 
+                style={[styles.footerButton, styles.estimateButton]} 
+                onPress={() => {
+                  onClose();
+                  if (onEstimate) onEstimate(item);
+                }}
+              >
+                <Calculator size={20} color="white" />
+                <Text style={styles.buttonText}>Estimate</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={[styles.footerButton, styles.editButton]} 
+                onPress={() => {
+                  onClose();
+                  onEdit(item);
+                }}
+              >
+                <Edit2 size={20} color="white" />
+                <Text style={styles.buttonText}>Edit Item</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </View>
@@ -444,10 +531,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
     elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+      }
+    }),
   },
   detailTextContainer: {
     flex: 1,
@@ -476,13 +568,67 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
   },
+  estimationBadge: {
+    backgroundColor: '#ecfdf5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 20,
+    marginBottom: 24,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#d1fae5',
+  },
+  estIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 4px rgba(5, 150, 105, 0.1)' },
+      default: {
+        shadowColor: '#059669',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      }
+    }),
+  },
+  estLabel: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  estValue: {
+    fontSize: 20,
+    color: '#064e3b',
+    fontWeight: '900',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  footerButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  estimateButton: {
+    backgroundColor: '#6366f1',
+  },
   editButton: {
     backgroundColor: '#1e293b',
-    paddingVertical: 16,
-    borderRadius: 16,
-    alignItems: 'center',
   },
-  editButtonText: {
+  buttonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '700',

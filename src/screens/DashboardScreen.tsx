@@ -279,9 +279,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 12,
     elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
+    ...Platform.select({
+      web: { boxShadow: '0 5px 15px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 5 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+      }
+    }),
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -305,10 +311,15 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     alignItems: 'flex-start',
     elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+      }
+    }),
   },
   statValue: {
     fontSize: 28,
@@ -326,11 +337,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 24,
     padding: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 15,
     elevation: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 15px rgba(0,0,0,0.05)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 15,
+      }
+    }),
     marginBottom: 30,
   },
   activityItem: {

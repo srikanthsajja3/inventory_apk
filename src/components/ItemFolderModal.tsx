@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image } from 'react-native';
-import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, Edit3, Image as ImageIcon, Camera } from 'lucide-react-native';
+import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, Edit3, Image as ImageIcon, Camera, Scale, IndianRupee, FileText, Ruler, Info } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../supabase';
 import { decode } from 'base64-arraybuffer';
@@ -13,16 +13,27 @@ interface ItemFolderModalProps {
   initialData?: any; 
 }
 
-const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'default', multiline = false }: any) => (
+const SectionHeader = ({ title, icon: Icon }: any) => (
+  <View style={styles.sectionHeader}>
+    <View style={styles.sectionIconContainer}>
+      <Icon size={16} color="#6366f1" />
+    </View>
+    <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={styles.sectionLine} />
+  </View>
+);
+
+const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'default', multiline = false, placeholder }: any) => (
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
     <View style={[styles.inputWrapper, multiline && styles.textAreaWrapper]}>
-      <Icon size={18} color="#94a3b8" />
+      {Icon && <Icon size={18} color="#94a3b8" style={styles.inputIcon} />}
       <TextInput
         style={[styles.input, multiline && styles.textArea]}
         value={value}
         onChangeText={onChangeText}
-        placeholder={`Enter ${label.toLowerCase()}...`}
+        placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
+        placeholderTextColor="#cbd5e1"
         keyboardType={keyboardType}
         multiline={multiline}
       />
@@ -33,9 +44,8 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
 export default function ItemFolderModal({ isVisible, onClose, onSave, currentFolderId, initialData }: ItemFolderModalProps) {
   const [type, setType] = useState<'item' | 'folder'>('item');
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState<any[]>([]); // Array of { uri, base64 }
+  const [images, setImages] = useState<any[]>([]); 
   const [form, setForm] = useState({
-    // ... existing form fields ...
     name: '',
     sku: '',
     quantity: '0',
@@ -111,7 +121,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           igi_fee: String(initialData.igi_fee || 0)
         });
         
-        // Handle initial images
         if (initialData.image_urls && initialData.image_urls.length > 0) {
           setImages(initialData.image_urls.map((url: string) => ({ uri: url })));
         } else if (initialData.image_url) {
@@ -120,7 +129,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           setImages([]);
         }
       } else {
-        // Reset form
         setForm({
           name: '',
           sku: '',
@@ -347,38 +355,57 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
             {type === 'item' && (
-              <View style={styles.imagePickerSection}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
-                  {images.map((img, index) => (
-                    <View key={index} style={styles.imagePickerWrapper}>
-                      <Image source={{ uri: img.uri }} style={styles.previewImage} />
-                      <TouchableOpacity 
-                        style={styles.removeImageSmall} 
-                        onPress={() => setImages(images.filter((_, i) => i !== index))}
-                      >
-                        <X size={12} color="white" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                  <TouchableOpacity style={styles.imagePickerSmall} onPress={pickImages}>
-                    <View style={styles.imagePlaceholderSmall}>
-                      <Camera size={24} color="#94a3b8" />
-                      <Text style={styles.imagePlaceholderTextSmall}>Add</Text>
-                    </View>
-                  </TouchableOpacity>
-                </ScrollView>
-              </View>
-            )}
-
-            <InputField 
-              label={type === 'item' ? "Item Name" : "Folder Name"} 
-              icon={type === 'item' ? Package : FolderPlus} 
-              value={form.name} 
-              onChangeText={(t: string) => setForm({...form, name: t})} 
-            />
-
-            {type === 'item' && (
               <>
+                <View style={styles.imagePickerSection}>
+                  <Text style={styles.label}>Product Images</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
+                    {images.map((img, index) => (
+                      <View key={index} style={styles.imagePickerWrapper}>
+                        <Image source={{ uri: img.uri }} style={styles.previewImage} />
+                        <TouchableOpacity 
+                          style={styles.removeImageSmall} 
+                          onPress={() => setImages(images.filter((_, i) => i !== index))}
+                        >
+                          <X size={12} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.imagePickerSmall} onPress={pickImages}>
+                      <View style={styles.imagePlaceholderSmall}>
+                        <Camera size={24} color="#94a3b8" />
+                        <Text style={styles.imagePlaceholderTextSmall}>Add</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+
+                <SectionHeader title="Basic Information" icon={Info} />
+                <InputField 
+                  label="Item Name" 
+                  icon={Package} 
+                  value={form.name} 
+                  onChangeText={(t: string) => setForm({...form, name: t})} 
+                />
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
+                      label="SKU / Barcode" 
+                      icon={Hash} 
+                      value={form.sku} 
+                      onChangeText={(t: string) => setForm({...form, sku: t})} 
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="Purity" 
+                      icon={Tag} 
+                      value={form.purity} 
+                      onChangeText={(t: string) => setForm({...form, purity: t})} 
+                    />
+                  </View>
+                </Row>
+
+                <SectionHeader title="Identification & Stock" icon={Hash} />
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
@@ -390,6 +417,16 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
+                      label="HUID" 
+                      icon={FileText} 
+                      value={form.huid} 
+                      onChangeText={(t: string) => setForm({...form, huid: t})} 
+                    />
+                  </View>
+                </Row>
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
                       label="Pcs" 
                       icon={Hash} 
                       value={form.pcs} 
@@ -397,48 +434,47 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                       keyboardType="numeric"
                     />
                   </View>
-                </Row>
-
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputField 
-                      label="Purity" 
-                      icon={Tag} 
-                      value={form.purity} 
-                      onChangeText={(t: string) => setForm({...form, purity: t})} 
-                    />
-                  </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="SKU / Barcode" 
-                      icon={Hash} 
-                      value={form.sku} 
-                      onChangeText={(t: string) => setForm({...form, sku: t})} 
-                    />
-                  </View>
-                </Row>
-
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputField 
-                      label="Net Wt" 
-                      icon={Hash} 
-                      value={form.net_wt} 
-                      onChangeText={(t: string) => setForm({...form, net_wt: t})} 
+                      label="Stock Qty" 
+                      icon={Package} 
+                      value={form.quantity} 
+                      onChangeText={(t: string) => setForm({...form, quantity: t})} 
                       keyboardType="numeric"
                     />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
+                </Row>
+
+                <SectionHeader title="Weights (Grams)" icon={Scale} />
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
                       label="Gross Wt" 
-                      icon={Hash} 
+                      icon={Scale} 
                       value={form.gross_wt} 
                       onChangeText={(t: string) => setForm({...form, gross_wt: t})} 
                       keyboardType="numeric"
                     />
                   </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="Net Wt" 
+                      icon={Scale} 
+                      value={form.net_wt} 
+                      onChangeText={(t: string) => setForm({...form, net_wt: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
                 </Row>
+                <InputField 
+                  label="Wastage (%)" 
+                  icon={Hash} 
+                  value={form.wastage} 
+                  onChangeText={(t: string) => setForm({...form, wastage: t})} 
+                  keyboardType="numeric"
+                />
 
+                <SectionHeader title="Diamond Details" icon={Edit3} />
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
@@ -459,11 +495,10 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                     />
                   </View>
                 </Row>
-
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Dai Round (RD)" 
+                      label="Dai RD" 
                       icon={Hash} 
                       value={form.dai_rd} 
                       onChangeText={(t: string) => setForm({...form, dai_rd: t})} 
@@ -480,11 +515,10 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                     />
                   </View>
                 </Row>
-
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Dai STB/Baguette" 
+                      label="Dai STB" 
                       icon={Hash} 
                       value={form.dai_stb} 
                       onChangeText={(t: string) => setForm({...form, dai_stb: t})} 
@@ -494,7 +528,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
                       label="IGI Fee" 
-                      icon={Hash} 
+                      icon={IndianRupee} 
                       value={form.igi_fee} 
                       onChangeText={(t: string) => setForm({...form, igi_fee: t})} 
                       keyboardType="numeric"
@@ -502,11 +536,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                 </Row>
 
+                <SectionHeader title="Stone Details" icon={Tag} />
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
                       label="Stone Wt" 
-                      icon={Hash} 
+                      icon={Scale} 
                       value={form.clr_stone_wt} 
                       onChangeText={(t: string) => setForm({...form, clr_stone_wt: t})} 
                       keyboardType="numeric"
@@ -522,83 +557,54 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                     />
                   </View>
                 </Row>
-
                 <InputField 
-                  label="Stones in detail" 
+                  label="Stones in Detail" 
                   icon={Tag} 
                   value={form.stones_in_detail} 
                   onChangeText={(t: string) => setForm({...form, stones_in_detail: t})} 
                 />
 
+                <SectionHeader title="Pricing & Labour" icon={IndianRupee} />
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Wastage" 
-                      icon={Hash} 
-                      value={form.wastage} 
-                      onChangeText={(t: string) => setForm({...form, wastage: t})} 
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputField 
                       label="Labour Rate" 
-                      icon={Hash} 
+                      icon={IndianRupee} 
                       value={form.labour_rate} 
                       onChangeText={(t: string) => setForm({...form, labour_rate: t})} 
                       keyboardType="numeric"
                     />
                   </View>
-                </Row>
-
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Making (Labour Amt)" 
-                      icon={Hash} 
+                      label="Labour Amt" 
+                      icon={IndianRupee} 
                       value={form.labour_amt} 
                       onChangeText={(t: string) => setForm({...form, labour_amt: t})} 
                       keyboardType="numeric"
                     />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputField 
-                      label="Size" 
-                      icon={Tag} 
-                      value={form.size} 
-                      onChangeText={(t: string) => setForm({...form, size: t})} 
-                    />
-                  </View>
                 </Row>
-
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
-                      label="Doc No" 
-                      icon={Hash} 
-                      value={form.doc_no} 
-                      onChangeText={(t: string) => setForm({...form, doc_no: t})} 
+                      label="Dia Purchase" 
+                      icon={IndianRupee} 
+                      value={form.dia_purchase_amt} 
+                      onChangeText={(t: string) => setForm({...form, dia_purchase_amt: t})} 
+                      keyboardType="numeric"
                     />
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Doc Date" 
-                      icon={Hash} 
-                      value={form.doc_date} 
-                      onChangeText={(t: string) => setForm({...form, doc_date: t})} 
-                      placeholder="YYYY-MM-DD"
+                      label="Stone Purchase" 
+                      icon={IndianRupee} 
+                      value={form.stone_purchase_amt} 
+                      onChangeText={(t: string) => setForm({...form, stone_purchase_amt: t})} 
+                      keyboardType="numeric"
                     />
                   </View>
                 </Row>
-
-                <InputField 
-                  label="Labeling Date" 
-                  icon={Hash} 
-                  value={form.labeling_date} 
-                  onChangeText={(t: string) => setForm({...form, labeling_date: t})} 
-                  placeholder="YYYY-MM-DD"
-                />
-
                 <Row>
                   <View style={{ flex: 1, marginRight: 8 }}>
                     <InputField 
@@ -611,68 +617,70 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
+                      label="Other Charges" 
+                      icon={IndianRupee} 
+                      value={form.other_charges} 
+                      onChangeText={(t: string) => setForm({...form, other_charges: t})} 
+                      keyboardType="numeric"
+                    />
+                  </View>
+                </Row>
+
+                <SectionHeader title="Reference & Logistics" icon={MapPin} />
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
+                      label="Doc No" 
+                      icon={FileText} 
+                      value={form.doc_no} 
+                      onChangeText={(t: string) => setForm({...form, doc_no: t})} 
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="Doc Date" 
+                      icon={Hash} 
+                      value={form.doc_date} 
+                      onChangeText={(t: string) => setForm({...form, doc_date: t})} 
+                    />
+                  </View>
+                </Row>
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
+                      label="Label Date" 
+                      icon={Hash} 
+                      value={form.labeling_date} 
+                      onChangeText={(t: string) => setForm({...form, labeling_date: t})} 
+                    />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <InputField 
+                      label="Size" 
+                      icon={Ruler} 
+                      value={form.size} 
+                      onChangeText={(t: string) => setForm({...form, size: t})} 
+                    />
+                  </View>
+                </Row>
+                <Row>
+                  <View style={{ flex: 1, marginRight: 8 }}>
+                    <InputField 
                       label="Quality" 
                       icon={Tag} 
                       value={form.quality} 
                       onChangeText={(t: string) => setForm({...form, quality: t})} 
                     />
                   </View>
-                </Row>
-
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputField 
-                      label="Dia Purchase" 
-                      icon={Hash} 
-                      value={form.dia_purchase_amt} 
-                      onChangeText={(t: string) => setForm({...form, dia_purchase_amt: t})} 
-                      keyboardType="numeric"
-                    />
-                  </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Stone Purchase" 
-                      icon={Hash} 
-                      value={form.stone_purchase_amt} 
-                      onChangeText={(t: string) => setForm({...form, stone_purchase_amt: t})} 
-                      keyboardType="numeric"
+                      label="Location" 
+                      icon={MapPin} 
+                      value={form.location} 
+                      onChangeText={(t: string) => setForm({...form, location: t})} 
                     />
                   </View>
                 </Row>
-
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputField 
-                      label="Other Charges" 
-                      icon={Hash} 
-                      value={form.other_charges} 
-                      onChangeText={(t: string) => setForm({...form, other_charges: t})} 
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputField 
-                      label="HUID" 
-                      icon={Hash} 
-                      value={form.huid} 
-                      onChangeText={(t: string) => setForm({...form, huid: t})} 
-                    />
-                  </View>
-                </Row>
-
-                <InputField 
-                  label="Stock Quantity" 
-                  icon={Hash} 
-                  value={form.quantity} 
-                  onChangeText={(t: string) => setForm({...form, quantity: t})} 
-                  keyboardType="numeric"
-                />
-                <InputField 
-                  label="Storage Location" 
-                  icon={MapPin} 
-                  value={form.location} 
-                  onChangeText={(t: string) => setForm({...form, location: t})} 
-                />
                 <InputField 
                   label="Description" 
                   icon={Tag} 
@@ -682,6 +690,16 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 />
               </>
             )}
+
+            {type === 'folder' && (
+              <InputField 
+                label="Folder Name" 
+                icon={FolderPlus} 
+                value={form.name} 
+                onChangeText={(t: string) => setForm({...form, name: t})} 
+              />
+            )}
+            <View style={{ height: 40 }} />
           </ScrollView>
 
           <View style={styles.footer}>
@@ -822,14 +840,44 @@ const styles = StyleSheet.create({
   form: {
     flex: 1,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 24,
+    marginBottom: 16,
+    gap: 10,
+  },
+  sectionIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#eef2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e293b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#f1f5f9',
+    marginLeft: 8,
+  },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
     color: '#64748b',
-    marginBottom: 8,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   inputWrapper: {
     flexDirection: 'row',
@@ -840,6 +888,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
+  inputIcon: {
+    marginRight: 8,
+  },
   textAreaWrapper: {
     alignItems: 'flex-start',
     paddingTop: 12,
@@ -847,9 +898,9 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     paddingVertical: 12,
-    paddingHorizontal: 10,
     fontSize: 16,
     color: '#1e293b',
+    fontWeight: '500',
   },
   textArea: {
     height: 80,
@@ -858,6 +909,8 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 20,
     paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
   },
   saveButton: {
     backgroundColor: '#6366f1',
@@ -867,9 +920,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 16,
     gap: 8,
+    elevation: 4,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' },
+      default: {
+        shadowColor: '#6366f1',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      }
+    }),
   },
   saveButtonDisabled: {
     opacity: 0.7,
+    backgroundColor: '#94a3b8',
   },
   saveButtonText: {
     color: 'white',
