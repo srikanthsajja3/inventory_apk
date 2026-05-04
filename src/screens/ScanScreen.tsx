@@ -6,11 +6,13 @@ import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import StoneEntryModal from '../components/StoneEntryModal';
 
-const DetailBadge = ({ label, value, icon: Icon, color = "#6366f1" }: any) => {
+import { Theme } from '../theme';
+
+const DetailBadge = ({ label, value, icon: Icon, color = Theme.colors.primary }: any) => {
   if (value === null || value === undefined || value === '') return null;
   return (
     <View style={styles.detailBadge}>
-      <View style={[styles.badgeIcon, { backgroundColor: `${color}10` }]}>
+      <View style={[styles.badgeIcon, { backgroundColor: `${color}15` }]}>
         <Icon size={14} color={color} />
       </View>
       <View>
@@ -21,7 +23,7 @@ const DetailBadge = ({ label, value, icon: Icon, color = "#6366f1" }: any) => {
   );
 };
 
-export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) => void }) {
+export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any) => void }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const [itemFound, setItemFound] = useState<any>(null);
@@ -31,7 +33,7 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
   const [manualSku, setManualSku] = useState('');
   const { role, user } = useRole();
 
-  if (!permission) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
+  if (!permission) return <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
 
   if (!permission.granted) {
     return (
@@ -88,7 +90,7 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
         }
         setItemFound(item);
       } else {
-        if (sku.length === 36 && sku.includes('-')) {
+        if (sku.length === 32 || sku.length === 36) {
           const { data: idItem, error: idError } = await supabase
             .from(tableName)
             .select('*')
@@ -124,7 +126,8 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
 
   const handleManualSearch = () => {
     if (!manualSku.trim()) return;
-    searchSku(manualSku.trim());
+    const cleanSku = manualSku.replace(/-/g, '').trim();
+    searchSku(cleanSku);
     setManualSku('');
   };
 
@@ -294,7 +297,7 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
 
                   <TouchableOpacity 
                     style={styles.estimateBtn}
-                    onPress={() => onEstimate && onEstimate(itemFound)}
+                    onPress={() => onEstimation && onEstimation(itemFound)}
                   >
                     <Calculator size={18} color="white" />
                     <Text style={styles.doneBtnText}>Estimate</Text>
@@ -352,60 +355,60 @@ export default function ScanScreen({ onEstimate }: { onEstimate?: (item: any) =>
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
   cameraContainer: { flex: 1, position: 'relative' },
   camera: { flex: 1 },
   overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  scanTarget: { width: 260, height: 260, borderWidth: 4, borderColor: '#6366f1', borderRadius: 30, backgroundColor: 'transparent' },
+  scanTarget: { width: 260, height: 260, borderWidth: 4, borderColor: Theme.colors.primary, borderRadius: 30, backgroundColor: 'transparent' },
   hint: { color: '#fff', marginTop: 30, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
   manualEntryContainer: { width: '80%', marginTop: 40 },
-  manualInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 15, paddingHorizontal: 12, height: 54 },
+  manualInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, borderRadius: 15, paddingHorizontal: 12, height: 54, borderWidth: 1, borderColor: Theme.colors.border },
   manualIcon: { marginRight: 10 },
-  manualInput: { flex: 1, height: '100%', color: '#1e293b', fontSize: 16, fontWeight: '600' },
-  manualBtn: { backgroundColor: '#6366f1', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  manualBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  message: { textAlign: 'center', marginBottom: 20, fontSize: 16, color: '#64748b' },
-  button: { backgroundColor: '#6366f1', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  buttonText: { color: '#fff', fontWeight: '700' },
-  resultContainer: { flex: 1, backgroundColor: '#f1f5f9', justifyContent: 'flex-end' },
-  fullWidthCard: { backgroundColor: '#fff', borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '85%', width: '100%', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
-  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
-  closeBtn: { padding: 8, backgroundColor: '#f8fafc', borderRadius: 12 },
+  manualInput: { flex: 1, height: '100%', color: Theme.colors.text.primary, fontSize: 16, fontWeight: '600' },
+  manualBtn: { backgroundColor: Theme.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  manualBtnText: { color: Theme.colors.background, fontWeight: '700', fontSize: 14 },
+  message: { textAlign: 'center', marginBottom: 20, fontSize: 16, color: Theme.colors.text.secondary },
+  button: { backgroundColor: Theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
+  buttonText: { color: Theme.colors.background, fontWeight: '700' },
+  resultContainer: { flex: 1, backgroundColor: Theme.colors.background, justifyContent: 'flex-end' },
+  fullWidthCard: { backgroundColor: Theme.colors.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '85%', width: '100%', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, elevation: 5 },
+  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.text.primary },
+  closeBtn: { padding: 8, backgroundColor: Theme.colors.background, borderRadius: 12 },
   resultScroll: { flex: 1, padding: 24 },
   itemTopSection: { flexDirection: 'row', gap: 20, marginBottom: 24 },
   imageSection: { width: 100, height: 100 },
   multiImageContainer: { width: 100, height: 100 },
-  imageWrapper: { width: 100, height: 100, borderRadius: 20, backgroundColor: '#f8fafc', overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', marginRight: 8 },
-  imageContainer: { width: 100, height: 100, borderRadius: 20, backgroundColor: '#f8fafc', overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0' },
+  imageWrapper: { width: 100, height: 100, borderRadius: 20, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border, marginRight: 8 },
+  imageContainer: { width: 100, height: 100, borderRadius: 20, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border },
   itemImage: { width: '100%', height: '100%' },
-  imagePlaceholder: { width: 100, height: 100, backgroundColor: '#f8fafc', borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  imagePlaceholder: { width: 100, height: 100, backgroundColor: Theme.colors.background, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
   itemBasicInfo: { flex: 1, justifyContent: 'center' },
-  itemName: { fontSize: 20, fontWeight: '800', color: '#1e293b' },
-  itemSku: { fontSize: 14, color: '#94a3b8', marginTop: 4, fontWeight: '600' },
-  vendorBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 8 },
-  vendorText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
+  itemName: { fontSize: 20, fontWeight: '800', color: Theme.colors.text.primary },
+  itemSku: { fontSize: 14, color: Theme.colors.text.secondary, marginTop: 4, fontWeight: '600' },
+  vendorBadge: { backgroundColor: Theme.colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 8 },
+  vendorText: { fontSize: 11, fontWeight: '700', color: Theme.colors.text.secondary },
   detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  detailBadge: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', padding: 12, borderRadius: 16, borderWidth: 1, borderColor: '#f1f5f9', gap: 10 },
+  detailBadge: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.background, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: Theme.colors.border, gap: 10 },
   badgeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  badgeLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '600' },
-  badgeValue: { fontSize: 13, color: '#1e293b', fontWeight: '800' },
-  stickyControls: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#f1f5f9' },
+  badgeLabel: { fontSize: 10, color: Theme.colors.text.secondary, fontWeight: '600' },
+  badgeValue: { fontSize: 13, color: Theme.colors.text.primary, fontWeight: '800' },
+  stickyControls: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderTopColor: Theme.colors.border },
   stockControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
   qtyDisplay: { alignItems: 'center' },
-  qtyValue: { fontSize: 32, fontWeight: '900', color: '#1e293b' },
-  qtyLabel: { fontSize: 10, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' },
+  qtyValue: { fontSize: 32, fontWeight: '900', color: Theme.colors.text.primary },
+  qtyLabel: { fontSize: 10, color: Theme.colors.text.secondary, fontWeight: '700', textTransform: 'uppercase' },
   actionRow: { flexDirection: 'row', gap: 12 },
-  estimateBtn: { flex: 1, backgroundColor: '#6366f1', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, gap: 10 },
-  doneBtn: { flex: 1, backgroundColor: '#1e293b', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  estimateBtn: { flex: 1, backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, gap: 10 },
+  doneBtn: { flex: 1, backgroundColor: Theme.colors.muted, paddingVertical: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
   doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  notFoundCard: { backgroundColor: '#fff', borderRadius: 32, padding: 30, margin: 20, alignItems: 'center' },
-  notFoundTitle: { fontSize: 24, fontWeight: '800', color: '#1e293b', marginTop: 15 },
-  notFoundText: { textAlign: 'center', color: '#64748b', marginTop: 10, fontSize: 16, lineHeight: 24 },
-  scannedDataText: { fontWeight: '700', color: '#6366f1' },
+  notFoundCard: { backgroundColor: Theme.colors.surface, borderRadius: 32, padding: 30, margin: 20, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  notFoundTitle: { fontSize: 24, fontWeight: '800', color: Theme.colors.text.primary, marginTop: 15 },
+  notFoundText: { textAlign: 'center', color: Theme.colors.text.secondary, marginTop: 10, fontSize: 16, lineHeight: 24 },
+  scannedDataText: { fontWeight: '700', color: Theme.colors.primary },
   notFoundActions: { width: '100%', marginTop: 30, gap: 12 },
-  addBtn: { backgroundColor: '#6366f1', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 18, gap: 10 },
-  addBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  retryBtn: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
-  retryBtnText: { color: '#64748b', fontWeight: '700', fontSize: 16 },
+  addBtn: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 18, gap: 10 },
+  addBtnText: { color: Theme.colors.background, fontWeight: '800', fontSize: 16 },
+  retryBtn: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  retryBtnText: { color: Theme.colors.text.secondary, fontWeight: '700', fontSize: 16 },
 });

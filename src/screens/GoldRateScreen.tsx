@@ -3,6 +3,8 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, ActivityIndicator,
 import { IndianRupee, Save, ArrowLeft, TrendingUp, History } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 
+import { Theme } from '../theme';
+
 export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -11,6 +13,9 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
     gold_22kt: '',
     gold_18kt: ''
   });
+  const [rateMap, setRateMap] = useState<any>({});
+
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
   useEffect(() => {
     fetchRates();
@@ -22,15 +27,22 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
       const { data, error } = await supabase.from('master_rates').select('*');
       if (error) throw error;
 
-      const rateMap: any = {};
+      const newRateMap: any = {};
+      let latestDate: string | null = null;
+      
       data?.forEach(r => {
-        rateMap[r.key] = String(r.value);
+        newRateMap[r.key] = r.value;
+        if (r.updated_at && (!latestDate || new Date(r.updated_at) > new Date(latestDate))) {
+          latestDate = r.updated_at;
+        }
       });
+      setRateMap(newRateMap);
+      setLastUpdated(latestDate);
 
       setRates({
-        gold_24kt: rateMap.gold_24kt || '0',
-        gold_22kt: rateMap.gold_22kt || '0',
-        gold_18kt: rateMap.gold_18kt || '0'
+        gold_24kt: String(newRateMap.gold_24kt || '0'),
+        gold_22kt: String(newRateMap.gold_22kt || '0'),
+        gold_18kt: String(newRateMap.gold_18kt || '0')
       });
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load rates: ' + error.message);
@@ -51,10 +63,13 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
       return;
     }
 
+    const mult22 = rateMap.gold_22kt_multiplier || 0.92;
+    const mult18 = rateMap.gold_18kt_multiplier || 0.75;
+
     setRates({
       gold_24kt: value,
-      gold_22kt: Math.round(rate24k * 0.92).toString(),
-      gold_18kt: Math.round(rate24k * 0.75).toString()
+      gold_22kt: Math.round(rate24k * mult22).toString(),
+      gold_18kt: Math.round(rate24k * mult18).toString()
     });
   };
 
@@ -69,28 +84,22 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
 
       console.log('[GoldRate] Saving updates:', updates);
 
-      // Single batch upsert is safer and faster
-      const { error, data } = await supabase
+      const { error } = await supabase
         .from('master_rates')
         .upsert(updates, { onConflict: 'key' });
 
-      if (error) {
-        console.error('[GoldRate] Supabase error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('[GoldRate] Save success:', data);
       Alert.alert('Success', 'Gold rates updated successfully across all devices!');
-      fetchRates(); // Refresh to confirm
+      fetchRates(); 
     } catch (error: any) {
-      console.error('[GoldRate] Catch error:', error);
       Alert.alert('Update Failed', error.message || 'Check your internet or Supabase policies');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
 
   return (
     <KeyboardAvoidingView 
@@ -100,14 +109,14 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onBack} style={styles.backBtn}>
-            <ArrowLeft size={24} color="#1e293b" />
+            <ArrowLeft size={24} color={Theme.colors.text.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Update Gold Rates</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.infoRow}>
-            <TrendingUp size={20} color="#6366f1" />
+            <TrendingUp size={20} color={Theme.colors.primary} />
             <Text style={styles.infoText}>Enter rates per gram (₹)</Text>
           </View>
 
@@ -115,18 +124,18 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
             label="24K Gold Rate" 
             value={rates.gold_24kt} 
             onChange={handle24KChange} 
-            color="#f59e0b"
+            color={Theme.colors.status.info}
           />
           <RateInput 
             label="22K Gold Rate" 
             value={rates.gold_22kt} 
-            onChange={(v) => setRates({...rates, gold_22kt: v})} 
-            color="#eab308"
+            onChange={(v: string) => setRates({...rates, gold_22kt: v})} 
+            color={Theme.colors.primary}
           />
           <RateInput 
             label="18K Gold Rate" 
             value={rates.gold_18kt} 
-            onChange={(v) => setRates({...rates, gold_18kt: v})} 
+            onChange={(v: string) => setRates({...rates, gold_18kt: v})} 
             color="#ca8a04"
           />
 
@@ -136,10 +145,10 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
             disabled={saving}
           >
             {saving ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color={Theme.colors.background} />
             ) : (
               <>
-                <Save size={20} color="white" />
+                <Save size={20} color={Theme.colors.background} />
                 <Text style={styles.saveBtnText}>Update Rates</Text>
               </>
             )}
@@ -148,10 +157,16 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
 
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
-            <History size={18} color="#64748b" />
+            <History size={18} color={Theme.colors.text.secondary} />
             <Text style={styles.historyTitle}>Last Updated</Text>
           </View>
-          <Text style={styles.historyDate}>{new Date().toLocaleDateString()} at {new Date().toLocaleTimeString()}</Text>
+          <Text style={styles.historyDate}>
+            {lastUpdated ? (
+              `${new Date(lastUpdated).toLocaleDateString()} at ${new Date(lastUpdated).toLocaleTimeString()}`
+            ) : (
+              'Never updated'
+            )}
+          </Text>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -169,6 +184,7 @@ const RateInput = ({ label, value, onChange, color }: any) => (
         onChangeText={onChange}
         keyboardType="numeric"
         placeholder="0.00"
+        placeholderTextColor={Theme.colors.text.muted}
       />
       <Text style={styles.unit}>/ gram</Text>
     </View>
@@ -176,25 +192,25 @@ const RateInput = ({ label, value, onChange, color }: any) => (
 );
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
   scrollContent: { padding: 20 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, gap: 15 },
-  backBtn: { padding: 8, backgroundColor: '#fff', borderRadius: 12, elevation: 2 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1e293b' },
-  card: { backgroundColor: '#fff', borderRadius: 24, padding: 24, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 12 },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 25, backgroundColor: '#f5f3ff', padding: 12, borderRadius: 12 },
-  infoText: { fontSize: 14, fontWeight: '600', color: '#6366f1' },
+  backBtn: { padding: 8, backgroundColor: Theme.colors.surface, borderRadius: 12, elevation: 2, borderWidth: 1, borderColor: Theme.colors.border },
+  title: { fontSize: 24, fontWeight: '800', color: Theme.colors.text.primary },
+  card: { backgroundColor: Theme.colors.surface, borderRadius: 24, padding: 24, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, borderWidth: 1, borderColor: Theme.colors.border },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 25, backgroundColor: Theme.colors.background, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: Theme.colors.border },
+  infoText: { fontSize: 14, fontWeight: '600', color: Theme.colors.primary },
   inputGroup: { marginBottom: 20 },
-  label: { fontSize: 14, fontWeight: '700', color: '#64748b', marginBottom: 8 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 15 },
-  input: { flex: 1, paddingVertical: 15, paddingHorizontal: 10, fontSize: 18, fontWeight: '800', color: '#1e293b' },
-  unit: { fontSize: 12, fontWeight: '600', color: '#94a3b8' },
-  saveBtn: { backgroundColor: '#1e293b', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 18, gap: 10, marginTop: 10 },
+  label: { fontSize: 14, fontWeight: '700', color: Theme.colors.text.secondary, marginBottom: 8 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.background, borderRadius: 16, borderWidth: 1.5, paddingHorizontal: 15 },
+  input: { flex: 1, paddingVertical: 15, paddingHorizontal: 10, fontSize: 18, fontWeight: '800', color: Theme.colors.text.primary },
+  unit: { fontSize: 12, fontWeight: '600', color: Theme.colors.text.secondary },
+  saveBtn: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 18, borderRadius: 18, gap: 10, marginTop: 10 },
   saveBtnDisabled: { opacity: 0.7 },
-  saveBtnText: { color: 'white', fontSize: 16, fontWeight: '700' },
+  saveBtnText: { color: Theme.colors.background, fontSize: 16, fontWeight: '700' },
   historyCard: { marginTop: 20, alignItems: 'center', gap: 5 },
   historyHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  historyTitle: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  historyDate: { fontSize: 12, color: '#94a3b8' }
+  historyTitle: { fontSize: 12, fontWeight: '600', color: Theme.colors.text.secondary },
+  historyDate: { fontSize: 12, color: Theme.colors.text.muted }
 });

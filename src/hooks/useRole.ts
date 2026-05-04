@@ -1,25 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabase';
-import { User } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-
-// HARDCODED USERS
-const VALID_USERS: Record<string, { role: 'admin' | 'staff', email: string }> = {
-  'ADMIN': { role: 'admin', email: 'admin@mokshajewels.com' },
-  'C1': { role: 'staff', email: 'c1@mokshajewels.com' },
-  'C2': { role: 'staff', email: 'c2@mokshajewels.com' },
-  'C3': { role: 'staff', email: 'c3@mokshajewels.com' },
-  'C4': { role: 'staff', email: 'c4@mokshajewels.com' },
-  'C5': { role: 'staff', email: 'c5@mokshajewels.com' },
-  'C6': { role: 'staff', email: 'c6@mokshajewels.com' },
-  'C7': { role: 'staff', email: 'c7@mokshajewels.com' },
-  'C8': { role: 'staff', email: 'c8@mokshajewels.com' },
-  'C9': { role: 'staff', email: 'c9@mokshajewels.com' },
-  'C10': { role: 'staff', email: 'c10@mokshajewels.com' },
-};
-
-export const HARDCODED_PASSWORD = 'Gpajtdmw';
 
 export function useRole() {
   const [role, setRoleState] = useState<'admin' | 'staff' | null>(null);
@@ -59,12 +41,30 @@ export function useRole() {
 
   const login = async (username: string, pass: string) => {
     const upperUser = username.toUpperCase().trim();
-    if (VALID_USERS[upperUser] && pass === HARDCODED_PASSWORD) {
+    
+    try {
+      // 1. Fetch user from app_users table
+      const { data: appUser, error: userError } = await supabase
+        .from('app_users')
+        .select('*')
+        .eq('username', upperUser)
+        .eq('is_active', true)
+        .single();
+
+      if (userError || !appUser) {
+        return { error: { message: 'Invalid Username or User Inactive' } };
+      }
+
+      // 2. Validate password
+      if (pass !== appUser.password) {
+        return { error: { message: 'Invalid Password' } };
+      }
+
       const userData = {
-        id: upperUser,
-        email: VALID_USERS[upperUser].email,
-        full_name: upperUser,
-        role: VALID_USERS[upperUser].role
+        id: appUser.username,
+        email: appUser.email,
+        full_name: appUser.username,
+        role: appUser.role
       };
       
       const json = JSON.stringify(userData);
@@ -77,8 +77,11 @@ export function useRole() {
       setUser(userData);
       setRoleState(userData.role);
       return { error: null };
+
+    } catch (err: any) {
+      console.error('[useRole] login error:', err);
+      return { error: { message: 'Database connection failed. Please ensure app_users table exists.' } };
     }
-    return { error: { message: 'Invalid Username or Password' } };
   };
 
   const logout = async () => {

@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2 } from 'lucide-react-native';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
+import { Theme } from '../theme';
 
 interface ItemDetailsModalProps {
   isVisible: boolean;
@@ -21,10 +22,10 @@ const HistoryItem = ({ log }: any) => {
     <View style={styles.historyItem}>
       <View style={styles.historyHeader}>
         <View style={[styles.typeBadge, { 
-          backgroundColor: isScan ? '#eef2ff' : log.type === 'IN' ? '#ecfdf5' : log.type === 'OUT' ? '#fef2f2' : '#f1f5f9' 
+          backgroundColor: isScan ? Theme.colors.muted : log.type === 'IN' ? Theme.colors.status.success + '20' : log.type === 'OUT' ? Theme.colors.status.error + '20' : Theme.colors.muted 
         }]}>
           <Text style={[styles.typeText, { 
-            color: isScan ? '#6366f1' : log.type === 'IN' ? '#10b981' : log.type === 'OUT' ? '#ef4444' : '#64748b' 
+            color: isScan ? Theme.colors.primary : log.type === 'IN' ? Theme.colors.status.success : log.type === 'OUT' ? Theme.colors.status.error : Theme.colors.text.secondary 
           }]}>
             {log.type}
           </Text>
@@ -36,13 +37,13 @@ const HistoryItem = ({ log }: any) => {
         <View style={styles.historyMain}>
           <Text style={styles.historyReason}>{log.reason}</Text>
           <View style={styles.userRow}>
-            <User size={12} color="#94a3b8" />
+            <User size={12} color={Theme.colors.text.muted} />
             <Text style={styles.historyUser}>{log.reason.includes('by') ? log.reason.split('by')[1].trim().split('(')[0].trim() : 'System'}</Text>
           </View>
         </View>
         {!isScan && (
           <View style={styles.qtyChange}>
-            <Text style={[styles.qtyChangeText, { color: isPositive ? '#10b981' : '#ef4444' }]}>
+            <Text style={[styles.qtyChangeText, { color: isPositive ? Theme.colors.status.success : Theme.colors.status.error }]}>
               {isPositive ? '+' : ''}{log.quantity_changed}
             </Text>
           </View>
@@ -57,7 +58,7 @@ const DetailRow = ({ label, value, icon: Icon }: any) => {
   return (
     <View style={styles.detailRow}>
       <View style={styles.iconContainer}>
-        <Icon size={18} color="#6366f1" />
+        <Icon size={18} color={Theme.colors.primary} />
       </View>
       <View style={styles.detailTextContainer}>
         <Text style={styles.detailLabel}>{label}</Text>
@@ -75,48 +76,88 @@ const SectionHeader = ({ title }: { title: string }) => (
 );
 
 const EstimationBadge = ({ item }: { item: any }) => {
-  const [goldRate, setGoldRate] = useState(0);
+  const [rates, setRates] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchGoldRate = async () => {
+    const fetchRates = async () => {
       try {
         const { data } = await supabase
           .from('master_rates')
-          .select('value')
-          .eq('key', 'gold_18kt')
-          .single();
-        if (data) setGoldRate(data.value);
+          .select('key, value');
+        if (data) {
+          const rateMap: any = {};
+          data.forEach(r => { rateMap[r.key] = r.value; });
+          setRates(rateMap);
+        }
       } catch (e) {
-        console.error('Gold Rate Error:', e);
+        console.error('Rates Fetch Error:', e);
       } finally {
         setLoading(false);
       }
     };
-    fetchGoldRate();
+    fetchRates();
   }, [item.id]);
 
-  if (loading || !goldRate) return null;
+  if (loading || Object.keys(rates).length === 0) return null;
 
   const num = (v: any) => parseFloat(String(v)) || 0;
+  const goldRate = rates.gold_18kt || 0;
+  const diamondRate = rates.diamond_rd_rate || 65000;
+  const stoneRate = rates.stone_rate || 3500;
+  const certRate = rates.cert_rate_per_ct || 950;
+  const taxPct = rates.tax_gst_pct || 3;
+
   const grossWt = num(item.gross_wt);
-  const wastagePct = num(item.wastage || 22);
+  const wastagePct = num(item.wastage || rates.default_wastage_pct || 22);
   const netWt = num(item.net_wt) || (grossWt * 0.8);
   const billingWt = netWt * (1 + (wastagePct / 100));
   const goldValue = billingWt * goldRate;
   
   const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
-  const laborRate = isDiamond ? 1200 : 550;
   
-  const stonesValue = (num(item.dai_wt) * 65000) + (num(item.clr_stone_wt) * 3500);
-  const certCharges = isDiamond ? (num(item.dai_wt) * 950) : 0;
-  const makingValue = netWt * laborRate;
-  const total = (goldValue + stonesValue + makingValue + certCharges) * 1.03;
+  // Tiered Special D Rule
+  const t1Limit = num(rates.special_d_tier1_weight || 5.2);
+  const t1Labor = num(rates.special_d_tier1_labor || 10000);
+  const t2Limit = num(rates.special_d_tier2_weight || 8.0);
+  const t2Labor = num(rates.special_d_tier2_labor || 12000);
+  const defaultLaborDiamond = num(rates.default_labor_diamond || 1200);
+  const defaultLaborRegular = num(rates.default_labor_regular || 550);
+
+  let makingValue = netWt * (isDiamond ? defaultLaborDiamond : defaultLaborRegular);
+
+  if (isDiamond) {
+    if (netWt <= t1Limit && netWt > 0) {
+      makingValue = t1Labor;
+    } else if (netWt < t2Limit && netWt > t1Limit) {
+      makingValue = t2Labor;
+    }
+  }
+  
+  let stonesValue = 0;
+  try {
+    if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
+      const stones = JSON.parse(item.stones_in_detail);
+      stonesValue = stones.reduce((acc: number, s: any) => {
+        const sWt = num(s.weight);
+        const sPcs = num(s.pcs);
+        const sRate = num(s.rate);
+        return acc + (sWt === 0 ? sPcs * sRate : sWt * sRate);
+      }, 0);
+    } else {
+      stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
+    }
+  } catch (e) {
+    stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
+  }
+
+  const certCharges = isDiamond ? (num(item.dai_wt) * certRate) : 0;
+  const total = (goldValue + stonesValue + makingValue + certCharges) * (1 + (taxPct / 100));
 
   return (
     <View style={styles.estimationBadge}>
       <View style={styles.estIconContainer}>
-        <IndianRupee size={16} color="#059669" />
+        <IndianRupee size={16} color={Theme.colors.status.success} />
       </View>
       <View>
         <Text style={styles.estLabel}>Approx. Estimate (18KT)</Text>
@@ -129,7 +170,12 @@ const EstimationBadge = ({ item }: { item: any }) => {
 export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onEstimate }: ItemDetailsModalProps) {
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
-  const { role } = useRole();
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [saleAmount, setSaleAmount] = useState('');
+  const [selling, setSelling] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const { role, user } = useRole();
 
   useEffect(() => {
     if (isVisible && item) {
@@ -137,26 +183,143 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
     }
   }, [isVisible, item, role]);
 
-  const fetchLogs = async () => {
-    try {
-      setLoadingLogs(true);
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('item_id', item.id)
-        .order('created_at', { ascending: false });
+  useEffect(() => {
+    if (showSellModal) {
+      fetchEmployees();
+    }
+  }, [showSellModal]);
 
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase.from('employees').select('name').eq('is_active', true).order('name');
       if (error) throw error;
+      setEmployees(data || []);
+    } catch (e: any) {
+      console.error('Fetch Employees Error:', e.message);
+    }
+  };
+
+  const fetchLogs = async () => {
+    // ... (keep fetchLogs implementation)
+  };
+
+  const handleSell = async () => {
+    if (!item || (item.quantity || 0) <= 0) {
+      Alert.alert('Error', 'This item is out of stock and cannot be sold.');
+      return;
+    }
+
+    const cleanAmount = saleAmount.replace(/,/g, '');
+    const amount = parseFloat(cleanAmount);
+    
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid sale amount');
+      return;
+    }
+
+    if (!selectedEmployee) {
+      Alert.alert('Error', 'Please select a staff member');
+      return;
+    }
+
+    try {
+      setSelling(true);
       
-      const filteredLogs = role === 'admin' 
-        ? data 
-        : (data || []).filter(log => log.type !== 'SCAN');
-        
-      setLogs(filteredLogs || []);
+      // Calculate real purchase price (estimated value) for P/L
+      const { data: ratesData } = await supabase.from('master_rates').select('key, value');
+      const rates: any = {};
+      ratesData?.forEach(r => { rates[r.key] = r.value; });
+
+      const numVal = (v: any) => parseFloat(String(v)) || 0;
+      const goldRate = rates.gold_18kt || 0;
+      const diamondRate = rates.diamond_rd_rate || 65000;
+      const stoneRate = rates.stone_rate || 3500;
+      const certRate = rates.cert_rate_per_ct || 950;
+      const taxPct = rates.tax_gst_pct || 3;
+
+      const grossWt = numVal(item.gross_wt);
+      const wastagePct = numVal(item.wastage || rates.default_wastage_pct || 22);
+      const netWt = numVal(item.net_wt) || (grossWt * 0.8);
+      const billingWt = netWt * (1 + (wastagePct / 100));
+      const goldValue = billingWt * goldRate;
+      
+      const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
+      
+      const t1Limit = numVal(rates.special_d_tier1_weight || 5.2);
+      const t1Labor = numVal(rates.special_d_tier1_labor || 10000);
+      const t2Limit = numVal(rates.special_d_tier2_weight || 8.0);
+      const t2Labor = numVal(rates.special_d_tier2_labor || 12000);
+      const defaultLaborDiamond = numVal(rates.default_labor_diamond || 1200);
+      const defaultLaborRegular = numVal(rates.default_labor_regular || 550);
+
+      let makingValue = netWt * (isDiamond ? defaultLaborDiamond : defaultLaborRegular);
+      if (isDiamond) {
+        if (netWt <= t1Limit && netWt > 0) makingValue = t1Labor;
+        else if (netWt < t2Limit && netWt > t1Limit) makingValue = t2Labor;
+      }
+      
+      let stonesValue = 0;
+      try {
+        if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
+          const stones = JSON.parse(item.stones_in_detail);
+          stonesValue = stones.reduce((acc: number, s: any) => {
+            const sWt = numVal(s.weight);
+            const sPcs = numVal(s.pcs);
+            const sRate = numVal(s.rate);
+            return acc + (sWt === 0 ? sPcs * sRate : sWt * sRate);
+          }, 0);
+        } else {
+          stonesValue = (numVal(item.dai_wt) * diamondRate) + (numVal(item.clr_stone_wt) * stoneRate);
+        }
+      } catch (e) {
+        stonesValue = (numVal(item.dai_wt) * diamondRate) + (numVal(item.clr_stone_wt) * stoneRate);
+      }
+
+      const certCharges = isDiamond ? (numVal(item.dai_wt) * certRate) : 0;
+      const otherCharges = numVal(item.other_charges);
+      const estimatedCost = (goldValue + stonesValue + makingValue + certCharges + otherCharges) * (1 + (taxPct / 100));
+
+      const profitLoss = amount - estimatedCost;
+
+      const { error: saleError } = await supabase
+        .from('sales')
+        .insert([{
+          item_id: item.id,
+          sku: item.sku,
+          item_name: item.name,
+          prc_amount: estimatedCost,
+          sale_amount: amount,
+          profit_loss: profitLoss,
+          sold_by: selectedEmployee,
+          sold_at: new Date().toISOString()
+        }]);
+
+      if (saleError) throw saleError;
+
+      const newQty = Math.max(0, (item.quantity || 1) - 1);
+      const { error: itemError } = await supabase
+        .from('items')
+        .update({ quantity: newQty })
+        .eq('id', item.id);
+
+      if (itemError) throw itemError;
+
+      await supabase.from('transactions').insert([{
+        item_id: item.id,
+        type: 'OUT',
+        quantity_changed: 1,
+        reason: `Sold for ₹${amount.toLocaleString()} by ${selectedEmployee}`
+      }]);
+
+      Alert.alert('Success', `Item sold for ₹${amount.toLocaleString()}`);
+      setShowSellModal(false);
+      setSaleAmount('');
+      setSelectedEmployee('');
+      onClose();
     } catch (error: any) {
-      console.error('Logs Error:', error.message);
+      Alert.alert('Sale Failed', error.message);
     } finally {
-      setLoadingLogs(false);
+      setSelling(false);
     }
   };
 
@@ -169,7 +332,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
           <View style={styles.header}>
             <Text style={styles.modalTitle}>Item Details</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color="#64748b" />
+              <X size={24} color={Theme.colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -191,7 +354,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                 ) : (
                   <View style={styles.imageContainer}>
                     <View style={styles.imagePlaceholder}>
-                      <Package size={48} color="#cbd5e1" />
+                      <Package size={48} color={Theme.colors.border} />
                     </View>
                   </View>
                 )}
@@ -220,7 +383,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               <DetailRow label="Pcs" value={item.pcs} icon={Package} />
               <DetailRow label="Net Wt" value={item.net_wt ? `${item.net_wt}g` : null} icon={Scale} />
               <DetailRow label="Gross Wt" value={item.gross_wt ? `${item.gross_wt}g` : null} icon={Scale} />
-              <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}g` : null} icon={Scale} />
+              <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}%` : null} icon={Scale} />
             </View>
 
             <SectionHeader title="Stones & Detail" />
@@ -238,7 +401,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
 
             <SectionHeader title="Activity History" />
             {loadingLogs ? (
-              <ActivityIndicator color="#6366f1" style={{ marginVertical: 20 }} />
+              <ActivityIndicator color={Theme.colors.primary} style={{ marginVertical: 20 }} />
             ) : logs.length > 0 ? (
               <View style={styles.historyContainer}>
                 {logs.map((log) => (
@@ -247,7 +410,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               </View>
             ) : (
               <View style={styles.emptyHistory}>
-                <Clock size={24} color="#cbd5e1" />
+                <Clock size={24} color={Theme.colors.border} />
                 <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
               </View>
             )}
@@ -284,45 +447,123 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
           <View style={styles.footer}>
             <View style={styles.footerActions}>
               <TouchableOpacity 
+                style={[
+                  styles.footerButton, 
+                  { backgroundColor: Theme.colors.status.success },
+                  (item.quantity <= 0) && { opacity: 0.5 }
+                ]} 
+                onPress={() => setShowSellModal(true)}
+                disabled={item.quantity <= 0}
+              >
+                <ShoppingBag size={20} color={Theme.colors.text.black} />
+                <Text style={styles.buttonText}>{item.quantity <= 0 ? 'Out of Stock' : 'Sell'}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
                 style={[styles.footerButton, styles.estimateButton]} 
                 onPress={() => {
                   onClose();
                   if (onEstimate) onEstimate(item);
                 }}
               >
-                <Calculator size={20} color="white" />
+                <Calculator size={20} color={Theme.colors.text.black} />
                 <Text style={styles.buttonText}>Estimate</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 
-                style={[styles.footerButton, styles.editButton]} 
+                style={[styles.footerButton, styles.editButton, { flex: 0.5 }]} 
                 onPress={() => {
                   onClose();
                   onEdit(item);
                 }}
               >
-                <Edit2 size={20} color="white" />
-                <Text style={styles.buttonText}>Edit Item</Text>
+                <Edit2 size={18} color={Theme.colors.text.primary} />
               </TouchableOpacity>
             </View>
           </View>
         </View>
+
+        {/* Sell Modal */}
+        <Modal visible={showSellModal} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, { height: 'auto', borderRadius: 32, marginBottom: 40 }]}>
+              <View style={styles.header}>
+                <Text style={styles.modalTitle}>Confirm Sale</Text>
+                <TouchableOpacity onPress={() => setShowSellModal(false)}><X size={24} color={Theme.colors.text.secondary} /></TouchableOpacity>
+              </View>
+              <View style={styles.body}>
+                <Text style={[styles.detailLabel, { marginBottom: 12 }]}>ITEM: {item.name}</Text>
+                <Text style={styles.detailLabel}>ENTER SALE AMOUNT (₹)</Text>
+                <View style={[styles.inputWrapper, { backgroundColor: Theme.colors.surface, marginTop: 8, borderWidth: 2, borderColor: Theme.colors.primary }]}>
+                  <IndianRupee size={20} color={Theme.colors.primary} />
+                  <TextInput 
+                    style={[styles.input, { fontSize: 24, fontWeight: '800', color: Theme.colors.text.primary }]}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Theme.colors.text.muted}
+                    value={saleAmount}
+                    onChangeText={setSaleAmount}
+                    autoFocus
+                  />
+                </View>
+
+                <Text style={[styles.detailLabel, { marginTop: 20, marginBottom: 8 }]}>SELECT STAFF MEMBER</Text>
+                <View style={{ minHeight: 50 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                    {employees.length > 0 ? (
+                      employees.map((emp) => (
+                        <TouchableOpacity 
+                          key={emp.name}
+                          style={[
+                            styles.staffSelectBtn, 
+                            selectedEmployee === emp.name && styles.staffSelectBtnActive
+                          ]}
+                          onPress={() => setSelectedEmployee(emp.name)}
+                        >
+                          <User size={16} color={selectedEmployee === emp.name ? Theme.colors.text.black : Theme.colors.text.secondary} />
+                          <Text style={[
+                            styles.staffSelectText,
+                            selectedEmployee === emp.name && styles.staffSelectTextActive
+                          ]}>{emp.name}</Text>
+                        </TouchableOpacity>
+                      ))
+                    ) : (
+                      <View style={{ paddingVertical: 10 }}>
+                        <Text style={{ color: Theme.colors.status.error, fontSize: 12, fontWeight: '700' }}>
+                          ⚠️ No active staff found. Add them in Dashboard first.
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.saveButton, { backgroundColor: Theme.colors.primary, marginTop: 24 }, (selling || !selectedEmployee) && { opacity: 0.7 }]}
+                  onPress={handleSell}
+                  disabled={selling || !selectedEmployee}
+                >
+                  {selling ? <ActivityIndicator color={Theme.colors.text.black} /> : <ShoppingBag size={20} color={Theme.colors.text.black} />}
+                  <Text style={styles.saveButtonText}>Confirm Sale</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  // ... existing styles ...
   historyContainer: {
     gap: 12,
   },
   historyItem: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
   },
   historyHeader: {
     flexDirection: 'row',
@@ -341,7 +582,7 @@ const styles = StyleSheet.create({
   },
   historyDate: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: Theme.colors.text.muted,
     fontWeight: '600',
   },
   historyContent: {
@@ -354,7 +595,7 @@ const styles = StyleSheet.create({
   },
   historyReason: {
     fontSize: 13,
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     fontWeight: '600',
   },
   userRow: {
@@ -365,7 +606,7 @@ const styles = StyleSheet.create({
   },
   historyUser: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: Theme.colors.text.muted,
     fontWeight: '500',
   },
   qtyChange: {
@@ -379,25 +620,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 16,
     gap: 8,
   },
   emptyHistoryText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: Theme.colors.text.muted,
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     height: '90%',
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -405,12 +648,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.border,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   closeButton: {
     padding: 4,
@@ -435,20 +678,20 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
     marginRight: 8,
   },
   imageContainer: {
     width: 100,
     height: 100,
     borderRadius: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   itemImage: {
     width: '100%',
@@ -466,24 +709,26 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   itemSku: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
     marginTop: 4,
   },
   qtyBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#eef2ff',
+    backgroundColor: Theme.colors.muted,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
     marginTop: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   qtyText: {
-    color: '#6366f1',
+    color: Theme.colors.primary,
     fontWeight: '700',
     fontSize: 12,
   },
@@ -497,14 +742,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   sectionLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.border,
   },
   grid: {
     flexDirection: 'row',
@@ -516,60 +761,55 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     padding: 10,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
   },
   iconContainer: {
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.muted,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-    elevation: 1,
-    ...Platform.select({
-      web: { boxShadow: '0 1px 2px rgba(0,0,0,0.05)' },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-      }
-    }),
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   detailTextContainer: {
     flex: 1,
   },
   detailLabel: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: Theme.colors.text.muted,
     fontWeight: '600',
   },
   detailValue: {
     fontSize: 13,
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     fontWeight: '700',
   },
   descriptionText: {
     fontSize: 15,
-    color: '#475569',
+    color: Theme.colors.text.secondary,
     lineHeight: 22,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     padding: 16,
     borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   footer: {
     padding: 24,
     paddingBottom: Platform.OS === 'ios' ? 40 : 24,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
   },
   estimationBadge: {
-    backgroundColor: '#ecfdf5',
+    backgroundColor: Theme.colors.muted,
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
@@ -577,36 +817,28 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     gap: 12,
     borderWidth: 1,
-    borderColor: '#d1fae5',
+    borderColor: Theme.colors.primary + '40',
   },
   estIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    elevation: 2,
-    ...Platform.select({
-      web: { boxShadow: '0 2px 4px rgba(5, 150, 105, 0.1)' },
-      default: {
-        shadowColor: '#059669',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      }
-    }),
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   estLabel: {
     fontSize: 11,
-    color: '#059669',
+    color: Theme.colors.text.secondary,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   estValue: {
     fontSize: 20,
-    color: '#064e3b',
+    color: Theme.colors.primary,
     fontWeight: '900',
   },
   footerActions: {
@@ -623,13 +855,69 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   estimateButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: Theme.colors.primary,
   },
   editButton: {
-    backgroundColor: '#1e293b',
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   buttonText: {
-    color: 'white',
+    color: Theme.colors.text.black,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.muted,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    color: Theme.colors.text.primary,
+  },
+  staffSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    gap: 6,
+  },
+  staffSelectBtnActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  staffSelectText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+  },
+  staffSelectTextActive: {
+    color: Theme.colors.text.black,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 16,
+    gap: 8,
+  },
+  saveButtonText: {
+    color: Theme.colors.text.black,
     fontSize: 16,
     fontWeight: '700',
   },

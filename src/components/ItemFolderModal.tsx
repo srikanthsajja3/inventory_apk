@@ -77,7 +77,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     dai_rd: '0',
     dai_pear: '0',
     dai_stb: '0',
-    igi_fee: '0'
+    igi_fee: '0',
+    prc_amount: '0'
   });
 
   const isEdit = !!initialData;
@@ -118,7 +119,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           dai_rd: String(initialData.dai_rd || 0),
           dai_pear: String(initialData.dai_pear || 0),
           dai_stb: String(initialData.dai_stb || 0),
-          igi_fee: String(initialData.igi_fee || 0)
+          igi_fee: String(initialData.igi_fee || 0),
+          prc_amount: String(initialData.prc_amount || 0)
         });
         
         if (initialData.image_urls && initialData.image_urls.length > 0) {
@@ -161,7 +163,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           dai_rd: '0',
           dai_pear: '0',
           dai_stb: '0',
-          igi_fee: '0'
+          igi_fee: '0',
+          prc_amount: '0'
         });
         setImages([]);
         setType('item');
@@ -290,7 +293,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           dai_rd: parseFloat(form.dai_rd) || 0,
           dai_pear: parseFloat(form.dai_pear) || 0,
           dai_stb: parseFloat(form.dai_stb) || 0,
-          igi_fee: parseFloat(form.igi_fee) || 0
+          igi_fee: parseFloat(form.igi_fee) || 0,
+          prc_amount: parseFloat(form.prc_amount) || 0
         };
 
         if (isEdit) {
@@ -617,10 +621,10 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Other Charges" 
+                      label="PRC Amount" 
                       icon={IndianRupee} 
-                      value={form.other_charges} 
-                      onChangeText={(t: string) => setForm({...form, other_charges: t})} 
+                      value={form.prc_amount} 
+                      onChangeText={(t: string) => setForm({...form, prc_amount: t})} 
                       keyboardType="numeric"
                     />
                   </View>

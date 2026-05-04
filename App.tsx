@@ -1,28 +1,31 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert, Image } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { LayoutDashboard, Package, Scan, History, FileUp, Users, Lock, Eye, EyeOff, User as UserIcon } from 'lucide-react-native';
+import { LayoutDashboard, Package, Scan, History, Users, Settings, Lock, Eye, EyeOff, User as UserIcon, RefreshCw, ShoppingBag } from 'lucide-react-native';
+import { useRole } from './src/hooks/useRole';
+import { Theme } from './src/theme';
 
-// Import Real Screens
+// Screens
 import DashboardScreen from './src/screens/DashboardScreen';
 import InventoryScreen from './src/screens/InventoryScreen';
 import ScanScreen from './src/screens/ScanScreen';
 import HistoryScreen from './src/screens/HistoryScreen';
-import ImportScreen from './src/screens/ImportScreen';
 import VendorScreen from './src/screens/VendorScreen';
-import EstimationScreen from './src/screens/EstimationScreen';
 import GoldRateScreen from './src/screens/GoldRateScreen';
-import { useRole } from './src/hooks/useRole';
+import StoneMasterScreen from './src/screens/StoneMasterScreen';
+import EstimationScreen from './src/screens/EstimationScreen';
+import SalesScreen from './src/screens/SalesScreen';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [estimationItem, setEstimationItem] = useState<any>(null);
   const [showGoldRate, setShowGoldRate] = useState(false);
+  const [showStoneMaster, setShowStoneMaster] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
-  const { role, user, loading, login, logout } = useRole();
+  const { role, user, loading, login } = useRole();
 
   useEffect(() => {
     // Web specific history handling
@@ -68,28 +71,22 @@ export default function App() {
     }
   };
 
-  const handleLogout = async () => {
-    await logout();
-    if (Platform.OS === 'web') {
-      window.location.reload();
-    }
-  };
-
   const renderLogin = () => (
     <SafeAreaView style={styles.loginContainer}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <View style={styles.loginContent}>
         <View style={styles.loginLogo}>
-          <Package size={60} color="#6366f1" />
+          <Image source={require('./assets/logo.png')} style={{ width: 80, height: 80, borderRadius: 16 }} resizeMode="contain" />
         </View>
         <Text style={styles.loginTitle}>Moksha Jewels</Text>
         <Text style={styles.loginSubtitle}>VJA Inventory Manager</Text>
         
         <View style={styles.inputContainer}>
-          <UserIcon size={20} color="#94a3b8" style={styles.inputIcon} />
+          <UserIcon size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Username (e.g. C1)"
+            placeholderTextColor={Theme.colors.text.muted}
             value={username}
             onChangeText={setUsername}
             autoCapitalize="characters"
@@ -97,26 +94,27 @@ export default function App() {
         </View>
 
         <View style={styles.inputContainer}>
-          <Lock size={20} color="#94a3b8" style={styles.inputIcon} />
+          <Lock size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
           <TextInput
             style={styles.input}
             placeholder="Password"
+            placeholderTextColor={Theme.colors.text.muted}
             secureTextEntry={!showPassword}
             value={password}
             onChangeText={setPassword}
           />
           <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-            {showPassword ? <EyeOff size={20} color="#94a3b8" /> : <Eye size={20} color="#94a3b8" />}
+            {showPassword ? <EyeOff size={20} color={Theme.colors.text.secondary} /> : <Eye size={20} color={Theme.colors.text.secondary} />}
           </TouchableOpacity>
         </View>
 
         <TouchableOpacity 
-          style={[styles.loginBtn, { backgroundColor: '#6366f1' }, isLoggingIn && { opacity: 0.7 }]}
+          style={[styles.loginBtn, { backgroundColor: Theme.colors.primary }, isLoggingIn && { opacity: 0.7 }]}
           onPress={handleLogin}
           disabled={isLoggingIn}
         >
           {isLoggingIn ? (
-            <ActivityIndicator color="white" />
+            <ActivityIndicator color={Theme.colors.text.black} />
           ) : (
             <Text style={styles.loginBtnText}>Login</Text>
           )}
@@ -126,22 +124,43 @@ export default function App() {
   );
 
   const renderContent = () => {
+    if (estimationItem) {
+      return <EstimationScreen route={{ params: { item: estimationItem } }} navigation={{ goBack: () => setEstimationItem(null) }} />;
+    }
+    
     if (showGoldRate) {
       return <GoldRateScreen onBack={() => setShowGoldRate(false)} />;
     }
 
-    if (estimationItem) {
-      return <EstimationScreen route={{ params: { item: estimationItem } }} navigation={{ goBack: () => setEstimationItem(null) }} />;
+    if (showStoneMaster) {
+      return <StoneMasterScreen onBack={() => setShowStoneMaster(false)} />;
     }
 
     switch (activeTab) {
-      case 'dashboard': return <DashboardScreen onUpdateGoldRate={() => setShowGoldRate(true)} />;
-      case 'inventory': return <InventoryScreen />;
-      case 'vendor': return <VendorScreen />;
-      case 'scan': return <ScanScreen onEstimate={(item: any) => setEstimationItem(item)} />;
-      case 'history': return <HistoryScreen />;
-      case 'import': return <ImportScreen />;
-      default: return <DashboardScreen onUpdateGoldRate={() => setShowGoldRate(true)} />;
+      case 'dashboard':
+        return <DashboardScreen 
+          onNavigate={(tab: string) => setActiveTab(tab)} 
+          onEstimation={(item: any) => setEstimationItem(item)}
+          onUpdateGoldRate={() => setShowGoldRate(true)}
+          onManageStones={() => setShowStoneMaster(true)}
+        />;
+      case 'inventory':
+        return <InventoryScreen onEstimation={(item: any) => setEstimationItem(item)} />;
+      case 'scan':
+        return <ScanScreen onEstimation={(item: any) => setEstimationItem(item)} />;
+      case 'history':
+        return <HistoryScreen />;
+      case 'vendor':
+        return <VendorScreen />;
+      case 'sales':
+        return <SalesScreen onBack={() => setActiveTab('dashboard')} />;
+      default:
+        return <DashboardScreen 
+          onNavigate={(tab: string) => setActiveTab(tab)} 
+          onEstimation={(item: any) => setEstimationItem(item)} 
+          onUpdateGoldRate={() => setShowGoldRate(true)} 
+          onManageStones={() => setShowStoneMaster(true)} 
+        />;
     }
   };
 
@@ -150,8 +169,8 @@ export default function App() {
       style={styles.navItem} 
       onPress={() => changeTab(name)}
     >
-      <Icon size={24} color={activeTab === name ? '#6366f1' : '#94a3b8'} />
-      <Text style={[styles.navLabel, { color: activeTab === name ? '#6366f1' : '#94a3b8' }]}>
+      <Icon size={24} color={activeTab === name ? Theme.colors.primary : Theme.colors.text.secondary} />
+      <Text style={[styles.navLabel, { color: activeTab === name ? Theme.colors.primary : Theme.colors.text.secondary }]}>
         {label}
       </Text>
     </TouchableOpacity>
@@ -159,18 +178,18 @@ export default function App() {
 
   const renderApp = () => (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.logo}>MOKSHA JEWELS VJA</Text>
-          <View style={styles.roleBadgeContainer}>
-            <Text style={styles.roleBadge}>{(role || 'STAFF').toUpperCase()} MODE</Text>
-            <Text style={styles.userEmail}>{user?.id}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Image source={require('./assets/logo.png')} style={{ width: 32, height: 32, borderRadius: 6 }} resizeMode="contain" />
+          <View>
+            <Text style={styles.logo}>MOKSHA JEWELS VJA</Text>
+            <View style={styles.roleBadgeContainer}>
+              <Text style={styles.roleBadge}>{(role || 'STAFF').toUpperCase()} MODE</Text>
+              <Text style={styles.userEmail}>{user?.id}</Text>
+            </View>
           </View>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
-          <Lock size={18} color="#ef4444" />
-        </TouchableOpacity>
       </View>
       
       <View style={styles.content}>
@@ -181,28 +200,24 @@ export default function App() {
         <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
         <NavItem name="inventory" icon={Package} label="Items" />
         <NavItem name="scan" icon={Scan} label="Scan" />
+        {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" />}
         {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" />}
-        <NavItem name="history" icon={History} label="History" />
-        {role === 'admin' && <NavItem name="import" icon={FileUp} label="Import" />}
+        {role !== 'admin' && <NavItem name="history" icon={History} label="History" />}
       </View>
     </SafeAreaView>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.centerContent}>
+        <ActivityIndicator size="large" color={Theme.colors.primary} />
+      </View>
+    );
+  }
+
   return (
     <SafeAreaProvider>
-      <View style={{ flex: 1, height: '100%', backgroundColor: '#f8fafc' }}>
-        {loading ? (
-          <View style={styles.centerContent}>
-            <ActivityIndicator size="large" color="#6366f1" />
-            <Text style={{ marginTop: 12, color: '#1e293b', fontWeight: '700' }}>Moksha Jewels</Text>
-            <Text style={{ marginTop: 4, color: '#64748b' }}>Connecting to secure server...</Text>
-          </View>
-        ) : !user ? (
-          renderLogin()
-        ) : (
-          renderApp()
-        )}
-      </View>
+      {user ? renderApp() : renderLogin()}
     </SafeAreaProvider>
   );
 }
@@ -210,125 +225,52 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   header: {
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: Theme.colors.border,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: Theme.colors.background,
   },
   logo: {
     fontSize: 20,
-    fontWeight: '800',
-    color: '#1e293b',
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    letterSpacing: -0.5,
+  },
+  roleBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 8,
   },
   roleBadge: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#6366f1',
-    letterSpacing: 1,
-  },
-  roleBadgeContainer: {
-    flexDirection: 'column',
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    letterSpacing: 0.5,
+    opacity: 0.8,
   },
   userEmail: {
-    fontSize: 12,
-    color: '#64748b',
+    fontSize: 10,
+    color: Theme.colors.text.secondary,
     fontWeight: '500',
-  },
-  logoutBtn: {
-    padding: 8,
-    backgroundColor: '#fef2f2',
-    borderRadius: 12,
-  },
-  inputContainer: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 16,
-    paddingHorizontal: 15,
-    marginBottom: 25,
-    height: 60,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-    color: '#1e293b',
-  },
-  eyeIcon: {
-    padding: 8,
-  },
-  loginContainer: {
-    flex: 1,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-  },
-  loginContent: {
-    padding: 30,
-    alignItems: 'center',
-  },
-  loginLogo: {
-    width: 100,
-    height: 100,
-    backgroundColor: '#eef2ff',
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-  },
-  loginTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  loginSubtitle: {
-    fontSize: 16,
-    color: '#64748b',
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  loginBtn: {
-    width: '100%',
-    paddingVertical: 18,
-    borderRadius: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 15,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-  },
-  loginBtnText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
   },
   content: {
     flex: 1,
   },
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingTop: 12,
-    paddingBottom: 25,
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: Theme.colors.border,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    backgroundColor: Theme.colors.background,
   },
   navItem: {
     flex: 1,
@@ -343,5 +285,81 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  // Login Styles
+  loginContainer: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+    justifyContent: 'center',
+    padding: 30,
+  },
+  loginContent: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  loginLogo: {
+    width: 100,
+    height: 100,
+    borderRadius: 24,
+    backgroundColor: Theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  loginTitle: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  loginSubtitle: {
+    fontSize: 16,
+    color: Theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 32,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: 16,
+    marginBottom: 16,
+    paddingHorizontal: 15,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 15,
+    fontSize: 16,
+    color: Theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  eyeIcon: {
+    padding: 10,
+  },
+  loginBtn: {
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    marginTop: 10,
+    shadowColor: Theme.colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginBtnText: {
+    color: Theme.colors.text.black,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });

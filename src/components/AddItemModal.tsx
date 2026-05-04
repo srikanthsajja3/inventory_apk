@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from 'react-native';
-import { X, Save, Package, Hash, Tag, MapPin, FolderPlus } from 'lucide-react-native';
+import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, IndianRupee } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+import { Theme } from '../theme';
 
 interface AddItemModalProps {
   isVisible: boolean;
@@ -14,12 +15,13 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
     <View style={[styles.inputWrapper, multiline && styles.textAreaWrapper]}>
-      <Icon size={18} color="#94a3b8" />
+      <Icon size={18} color={Theme.colors.text.secondary} />
       <TextInput
         style={[styles.input, multiline && styles.textArea]}
         value={value}
         onChangeText={onChangeText}
         placeholder={`Enter ${label.toLowerCase()}...`}
+        placeholderTextColor={Theme.colors.text.muted}
         keyboardType={keyboardType}
         multiline={multiline}
       />
@@ -35,7 +37,8 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
     sku: '',
     quantity: '0',
     location: '',
-    description: ''
+    description: '',
+    prc_amount: ''
   });
 
   const handleSave = async () => {
@@ -64,12 +67,13 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
             quantity: parseInt(form.quantity) || 0,
             location: form.location || null,
             description: form.description || null,
-            category_id: currentFolderId
+            category_id: currentFolderId,
+            prc_amount: parseFloat(form.prc_amount) || 0
           }]);
         if (error) throw error;
       }
 
-      setForm({ name: '', sku: '', quantity: '0', location: '', description: '' });
+      setForm({ name: '', sku: '', quantity: '0', location: '', description: '', prc_amount: '' });
       onSave();
       onClose();
     } catch (error: any) {
@@ -89,7 +93,7 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
           <View style={styles.header}>
             <Text style={styles.modalTitle}>Add New {type === 'item' ? 'Item' : 'Folder'}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color="#64748b" />
+              <X size={24} color={Theme.colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
@@ -98,14 +102,14 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
               style={[styles.typeBtn, type === 'item' && styles.typeBtnActive]} 
               onPress={() => setType('item')}
             >
-              <Package size={20} color={type === 'item' ? 'white' : '#64748b'} />
+              <Package size={20} color={type === 'item' ? Theme.colors.text.black : Theme.colors.text.secondary} />
               <Text style={[styles.typeBtnText, type === 'item' && styles.typeBtnTextActive]}>Item</Text>
             </TouchableOpacity>
             <TouchableOpacity 
               style={[styles.typeBtn, type === 'folder' && styles.typeBtnActive]} 
               onPress={() => setType('folder')}
             >
-              <FolderPlus size={20} color={type === 'folder' ? 'white' : '#64748b'} />
+              <FolderPlus size={20} color={type === 'folder' ? Theme.colors.text.black : Theme.colors.text.secondary} />
               <Text style={[styles.typeBtnText, type === 'folder' && styles.typeBtnTextActive]}>Folder</Text>
             </TouchableOpacity>
           </View>
@@ -146,6 +150,13 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
                   onChangeText={(t: string) => setForm({...form, description: t})} 
                   multiline={true}
                 />
+                <InputField 
+                  label="Purchase Amount (PRC)" 
+                  icon={ IndianRupee } 
+                  value={form.prc_amount} 
+                  onChangeText={(t: string) => setForm({...form, prc_amount: t})} 
+                  keyboardType="numeric"
+                />
               </>
             )}
           </ScrollView>
@@ -157,10 +168,10 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={Theme.colors.text.black} />
               ) : (
                 <>
-                  <Save size={20} color="white" />
+                  <Save size={20} color={Theme.colors.text.black} />
                   <Text style={styles.saveButtonText}>Save {type === 'item' ? 'Item' : 'Folder'}</Text>
                 </>
               )}
@@ -175,15 +186,17 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
 const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     height: '85%',
     padding: 24,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -194,14 +207,14 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   closeButton: {
     padding: 4,
   },
   typeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.surface,
     padding: 4,
     borderRadius: 12,
     marginBottom: 24,
@@ -216,16 +229,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   typeBtnActive: {
-    backgroundColor: '#6366f1',
-    elevation: 2,
+    backgroundColor: Theme.colors.primary,
   },
   typeBtnText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
   },
   typeBtnTextActive: {
-    color: 'white',
+    color: Theme.colors.text.black,
   },
   form: {
     flex: 1,
@@ -236,17 +248,17 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
     marginBottom: 8,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.muted,
     borderRadius: 12,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: Theme.colors.border,
   },
   textAreaWrapper: {
     alignItems: 'flex-start',
@@ -257,7 +269,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 10,
     fontSize: 16,
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   textArea: {
     height: 80,
@@ -268,7 +280,7 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 20 : 0,
   },
   saveButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: Theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -280,7 +292,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   saveButtonText: {
-    color: 'white',
+    color: Theme.colors.text.black,
     fontSize: 16,
     fontWeight: '700',
   },

@@ -1,7 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Platform } from 'react-native';
 import { Users, Package, ShoppingCart, Weight, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+
+interface VendorStats {
+  name: string;
+  totalItems: number; 
+  totalQty: number;   
+  totalNetWt: number; 
+  goldNetWt: number;    // Net weight of gold-only items
+  diamondNetWt: number; // Gold weight of diamond items
+  diamondCt: number;    // Diamond carats/weight
+  soldQty: number;    
+  soldNetWt: number;  
+}
+
+import { Theme } from '../theme';
 
 interface VendorStats {
   name: string;
@@ -184,26 +198,26 @@ export default function VendorScreen() {
     >
       <View style={styles.cardHeader}>
         <View style={styles.vendorIcon}>
-          <Users size={20} color="#6366f1" />
+          <Users size={20} color={Theme.colors.primary} />
         </View>
-        <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, marginLeft: 12 }}>
           <Text style={styles.vendorName}>{item.name}</Text>
           <Text style={styles.vendorSubtitle}>{item.totalItems} SKUs • {item.totalQty} items</Text>
         </View>
-        <ChevronRight size={20} color="#cbd5e1" />
+        <ChevronRight size={20} color={Theme.colors.text.secondary} />
       </View>
 
       <View style={styles.statsGrid}>
         <View style={styles.statBox}>
-          <Text style={[styles.statLabel, { color: '#f59e0b' }]}>Gold Stock</Text>
+          <Text style={[styles.statLabel, { color: Theme.colors.status.info }]}>Gold Stock</Text>
           <Text style={styles.statValue}>{item.goldNetWt.toFixed(2)}g</Text>
         </View>
-        <View style={[styles.statBox, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: '#f1f5f9' }]}>
-          <Text style={[styles.statLabel, { color: '#6366f1' }]}>Diamond Stock</Text>
+        <View style={[styles.statBox, { borderLeftWidth: 1, borderRightWidth: 1, borderColor: Theme.colors.border }]}>
+          <Text style={[styles.statLabel, { color: Theme.colors.primary }]}>Diamond Stock</Text>
           <Text style={styles.statValue}>{item.diamondNetWt.toFixed(2)}g</Text>
         </View>
         <View style={styles.statBox}>
-          <Text style={[styles.statLabel, { color: '#10b981' }]}>Diamond Wt</Text>
+          <Text style={[styles.statLabel, { color: Theme.colors.status.success }]}>Diamond Wt</Text>
           <Text style={styles.statValue}>{item.diamondCt.toFixed(3)}ct</Text>
         </View>
       </View>
@@ -218,7 +232,7 @@ export default function VendorScreen() {
       </View>
       <View style={styles.itemStats}>
         <Text style={styles.itemWt}>G: {item.net_wt}g</Text>
-        {parseFloat(item.dai_wt) > 0 && <Text style={[styles.itemWt, { color: '#10b981' }]}>D: {item.dai_wt}ct</Text>}
+        {parseFloat(item.dai_wt) > 0 && <Text style={[styles.itemWt, { color: Theme.colors.status.success }]}>D: {item.dai_wt}ct</Text>}
         <View style={styles.qtyBadge}>
           <Text style={styles.qtyText}>{item.quantity}</Text>
         </View>
@@ -234,9 +248,9 @@ export default function VendorScreen() {
         <Text style={styles.saleDate}>{new Date(item.created_at).toLocaleDateString()}</Text>
       </View>
       <View style={styles.itemStats}>
-        <Text style={[styles.itemWt, { color: '#10b981' }]}>Sold</Text>
-        <View style={[styles.qtyBadge, { backgroundColor: '#dcfce7' }]}>
-          <Text style={[styles.qtyText, { color: '#10b981' }]}>{item.quantity_changed}</Text>
+        <Text style={[styles.itemWt, { color: Theme.colors.status.success }]}>Sold</Text>
+        <View style={[styles.qtyBadge, { backgroundColor: `${Theme.colors.status.success}22` }]}>
+          <Text style={[styles.qtyText, { color: Theme.colors.status.success }]}>{item.quantity_changed}</Text>
         </View>
       </View>
     </View>
@@ -247,7 +261,7 @@ export default function VendorScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => setSelectedVendor(null)} style={styles.backBtn}>
-            <ArrowLeft size={24} color="#1e293b" />
+            <ArrowLeft size={24} color={Theme.colors.text.primary} />
           </TouchableOpacity>
           <View>
             <Text style={styles.title}>{selectedVendor}</Text>
@@ -260,20 +274,20 @@ export default function VendorScreen() {
             style={[styles.tab, viewTab === 'stock' && styles.activeTab]} 
             onPress={() => setViewTab('stock')}
           >
-            <Package size={18} color={viewTab === 'stock' ? '#6366f1' : '#64748b'} />
+            <Package size={18} color={viewTab === 'stock' ? Theme.colors.primary : Theme.colors.text.secondary} />
             <Text style={[styles.tabText, viewTab === 'stock' && styles.activeTabText]}>Current Stock ({vendorItems.length})</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, viewTab === 'sales' && styles.activeTab]} 
             onPress={() => setViewTab('sales')}
           >
-            <ShoppingCart size={18} color={viewTab === 'sales' ? '#6366f1' : '#64748b'} />
+            <ShoppingCart size={18} color={viewTab === 'sales' ? Theme.colors.primary : Theme.colors.text.secondary} />
             <Text style={[styles.tabText, viewTab === 'sales' && styles.activeTabText]}>Sales History ({vendorSales.length})</Text>
           </TouchableOpacity>
         </View>
 
         {detailLoading ? (
-          <ActivityIndicator style={{ marginTop: 50 }} color="#6366f1" />
+          <ActivityIndicator style={{ marginTop: 50 }} color={Theme.colors.primary} />
         ) : (
           <FlatList
             data={viewTab === 'stock' ? vendorItems : vendorSales}
@@ -301,15 +315,15 @@ export default function VendorScreen() {
           <Text style={styles.summaryTitle}>Total Inventory (All Vendors)</Text>
           <View style={styles.summaryGrid}>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: '#f59e0b' }]}>Total Gold</Text>
+              <Text style={[styles.summaryLabel, { color: Theme.colors.status.info }]}>Total Gold</Text>
               <Text style={styles.summaryValue}>{totals.gold.toFixed(2)}g</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: '#6366f1' }]}>Diamond Gold</Text>
+              <Text style={[styles.summaryLabel, { color: Theme.colors.primary }]}>Diamond Gold</Text>
               <Text style={styles.summaryValue}>{totals.diamond.toFixed(2)}g</Text>
             </View>
             <View style={styles.summaryItem}>
-              <Text style={[styles.summaryLabel, { color: '#10b981' }]}>Total Diamonds</Text>
+              <Text style={[styles.summaryLabel, { color: Theme.colors.status.success }]}>Total Diamonds</Text>
               <Text style={styles.summaryValue}>{totals.carats.toFixed(3)}ct</Text>
             </View>
           </View>
@@ -317,7 +331,7 @@ export default function VendorScreen() {
       )}
 
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 50 }} color="#6366f1" />
+        <ActivityIndicator style={{ marginTop: 50 }} color={Theme.colors.primary} />
       ) : (
         <FlatList
           data={vendors}
@@ -325,11 +339,11 @@ export default function VendorScreen() {
           keyExtractor={item => item.name}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />
           }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Users size={48} color="#e2e8f0" />
+              <Users size={48} color={Theme.colors.border} />
               <Text style={styles.emptyText}>No vendor data available</Text>
             </View>
           }
@@ -343,24 +357,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   summaryCard: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 24,
     padding: 20,
     marginBottom: 20,
     elevation: 4,
-    shadowColor: '#6366f1',
-    shadowOpacity: 0.1,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
     shadowRadius: 20,
     borderWidth: 1,
-    borderColor: '#eef2ff',
+    borderColor: Theme.colors.border,
   },
   summaryTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     marginBottom: 15,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -380,7 +394,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   header: {
     flexDirection: 'row',
@@ -390,28 +404,32 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
     marginBottom: 20,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 15,
     padding: 6,
     marginBottom: 20,
     gap: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   tab: {
     flex: 1,
@@ -423,30 +441,39 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   activeTab: {
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.background,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
   },
   tabText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
   },
   activeTabText: {
-    color: '#6366f1',
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   list: {
     paddingBottom: 30,
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 10px rgba(0,0,0,0.2)' },
+      default: {
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      }
+    }),
   },
   cardHeader: {
     flexDirection: 'row',
@@ -456,29 +483,29 @@ const styles = StyleSheet.create({
   vendorIcon: {
     width: 40,
     height: 40,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   vendorName: {
-    flex: 1,
     fontSize: 18,
     fontWeight: '700',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   vendorSubtitle: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 15,
     padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   statBox: {
     alignItems: 'center',
@@ -486,7 +513,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '700',
     textTransform: 'uppercase',
     marginTop: 4,
@@ -494,24 +521,24 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     marginTop: 2,
   },
   statSubValue: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   itemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     padding: 16,
     borderRadius: 15,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
   },
   itemInfo: {
     flex: 1,
@@ -519,16 +546,16 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   itemSku: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     marginTop: 2,
   },
   saleDate: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     marginTop: 4,
   },
   itemStats: {
@@ -538,25 +565,27 @@ const styles = StyleSheet.create({
   itemWt: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6366f1',
+    color: Theme.colors.primary,
   },
   qtyBadge: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
   },
   qtyText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#6366f1',
+    color: Theme.colors.primary,
   },
   emptyContainer: {
     alignItems: 'center',
     marginTop: 100,
   },
   emptyText: {
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',

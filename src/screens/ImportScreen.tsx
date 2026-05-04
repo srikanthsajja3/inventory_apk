@@ -100,7 +100,8 @@ export default function ImportScreen() {
             other_charges: cleanNum(cols[21]),
             dia_purchase_amt: cleanNum(cols[22]),
             stone_purchase_amt: cleanNum(cols[23]),
-            huid: cols[24] || null
+            huid: cols[24] || null,
+            prc_amount: cleanNum(cols[25])
           };
         }).filter(item => 
           item.label_no && 
@@ -253,7 +254,7 @@ export default function ImportScreen() {
       setLoading(true);
       const { data: items, error: fetchError } = await supabase
         .from('items')
-        .select('id, sku, label_no, name')
+        .select('*')
         .like('sku', '%-%');
 
       if (fetchError) throw fetchError;
@@ -262,21 +263,28 @@ export default function ImportScreen() {
         return;
       }
 
-      let updated = 0;
-      for (const item of items) {
+      const updates = items.map(item => {
         const cleanSku = item.sku.replace(/-/g, '').trim();
         const cleanLabel = item.label_no ? item.label_no.replace(/-/g, '').trim() : cleanSku;
         let newName = item.name;
         if (item.name.includes(item.sku)) {
           newName = item.name.replace(item.sku, cleanSku);
         }
-        const { error: updateError } = await supabase
-          .from('items')
-          .update({ sku: cleanSku, label_no: cleanLabel, name: newName })
-          .eq('id', item.id);
-        if (!updateError) updated++;
-      }
-      Alert.alert('Cleanup Complete', `Successfully cleaned ${updated} existing records.`);
+        return {
+          ...item,
+          sku: cleanSku,
+          label_no: cleanLabel,
+          name: newName
+        };
+      });
+
+      const { error: updateError } = await supabase
+        .from('items')
+        .upsert(updates, { onConflict: 'id' });
+
+      if (updateError) throw updateError;
+      
+      Alert.alert('Cleanup Complete', `Successfully cleaned ${updates.length} records in batch.`);
     } catch (error: any) {
       Alert.alert('Cleanup Error', error.message);
     } finally {

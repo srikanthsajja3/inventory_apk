@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList, useWindowDimensions, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon } from 'lucide-react-native';
+import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+import { useRole } from '../hooks/useRole';
+import { Theme } from '../theme';
 
 interface MasterRate { key: string; value: number; }
 interface StoneMaster { id: string; name: string; category: string; rate: number; }
-interface DynamicStone { id: string; label: string; weight: string; pcs: string; rate: string; category: string; }
+interface DynamicStone { id: string; label: string; weight: string; pcs: string; rate: string; category: string; isManualRate?: boolean; }
 
 const num = (val: string | number) => parseFloat(String(val)) || 0;
 
@@ -18,25 +20,26 @@ const renameStone = (name: string) => {
   return name;
 };
 
-const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]) => {
+const getDynamicRate = (name: string, weight: number, pcs: number, master: any[], productName: string = '') => {
   const normalizedName = name.toLowerCase().trim();
+  const normalizedProductName = productName.toLowerCase().trim();
   const w = num(weight);
   const p = num(pcs);
   if (w === 0 || p === 0 || !master || master.length === 0) return null;
-  
+
   const avgSize = w / p;
-  
+
   const matches = master.filter(s => {
     const mName = s.name.toLowerCase().trim();
     const mCat = s.category.toLowerCase().trim();
     const mSubCat = (s.sub_category || '').toUpperCase().trim();
-    
+
     // Logic must match StoneEntryModal exactly
     const isRD = (normalizedName.includes('vvs') || normalizedName.includes('ef') || normalizedName === 'diamond') && mSubCat === 'RD';
     const isShape = normalizedName.includes('shape') && mSubCat === 'SHAPE';
-    
+
     const isGenericMatch = mName.includes(normalizedName) || normalizedName.includes(mName) || mCat === normalizedName;
-    
+
     return (isRD || isShape || isGenericMatch) &&
            avgSize >= num(s.min_wt) &&
            avgSize <= num(s.max_wt);
@@ -44,30 +47,34 @@ const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]
 
   if (matches.length === 0) return null;
 
-  // Sort by range width to get most specific slab
-  matches.sort((a, b) => (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt)));
-  
+  // Sort: 
+  // 1. Exact name matches first
+  // 2. Then by most specific range (narrowest slab)
+  matches.sort((a, b) => {
+    const aExact = a.name.toLowerCase().trim() === normalizedName;
+    const bExact = b.name.toLowerCase().trim() === normalizedName;
+    if (aExact && !bExact) return -1;
+    if (!aExact && bExact) return 1;
+    return (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt));
+  });
+
   let rate = matches[0].rate;
-  if (normalizedName.includes('emerald') || normalizedName.includes('ruby')) {
-    rate = num(rate) - 1000;
-  }
-  
   return rate;
 };
 
-const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightChange, onPcsChange, onRateChange, editable = true, bg = '#fff', labelColor = '#1e293b', isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
+const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightChange, onPcsChange, onRateChange, editable = true, bg = Theme.colors.surface, labelColor = Theme.colors.text.primary, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
   const headerFontSize = isTablet ? 12 : 9;
   const rowHeight = isHeader ? (isTablet ? 45 : 30) : (subLabel ? (isTablet ? 90 : 65) : (isTablet ? 60 : 40));
 
   if (isHeader) {
     return (
-      <View style={[styles.ssRow, { backgroundColor: '#475569', height: rowHeight }]}>
+      <View style={[styles.ssRow, { backgroundColor: Theme.colors.muted, height: rowHeight }]}>
         <View style={[styles.ssCell, { flex: 1.8 }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize }]}>PARTICULARS</Text></View>
-        <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: '#64748b' }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>CT/WT</Text></View>
-        <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: '#64748b' }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>PCS</Text></View>
-        <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: '#64748b' }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text></View>
-        <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: '#64748b' }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'right' }]}>AMOUNT (₹)</Text></View>
+        <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>CT/WT</Text></View>
+        <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>PCS</Text></View>
+        <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text></View>
+        <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'right' }]}>AMOUNT (₹)</Text></View>
       </View>
     );
   }
@@ -78,25 +85,25 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
         <Text style={[styles.ssLabel, { color: labelColor, fontSize: fontSize, fontWeight: '800' }]} numberOfLines={1}>{label}</Text>
         {subLabel && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <Text style={{ fontSize: fontSize - 2, color: '#64748b', fontWeight: '800' }}>+ </Text>
+            <Text style={{ fontSize: fontSize - 2, color: Theme.colors.text.secondary, fontWeight: '800' }}>+ </Text>
             {showSubInput ? (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <TextInput 
-                  style={{ fontSize: fontSize - 2, fontWeight: '900', color: '#6366f1', padding: 0, minWidth: 20, textAlign: 'center' }} 
+                  style={{ fontSize: fontSize - 2, fontWeight: '900', color: Theme.colors.primary, padding: 0, minWidth: 20, textAlign: 'center' }} 
                   value={String(subValue || '')} 
                   onChangeText={onSubValueChange}
                   keyboardType="numeric"
                   selectTextOnFocus
                 />
-                <Text style={{ fontSize: fontSize - 3, color: '#94a3b8', fontWeight: '800' }}>% </Text>
+                <Text style={{ fontSize: fontSize - 3, color: Theme.colors.text.muted, fontWeight: '800' }}>% </Text>
               </View>
             ) : null}
-            <Text style={{ fontSize: fontSize - 2, color: '#64748b', fontWeight: '700' }}> {subLabel}</Text>
+            <Text style={{ fontSize: fontSize - 2, color: Theme.colors.text.secondary, fontWeight: '700' }}> {subLabel}</Text>
           </View>
         )}
       </View>
-      
-      <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
+
+      <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
@@ -104,6 +111,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
             onChangeText={onWeightChange} 
             keyboardType="numeric" 
             placeholder="0.00"
+            placeholderTextColor={Theme.colors.text.muted}
             selectTextOnFocus
           />
         ) : (
@@ -111,14 +119,15 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
+      <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable && onPcsChange ? (
           <TextInput 
-            style={[styles.ssInput, { fontSize: fontSize, width: '100%', color: '#6366f1', fontWeight: '800', textAlign: 'center' }]} 
+            style={[styles.ssInput, { fontSize: fontSize, width: '100%', color: Theme.colors.primary, fontWeight: '800', textAlign: 'center' }]} 
             value={String(pcs || '')} 
             onChangeText={onPcsChange} 
             keyboardType="numeric" 
             placeholder="P"
+            placeholderTextColor={Theme.colors.text.muted}
             selectTextOnFocus
           />
         ) : (
@@ -126,7 +135,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
+      <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable && onRateChange ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
@@ -134,15 +143,16 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
             onChangeText={onRateChange} 
             keyboardType="numeric" 
             placeholder="0"
+            placeholderTextColor={Theme.colors.text.muted}
             selectTextOnFocus
           />
         ) : (
           <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{rate ? num(rate).toLocaleString('en-IN') : '-'}</Text>
         )}
       </View>
-      
-      <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' }]}>
-        <Text style={[styles.ssText, { textAlign: 'right', fontWeight: '800', fontSize: fontSize, color: '#0f172a' }]} numberOfLines={1}>
+
+      <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+        <Text style={[styles.ssText, { textAlign: 'right', fontWeight: '800', fontSize: fontSize, color: Theme.colors.text.primary }]} numberOfLines={1}>
           {amount}
         </Text>
       </View>
@@ -153,36 +163,42 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
 export default function EstimationScreen({ route, navigation }: any) {
   const { item } = route.params;
   const { width } = useWindowDimensions();
+  const { role } = useRole();
   const isTablet = width > 768;
   const [loading, setLoading] = useState(true);
   const [stoneMaster, setStoneMaster] = useState<StoneMaster[]>([]);
   const [goldRate, setGoldRate] = useState(0);
   const [rateMap, setRateMap] = useState<any>({});
-  
-  const getInitialCalcData = () => {
+
+  const getInitialCalcData = (currentRateMap: any) => {
     const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
-    const defaultLabor = isDiamond ? '1200' : '550';
+    const defaultLabor = isDiamond 
+      ? (currentRateMap.default_labor_diamond || '1200') 
+      : (currentRateMap.default_labor_regular || '550');
+      
     return {
       gross_wt: String(item.gross_wt || 0),
       net_wt: String(item.net_wt || 0), 
-      cert_rate: '950',
-      making_gold_rate: defaultLabor,
-      wastage_pct: String(item.wastage || '22'),
-      tax_pct: '3',
+      cert_rate: String(currentRateMap.cert_rate_per_ct || '950'),
+      making_gold_rate: String(defaultLabor),
+      wastage_pct: String(item.wastage || currentRateMap.default_wastage_pct || '22'),
+      tax_pct: String(currentRateMap.tax_gst_pct || '3'),
       purity: item.purity || '18KT',
       name: item.name || 'Product',
+      prc_amount: num(item.prc_amount || 0),
     };
   };
 
-  const getInitialStones = () => {
+  const getInitialStones = (currentRateMap: any) => {
     let stones: any[] = [];
     try {
       if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
         stones = JSON.parse(item.stones_in_detail);
       } else {
         stones = [
-          { id: 'd1', label: 'Diamond (VVS-EF-RD)', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: '65000', category: 'Diamond' },
-          { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: '3500', category: 'Stone' }
+          { id: 'd1', label: 'Diamond (VVS-EF-RD)', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String(currentRateMap.diamond_rd_rate || '65000'), category: 'Diamond' },
+          { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: String(currentRateMap.stone_rate || '3500'), category: 'Stone' },
+          { id: 'b1', label: 'Beads', weight: '0', pcs: '0', rate: String(currentRateMap.default_beads_rate || '850'), category: 'Beads' }
         ];
       }
     } catch (e) { stones = []; }
@@ -196,25 +212,69 @@ export default function EstimationScreen({ route, navigation }: any) {
     }));
   };
 
-  const [calcData, setCalcData] = useState(getInitialCalcData);
-  const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>(getInitialStones);
+  const [calcData, setCalcData] = useState(() => getInitialCalcData({}));
+  const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>([]);
 
   useEffect(() => { fetchData(); }, []);
 
-  // Update rates when stones or master list changes
+  // Sync initial data when rateMap is loaded for the first time
   useEffect(() => {
-    if (stoneMaster.length > 0 && dynamicStones.length > 0) {
+    if (Object.keys(rateMap).length > 0) {
+      setCalcData(getInitialCalcData(rateMap));
+      setDynamicStones(getInitialStones(rateMap));
+    }
+  }, [rateMap]);
+
+  // Update rates when stones, master list or rate map changes
+  useEffect(() => {
+    if ((stoneMaster.length > 0 || Object.keys(rateMap).length > 0) && dynamicStones.length > 0) {
       const updated = dynamicStones.map(s => {
-        const dRate = getDynamicRate(s.label, num(s.weight), num(s.pcs), stoneMaster);
-        return dRate ? { ...s, rate: String(dRate) } : s;
+        if (s.isManualRate) return s;
+
+        // 1. Try to get specific rate from stone_master (SLAB logic)
+        const dRate = getDynamicRate(s.label, num(s.weight), num(s.pcs), stoneMaster, calcData.name);
+        
+        let finalRate = dRate ? String(dRate) : s.rate;
+
+        // 2. Fallback to Stone Master for exact name matches (important for Beads)
+        if (!dRate) {
+            const exactMaster = stoneMaster.find(m => m.name.toLowerCase().trim() === s.label.toLowerCase().trim());
+            if (exactMaster) finalRate = String(exactMaster.rate);
+        }
+
+        // 3. Fallback to master_rates for default items
+        if (!dRate && finalRate === '0') {
+            const label = s.label.toLowerCase();
+            if (label.includes('diamond') || label.includes('vvs') || label.includes('ef')) {
+                if (rateMap.diamond_rd_rate) finalRate = String(rateMap.diamond_rd_rate);
+            }
+            if (label.includes('color stone') || label.includes('stone')) {
+                if (rateMap.stone_rate) finalRate = String(rateMap.stone_rate);
+            }
+            if (label.includes('beads')) {
+                if (rateMap.default_beads_rate) finalRate = String(rateMap.default_beads_rate);
+            }
+        }
+
+        // Apply Emerald/Ruby Discount Rule
+        const normalizedName = s.label.toLowerCase().trim();
+        const normalizedProductName = calcData.name.toLowerCase().trim();
+        const discount = num(rateMap.emerald_ruby_discount || 1000);
+        
+        if ((normalizedName.includes('emerald') || normalizedName.includes('ruby')) && !normalizedProductName.startsWith('d')) {
+            finalRate = String(num(finalRate) - discount);
+        }
+
+        return { ...s, rate: finalRate };
       });
+      
       // Check for actual changes to prevent render loop
       const hasChanges = updated.some((s, idx) => s.rate !== dynamicStones[idx].rate);
       if (hasChanges) {
         setDynamicStones(updated);
       }
     }
-  }, [stoneMaster, dynamicStones]);
+  }, [stoneMaster, dynamicStones, rateMap, calcData.name]);
 
   useEffect(() => {
     if (Object.keys(rateMap).length > 0) {
@@ -250,27 +310,89 @@ export default function EstimationScreen({ route, navigation }: any) {
     .reduce((acc, s) => acc + num(s.weight), 0);
 
   const netWtFromDb = num(calcData.net_wt);
+  
+  // Tiered Special D Rule
+  const isDProduct = calcData.name.trim().toUpperCase().startsWith('D');
+  const t1Limit = num(rateMap.special_d_tier1_weight || 5.2);
+  const t1Labor = num(rateMap.special_d_tier1_labor || 10000);
+  const t2Limit = num(rateMap.special_d_tier2_weight || 8.0);
+  const t2Labor = num(rateMap.special_d_tier2_labor || 12000);
+
+  let makingGoldAmt = netWtFromDb * num(calcData.making_gold_rate);
+  let isSpecialD = false;
+
+  if (isDProduct) {
+    if (netWtFromDb <= t1Limit && netWtFromDb > 0) {
+      makingGoldAmt = t1Labor;
+      isSpecialD = true;
+    } else if (netWtFromDb < t2Limit && netWtFromDb > t1Limit) {
+      makingGoldAmt = t2Labor;
+      isSpecialD = true;
+    }
+  }
+
   const billingWt = netWtFromDb * (1 + (num(calcData.wastage_pct) / 100));
   const goldValue = billingWt * goldRate;
-  
+
   const stonesTotal = dynamicStones.reduce((acc, s) => acc + (num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate)), 0);
   const certCharges = diamondCarats * num(calcData.cert_rate);
-  const makingGoldAmt = netWtFromDb * num(calcData.making_gold_rate);
-  
+
   const subTotal = goldValue + stonesTotal + makingGoldAmt + certCharges;
   const totalINR = subTotal * (1 + (num(calcData.tax_pct) / 100));
 
-  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color="#6366f1" /></View>;
+  // ADMIN PROFIT CALCULATION
+  const purchaseAmount = num(calcData.prc_amount);
+  const profitAmt = totalINR - purchaseAmount;
+  const profitPct = purchaseAmount > 0 ? (profitAmt / purchaseAmount) * 100 : 0;
+  
+  // Wastage limit logic for admin
+  const isLoss = profitAmt < 0;
+  
+  const handleWastageChange = (v: string) => {
+    const newWastage = num(v);
+    const wastageFloor = num(rateMap.admin_wastage_limit || 18);
+    
+    if (role === 'admin') {
+      if (newWastage < wastageFloor) {
+        setCalcData({...calcData, wastage_pct: String(wastageFloor)});
+        return;
+      }
+      
+      // Calculate what profit would be with this new wastage
+      const testBillingWt = netWtFromDb * (1 + (newWastage / 100));
+      const testGoldVal = testBillingWt * goldRate;
+      
+      // Re-apply Tiered Labor in test
+      let testLabor = netWtFromDb * num(calcData.making_gold_rate);
+      if (isDProduct) {
+        if (netWtFromDb <= t1Limit && netWtFromDb > 0) testLabor = t1Labor;
+        else if (netWtFromDb < t2Limit && netWtFromDb > t1Limit) testLabor = t2Labor;
+      }
+
+      const testSubTotal = testGoldVal + stonesTotal + testLabor + certCharges;
+      const testTotalINR = testSubTotal * (1 + (num(calcData.tax_pct) / 100));
+      const testProfit = testTotalINR - purchaseAmount;
+      
+      if (testProfit < 0 && newWastage < num(calcData.wastage_pct)) {
+        Alert.alert('Limit Reached', 'Further decrease in wastage will result in a loss.');
+        return;
+      }
+    }
+    
+    setCalcData({...calcData, wastage_pct: v});
+  };
+
+  if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><X size={isTablet ? 28 : 20} color="#1e293b" /></TouchableOpacity>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}><X size={isTablet ? 28 : 20} color={Theme.colors.text.primary} /></TouchableOpacity>
         <View style={styles.headerTitleWrapper}>
-          <CalcIcon size={isTablet ? 24 : 18} color="#6366f1" />
+          <CalcIcon size={isTablet ? 24 : 18} color={Theme.colors.primary} />
           <Text style={[styles.headerTitle, { fontSize: isTablet ? 20 : 16 }]}>Bill Estimator</Text>
         </View>
-        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color="#6366f1" /></TouchableOpacity>
+        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color={Theme.colors.primary} /></TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
@@ -280,7 +402,7 @@ export default function EstimationScreen({ route, navigation }: any) {
               <View style={styles.skuBadge}><Text style={styles.skuText}>SKU: {item.sku || 'NEW'}</Text></View>
               <TouchableOpacity style={styles.purityBadge} onPress={() => setCalcData({...calcData, purity: calcData.purity === '18KT' ? '22KT' : '18KT'})}>
                 <Text style={styles.purityText}>{calcData.purity}</Text>
-                <ChevronDown size={10} color="#7c3aed" />
+                <ChevronDown size={10} color={Theme.colors.primary} />
               </TouchableOpacity>
             </View>
             <Text style={[styles.itemName, { fontSize: isTablet ? 22 : 16 }]} numberOfLines={1}>{calcData.name}</Text>
@@ -294,23 +416,23 @@ export default function EstimationScreen({ route, navigation }: any) {
 
         <View style={styles.tableContainer}>
           <SpreadsheetRow isHeader isTablet={isTablet} />
-          
+
           <SpreadsheetRow 
             label="GOLD (NET WT)" 
             subLabel="Wastage"
             showSubInput={true}
             subValue={calcData.wastage_pct}
-            onSubValueChange={(v: any) => setCalcData({...calcData, wastage_pct: v})}
-            weight={formatNum(netWtFromDb)} 
+            onSubValueChange={handleWastageChange}
+            weight={calcData.net_wt} 
             subWeight={`+ ${formatNum(billingWt - netWtFromDb)}g`}
             rate={goldRate} 
             amount={formatNum(goldValue)} 
             onWeightChange={(v: any) => setCalcData({...calcData, net_wt: v})}
-            bg="#f0f9ff" 
-            labelColor="#0369a1"
+            bg={Theme.colors.surface} 
+            labelColor={Theme.colors.primary}
             isTablet={isTablet} 
           />
-          
+
           {dynamicStones.map((s, idx) => (
             <SpreadsheetRow 
               key={s.id} 
@@ -320,19 +442,19 @@ export default function EstimationScreen({ route, navigation }: any) {
               rate={s.rate} 
               amount={formatNum(num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate))} 
               onWeightChange={(v: any) => {
-                const newRate = getDynamicRate(s.label, num(v), num(s.pcs), stoneMaster);
-                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: newRate ? String(newRate) : ds.rate} : ds));
+                const newRate = getDynamicRate(s.label, num(v), num(s.pcs), stoneMaster, calcData.name);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
               }} 
               onPcsChange={(v: any) => {
-                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster);
-                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate} : ds));
+                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster, calcData.name);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
               }} 
-              onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v} : ds))} 
-              bg={idx % 2 === 0 ? "#fff" : "#f8fafc"} 
+              onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v, isManualRate: true} : ds))} 
+              bg={idx % 2 === 0 ? Theme.colors.surface : Theme.colors.background} 
               isTablet={isTablet} 
             />
           ))}
-          
+
           {diamondCarats > 0 && (
             <SpreadsheetRow 
               label="Certification" 
@@ -340,24 +462,24 @@ export default function EstimationScreen({ route, navigation }: any) {
               rate={calcData.cert_rate} 
               amount={formatNum(certCharges)} 
               onRateChange={(v: any) => setCalcData({...calcData, cert_rate: v})}
-              bg="#fdf2f8" 
-              labelColor="#be185d"
+              bg={Theme.colors.surface} 
+              labelColor={Theme.colors.primary}
               isTablet={isTablet} 
             />
           )}
-          
+
           <View style={styles.tableDivider} />
 
           <SpreadsheetRow 
             label="Labour Charges" 
             weight={formatNum(netWtFromDb)} 
-            rate={calcData.making_gold_rate} 
+            rate={isSpecialD ? "-" : calcData.making_gold_rate} 
             amount={formatNum(makingGoldAmt)} 
-            onRateChange={(v: any) => setCalcData({...calcData, making_gold_rate: v})} 
-            bg="#fffbeb" 
+            onRateChange={isSpecialD ? null : (v: any) => setCalcData({...calcData, making_gold_rate: v})} 
+            bg={Theme.colors.surface} 
             isTablet={isTablet} 
           />
-          
+
           <View style={styles.summaryContainer}>
             <View style={styles.summaryLine}>
               <Text style={styles.summaryLabel}>Sub-Total Value</Text>
@@ -376,6 +498,37 @@ export default function EstimationScreen({ route, navigation }: any) {
             </View>
           </View>
         </View>
+
+        {role === 'admin' && purchaseAmount > 0 && (
+          <View style={styles.adminSection}>
+            <View style={styles.adminHeader}>
+              <TrendingUp size={20} color={Theme.colors.status.success} />
+              <Text style={styles.adminTitle}>ADMIN INSIGHTS</Text>
+            </View>
+            
+            <View style={styles.adminGrid}>
+              <View style={styles.adminStat}>
+                <Text style={styles.adminLabel}>Purchase Cost</Text>
+                <Text style={styles.adminValue}>₹{formatNum(purchaseAmount)}</Text>
+              </View>
+              
+              <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+                <Text style={styles.adminLabel}>Est. Profit</Text>
+                <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
+                  ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
+                </Text>
+              </View>
+            </View>
+            
+            {isLoss && (
+              <View style={styles.lossWarning}>
+                <TrendingDown size={14} color={Theme.colors.status.error} />
+                <Text style={styles.lossWarningText}>Currently selling at a loss</Text>
+              </View>
+            )}
+          </View>
+        )}
+
         <View style={{ height: 100 }} />
       </ScrollView>
     </SafeAreaView>
@@ -383,40 +536,97 @@ export default function EstimationScreen({ route, navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  backBtn: { padding: 8, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Theme.colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 12, backgroundColor: Theme.colors.background, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
+  backBtn: { padding: 8, backgroundColor: Theme.colors.surface, borderRadius: 8 },
   headerTitleWrapper: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle: { fontWeight: '900', color: '#0f172a', letterSpacing: -0.5 },
+  headerTitle: { fontWeight: '900', color: Theme.colors.primary, letterSpacing: -0.5 },
   refreshBtn: { padding: 8 },
   scrollContent: { padding: 12 },
   infoWrapper: { marginBottom: 12 },
   infoWrapperTablet: { flexDirection: 'row', alignItems: 'stretch' },
-  infoCard: { backgroundColor: '#fff', padding: 15, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  infoCard: { backgroundColor: Theme.colors.surface, padding: 15, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  skuBadge: { backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 4 },
-  skuText: { fontSize: 11, fontWeight: '700', color: '#64748b' },
-  purityBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f3ff', paddingHorizontal: 8, paddingVertical: 4, gap: 4, borderWidth: 1, borderColor: '#ddd6fe' },
-  purityText: { fontSize: 11, fontWeight: '800', color: '#7c3aed' },
-  itemName: { fontWeight: '900', color: '#1e293b' },
-  grossSection: { backgroundColor: '#064e3b', padding: 15, marginBottom: 12 },
-  grossLabel: { fontSize: 10, fontWeight: '800', color: '#34d399', marginBottom: 2, letterSpacing: 1 },
-  grossInput: { color: '#fff', padding: 0 },
-  tableContainer: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#e2e8f0' },
+  skuBadge: { backgroundColor: Theme.colors.muted, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
+  skuText: { fontSize: 11, fontWeight: '700', color: Theme.colors.text.secondary },
+  purityBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.muted, paddingHorizontal: 8, paddingVertical: 4, gap: 4, borderWidth: 1, borderColor: Theme.colors.border, borderRadius: 4 },
+  purityText: { fontSize: 11, fontWeight: '800', color: Theme.colors.primary },
+  itemName: { fontWeight: '900', color: Theme.colors.text.primary },
+  grossSection: { backgroundColor: Theme.colors.muted, padding: 15, marginBottom: 12, borderRadius: 8 },
+  grossLabel: { fontSize: 10, fontWeight: '800', color: Theme.colors.primary, marginBottom: 2, letterSpacing: 1 },
+  grossInput: { color: Theme.colors.text.primary, padding: 0 },
+  tableContainer: { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border },
   ssRow: { flexDirection: 'row', alignItems: 'center' },
   ssCell: { height: '100%', justifyContent: 'center', paddingHorizontal: 8 },
-  headerLabel: { fontWeight: '900', color: '#f8fafc', letterSpacing: 0.5 },
+  headerLabel: { fontWeight: '900', color: Theme.colors.text.primary, letterSpacing: 0.5 },
   ssLabel: { fontWeight: '800' },
-  ssText: { color: '#1e293b' },
-  ssInput: { color: '#1e293b', padding: 0, height: '100%' },
-  tableDivider: { height: 1, backgroundColor: '#e2e8f0' },
-  summaryContainer: { backgroundColor: '#0f172a', padding: 20 },
+  ssText: { color: Theme.colors.text.primary },
+  ssInput: { color: Theme.colors.text.primary, padding: 0, height: '100%' },
+  tableDivider: { height: 1, backgroundColor: Theme.colors.border },
+  summaryContainer: { backgroundColor: Theme.colors.muted, padding: 20 },
   summaryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  summaryLabel: { color: '#94a3b8', fontSize: 12, fontWeight: '600' },
-  summaryValue: { color: '#fff' },
-  gstInput: { color: '#6366f1', fontSize: 13, backgroundColor: '#ffffff15', paddingHorizontal: 8, paddingVertical: 2, minWidth: 40, textAlign: 'center' },
-  finalTotalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#ffffff20' },
-  finalTotalLabel: { color: '#f59e0b', fontSize: 14, fontWeight: '900', letterSpacing: 1 },
-  finalTotalValue: { color: '#fff' }
+  summaryLabel: { color: Theme.colors.text.secondary, fontSize: 12, fontWeight: '600' },
+  summaryValue: { color: Theme.colors.text.primary },
+  gstInput: { color: Theme.colors.primary, fontSize: 13, backgroundColor: Theme.colors.surface, paddingHorizontal: 8, paddingVertical: 2, minWidth: 40, textAlign: 'center', borderRadius: 4 },
+  finalTotalLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, paddingTop: 15, borderTopWidth: 1, borderTopColor: Theme.colors.border },
+  finalTotalLabel: { color: Theme.colors.primary, fontSize: 14, fontWeight: '900', letterSpacing: 1 },
+  finalTotalValue: { color: Theme.colors.text.primary },
+  adminSection: {
+    marginTop: 20,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
+    borderStyle: 'dashed',
+  },
+  adminHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  adminTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Theme.colors.text.primary,
+    letterSpacing: 1,
+  },
+  adminGrid: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.muted,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  adminStat: {
+    flex: 1,
+    padding: 12,
+  },
+  adminLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  adminValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  lossWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    padding: 8,
+    borderRadius: 8,
+  },
+  lossWarningText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: Theme.colors.status.error,
+  }
 });

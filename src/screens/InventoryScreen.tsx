@@ -9,6 +9,8 @@ import ItemFolderModal from '../components/ItemFolderModal';
 import ItemDetailsModal from '../components/ItemDetailsModal';
 import MoveModal from '../components/MoveModal';
 
+import { Theme } from '../theme';
+
 const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode, isSelected, onSelect, viewMode }: any) => (
   <TouchableOpacity 
     style={[
@@ -19,14 +21,14 @@ const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode,
   >
     {selectionMode && (
       <View style={styles.selectionIndicator}>
-        {isSelected ? <CheckCircle2 size={24} color="#6366f1" fill="#eef2ff" /> : <Circle size={24} color="#cbd5e1" />}
+        {isSelected ? <CheckCircle2 size={24} color={Theme.colors.primary} fill={Theme.colors.surface} /> : <Circle size={24} color={Theme.colors.text.secondary} />}
       </View>
     )}
     <View style={viewMode === 'grid' ? styles.folderIconGrid : styles.folderIcon}>
       {item.isVirtual ? (
-        <QrCode size={viewMode === 'grid' ? 40 : 28} color="#6366f1" />
+        <QrCode size={viewMode === 'grid' ? 40 : 28} color={Theme.colors.primary} />
       ) : (
-        <Folder size={viewMode === 'grid' ? 40 : 28} color="#6366f1" fill="#eef2ff" />
+        <Folder size={viewMode === 'grid' ? 40 : 28} color={Theme.colors.primary} fill={Theme.colors.surface} />
       )}
     </View>
     <View style={viewMode === 'grid' ? styles.infoGrid : styles.info}>
@@ -37,16 +39,16 @@ const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode,
       <View style={styles.rightSection}>
         <View style={styles.controls}>
           <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
-            <Edit2 size={16} color="#6366f1" />
+            <Edit2 size={16} color={Theme.colors.primary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.actionBtn} onPress={() => onMove(item, 'folder')}>
-            <Move size={16} color="#64748b" />
+            <Move size={16} color={Theme.colors.text.secondary} />
           </TouchableOpacity>
           <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id, item.name, 'folder')}>
-            <Trash2 size={16} color="#ef4444" />
+            <Trash2 size={16} color={Theme.colors.status.error} />
           </TouchableOpacity>
         </View>
-        <ChevronRight size={18} color="#cbd5e1" />
+        <ChevronRight size={18} color={Theme.colors.text.secondary} />
       </View>
     )}
   </TouchableOpacity>
@@ -62,14 +64,14 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
   >
     {selectionMode && (
       <View style={styles.selectionIndicator}>
-        {isSelected ? <CheckCircle2 size={24} color="#6366f1" fill="#eef2ff" /> : <Circle size={24} color="#cbd5e1" />}
+        {isSelected ? <CheckCircle2 size={24} color={Theme.colors.primary} fill={Theme.colors.surface} /> : <Circle size={24} color={Theme.colors.text.secondary} />}
       </View>
     )}
     <View style={viewMode === 'grid' ? styles.itemIconGrid : styles.itemIcon}>
       {item.image_url ? (
         <Image source={{ uri: item.image_url }} style={styles.itemThumb} />
       ) : (
-        <Package size={viewMode === 'grid' ? 32 : 24} color="#94a3b8" />
+        <Package size={viewMode === 'grid' ? 32 : 24} color={Theme.colors.text.secondary} />
       )}
     </View>
     <View style={viewMode === 'grid' ? styles.infoGrid : styles.info}>
@@ -98,25 +100,23 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
         {!selectionMode && (
           <View style={styles.controls}>
             {isExhibitionFolder && (
-              <TouchableOpacity 
-                style={[styles.actionBtn, { backgroundColor: '#e0f2fe' }]} 
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: Theme.colors.surface }]}
                 onPress={() => onMoveBack(item)}
-                title="Move Back"
-              >
-                <ArrowLeft size={16} color="#0284c7" />
+              >                <ArrowLeft size={16} color={Theme.colors.primary} />
               </TouchableOpacity>
             )}
             <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
-              <Edit2 size={16} color="#6366f1" />
+              <Edit2 size={16} color={Theme.colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionBtn} onPress={() => onMove(item, 'item')}>
-              <Move size={16} color="#64748b" />
+              <Move size={16} color={Theme.colors.text.secondary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.qrBtn} onPress={() => onShowQR(item)}>
-              <QrCode size={16} color="#6366f1" />
+              <QrCode size={16} color={Theme.colors.primary} />
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id, item.name, 'item')}>
-              <Trash2 size={16} color="#ef4444" />
+              <Trash2 size={16} color={Theme.colors.status.error} />
             </TouchableOpacity>
           </View>
         )}
@@ -125,7 +125,7 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
   </TouchableOpacity>
 );
 
-export default function InventoryScreen({ navigation }: { navigation?: any }) {
+export default function InventoryScreen({ onEstimation }: { onEstimation: (item: any) => void }) {
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
@@ -148,9 +148,11 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
   
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [masterRates, setMasterRates] = useState<any>({});
+
   const [cameraActive, setCameraActive] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  
+
   const { role } = useRole();
   // const navigation = useNavigation(); // REMOVED
 
@@ -173,9 +175,9 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
         .from('items')
         .select('location')
         .not('location', 'is', null);
-      
+
       if (error) throw error;
-      
+
       const uniqueLocations = Array.from(new Set(data.map(i => i.location))).sort();
       setLocations(['All Locations', ...uniqueLocations]);
     } catch (error) {
@@ -253,14 +255,33 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
     if (!items || items.length === 0) {
       return { folders: folders.length, items: 0, totalQty: 0, totalValue: 0 };
     }
+
+    const goldRate = masterRates.gold_18kt || 0;
+    const diamondRate = masterRates.diamond_rd_rate || 65000;
+    const stoneRate = masterRates.stone_rate || 3500;
+    const certRate = masterRates.cert_rate_per_ct || 950;
+    const taxPct = masterRates.tax_gst_pct || 3;
+
     const totalItems = items.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
     const totalValue = items.reduce((acc, item) => {
-      const qty = parseInt(item.quantity) || 0;
-      const itemCost = (parseFloat(item.labour_amt) || 0) + 
-                       (parseFloat(item.dia_purchase_amt) || 0) + 
-                       (parseFloat(item.stone_purchase_amt) || 0) +
-                       (parseFloat(item.other_charges) || 0);
-      return acc + (itemCost * qty);
+      const qty = parseFloat(String(item.quantity)) || 0;
+      if (qty <= 0) return acc;
+
+      const netWt = parseFloat(String(item.net_wt)) || 0;
+      const wastagePct = parseFloat(String(item.wastage)) || 22;
+      const billingWt = netWt * (1 + (wastagePct / 100));
+      const goldValue = billingWt * goldRate;
+
+      const daiWt = parseFloat(String(item.dai_wt)) || 0;
+      const clrStoneWt = parseFloat(String(item.clr_stone_wt)) || 0;
+      const stonesValue = (daiWt * diamondRate) + (clrStoneWt * stoneRate);
+
+      const labourAmt = parseFloat(String(item.labour_amt)) || 0;
+      const certCharges = (item.name || '').trim().toUpperCase().startsWith('D') ? (daiWt * certRate) : 0;
+      const otherCharges = parseFloat(String(item.other_charges)) || 0;
+
+      const itemTotal = (goldValue + stonesValue + labourAmt + certCharges + otherCharges) * (1 + (taxPct / 100));
+      return acc + (itemTotal * qty);
     }, 0);
 
     return {
@@ -271,12 +292,18 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
     };
   };
 
+
   const stats = calculateStats();
 
   const fetchContents = async () => {
     try {
       setLoading(true);
       const parentId = currentFolder ? currentFolder.id : null;
+
+      // Fetch dynamic timer from settings
+      const { data: settings } = await supabase.from('master_rates').select('*');
+      const timerHours = settings?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
+      const timerMs = timerHours * 60 * 60 * 1000;
 
       if (currentFolder?.id === 'virtual-exhibition') {
         // Fetch items in exhibition
@@ -287,14 +314,14 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
         
         if (exError) throw exError;
 
-        // Auto-revert logic: Filter out items > 24 hours and background update them
+        // Auto-revert logic: Filter out items > X hours and background update them
         const now = Date.now();
         const activeItems: any[] = [];
         const expiredIds: string[] = [];
 
         (exItems || []).forEach(item => {
           const addedAt = new Date(item.exhibition_added_at).getTime();
-          if (now - addedAt < 24 * 60 * 60 * 1000) {
+          if (now - addedAt < timerMs) {
             activeItems.push(item);
           } else {
             expiredIds.push(item.id);
@@ -342,12 +369,12 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
       const { data: itemData, error: itemError } = await query.order('name');
       if (itemError) throw itemError;
 
-      // Filter out items that are currently in exhibition (within 24 hours)
+      // Filter out items that are currently in exhibition (within limit)
       const now = Date.now();
       const filteredItems = (itemData || []).filter(item => {
         if (item.in_exhibition) {
           const addedAt = new Date(item.exhibition_added_at).getTime();
-          return now - addedAt >= 24 * 60 * 60 * 1000;
+          return now - addedAt >= timerMs;
         }
         return true;
       });
@@ -375,7 +402,7 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
       
       if (error) throw error;
       if (data && data.length > 0) {
-        Alert.alert('Success', `Item "${data[0].name}" added to Exhibition for 24 hours.`);
+        Alert.alert('Success', `Item "${data[0].name}" added to Exhibition.`);
         fetchContents();
         setSkuInput('');
         setIsScanning(false);
@@ -764,18 +791,16 @@ export default function InventoryScreen({ navigation }: { navigation?: any }) {
         initialData={editingItem}
       />
 
-      <ItemDetailsModal 
-        isVisible={isDetailsVisible}
-        onClose={() => setIsDetailsVisible(false)}
-        item={selectedItem}
-        onEdit={openEditModal}
-        onEstimate={(item) => {
-          setIsDetailsVisible(false);
-          // @ts-ignore
-          navigation.navigate('Estimation', { item });
-        }}
+      <ItemDetailsModal
+       isVisible={isDetailsVisible}
+       onClose={() => setIsDetailsVisible(false)}
+       item={selectedItem}
+       onEdit={openEditModal}
+       onEstimate={(item) => {
+         setIsDetailsVisible(false);
+         onEstimation(item);
+       }}
       />
-
       <MoveModal
         isVisible={moveModalVisible}
         onClose={() => setMoveModalVisible(false)}
@@ -857,7 +882,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -872,15 +897,15 @@ const styles = StyleSheet.create({
   },
   backBtn: {
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     elevation: 2,
     ...Platform.select({
-      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.05)' },
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.2)' },
       default: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.2,
         shadowRadius: 5,
       }
     }),
@@ -888,11 +913,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   headerActions: {
@@ -902,41 +927,41 @@ const styles = StyleSheet.create({
   },
   refreshButton: {
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
     })
   },
   activeSelectionBtn: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   addButton: {
-    backgroundColor: '#6366f1',
+    backgroundColor: Theme.colors.primary,
     width: 44,
     height: 44,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }
+      web: { boxShadow: `0 4px 12px ${Theme.colors.primary}4D` }
     })
   },
   summaryBar: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 15,
     padding: 12,
     marginBottom: 20,
     elevation: 1,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     justifyContent: 'space-between',
     ...Platform.select({
-      web: { boxShadow: '0 1px 10px rgba(0,0,0,0.03)' }
+      web: { boxShadow: '0 1px 10px rgba(0,0,0,0.1)' }
     })
   },
   summaryItem: {
@@ -946,33 +971,33 @@ const styles = StyleSheet.create({
   summaryDivider: {
     width: 1,
     height: '100%',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.border,
   },
   summaryLabel: {
     fontSize: 9,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   summaryValue: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     marginTop: 2,
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     paddingHorizontal: 15,
     paddingVertical: 12,
     borderRadius: 15,
     gap: 10,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     ...Platform.select({
-      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.1)' }
     })
   },
   filterRow: {
@@ -989,35 +1014,35 @@ const styles = StyleSheet.create({
   locBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     gap: 6,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
     })
   },
   activeLocBadge: {
-    backgroundColor: '#6366f1',
-    borderColor: '#6366f1',
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
   },
   locBadgeText: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
   },
   activeLocBadgeText: {
-    color: '#fff',
+    color: Theme.colors.background,
   },
   selectionBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#eef2ff',
+    backgroundColor: Theme.colors.surface,
     paddingHorizontal: 15,
     paddingVertical: 10,
     borderRadius: 12,
@@ -1026,7 +1051,7 @@ const styles = StyleSheet.create({
   selectionText: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#6366f1',
+    color: Theme.colors.primary,
   },
   selectionActions: {
     flexDirection: 'row',
@@ -1035,19 +1060,19 @@ const styles = StyleSheet.create({
   selectionActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 6,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
     })
   },
   selectionActionText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#6366f1',
+    color: Theme.colors.primary,
   },
   selectionCancelBtn: {
     paddingVertical: 6,
@@ -1056,12 +1081,12 @@ const styles = StyleSheet.create({
   selectionCancelText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   list: {
     paddingBottom: 20,
@@ -1072,30 +1097,30 @@ const styles = StyleSheet.create({
   },
   folderCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 18,
     padding: 16,
     alignItems: 'center',
     elevation: 1,
     ...Platform.select({
-      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.1)' }
     })
   },
   folderCardGrid: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 18,
     padding: 12,
     alignItems: 'flex-start',
     elevation: 1,
     ...Platform.select({
-      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.02)' }
+      web: { boxShadow: '0 1px 5px rgba(0,0,0,0.1)' }
     })
   },
   selectedCard: {
-    borderColor: '#6366f1',
+    borderColor: Theme.colors.primary,
     borderWidth: 2,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.muted,
   },
   selectionIndicator: {
     position: 'absolute',
@@ -1106,7 +1131,7 @@ const styles = StyleSheet.create({
   folderIcon: {
     width: 48,
     height: 48,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1114,7 +1139,7 @@ const styles = StyleSheet.create({
   folderIconGrid: {
     width: 44,
     height: 44,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1123,41 +1148,41 @@ const styles = StyleSheet.create({
   folderName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   folderSubtext: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   itemCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 18,
     padding: 16,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.01)' }
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
     })
   },
   itemCardGrid: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 18,
     padding: 12,
     alignItems: 'flex-start',
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
     ...Platform.select({
-      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.01)' }
+      web: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }
     })
   },
   itemIcon: {
     width: 48,
     height: 48,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1166,7 +1191,7 @@ const styles = StyleSheet.create({
   itemIconGrid: {
     width: '100%',
     aspectRatio: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1191,12 +1216,12 @@ const styles = StyleSheet.create({
   },
   metaDivider: {
     marginHorizontal: 6,
-    color: '#cbd5e1',
+    color: Theme.colors.text.muted,
     fontSize: 12,
   },
   itemPurity: {
     fontSize: 12,
-    color: '#6366f1',
+    color: Theme.colors.primary,
     fontWeight: '700',
   },
   jewelryStats: {
@@ -1207,7 +1232,7 @@ const styles = StyleSheet.create({
   jewelryStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
@@ -1215,22 +1240,22 @@ const styles = StyleSheet.create({
   },
   statLabelText: {
     fontSize: 10,
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   statValueText: {
     fontSize: 10,
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     fontWeight: '700',
   },
   itemName: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   itemSku: {
     fontSize: 11,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
   },
   controls: {
     flexDirection: 'row',
@@ -1244,43 +1269,47 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     padding: 6,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
   },
   deleteBtn: {
     padding: 6,
-    backgroundColor: '#fff1f2',
+    backgroundColor: `${Theme.colors.status.error}22`,
     borderRadius: 8,
   },
   qrBtn: {
     padding: 6,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: Theme.colors.background,
     borderRadius: 8,
   },
   qtyBadge: {
-    backgroundColor: '#eef2ff',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     minWidth: 35,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
   },
   qtyBadgeGrid: {
     position: 'absolute',
     top: 6,
     left: 6,
-    backgroundColor: '#eef2ff',
+    backgroundColor: Theme.colors.background,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
     zIndex: 5,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
   },
   qtyText: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#6366f1',
+    color: Theme.colors.primary,
   },
   center: {
     flex: 1,
@@ -1292,29 +1321,29 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   emptyText: {
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   qrCard: {
-    backgroundColor: 'white',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 32,
     padding: 30,
     alignItems: 'center',
     elevation: 5,
     ...Platform.select({
-      web: { boxShadow: '0 10px 40px rgba(0,0,0,0.1)' },
+      web: { boxShadow: '0 10px 40px rgba(0,0,0,0.3)' },
       default: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.1,
+        shadowOpacity: 0.3,
         shadowRadius: 20,
       }
     })
@@ -1328,6 +1357,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     marginBottom: 20,
+    color: Theme.colors.text.primary,
   },
   qrContainer: {
     padding: 15,
@@ -1336,7 +1366,6 @@ const styles = StyleSheet.create({
   },
   qrHint: {
     marginTop: 20,
-    color: '#64748b',
+    color: Theme.colors.text.secondary,
   }
 });
-

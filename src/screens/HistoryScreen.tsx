@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, FlatList, ActivityIndicator, TouchableOpacity, Platform } from 'react-native';
 import { ArrowUpRight, ArrowDownLeft, RefreshCcw, Clock } from 'lucide-react-native';
 import { supabase } from '../../supabase';
+
+import { Theme } from '../theme';
 
 export default function HistoryScreen() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -36,27 +38,33 @@ export default function HistoryScreen() {
 
   const renderItem = ({ item }: any) => {
     const isIncoming = item.type === 'IN';
+    const isScan = item.type === 'SCAN';
     const date = new Date(item.created_at).toLocaleDateString();
     const time = new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
+    let badgeColor = Theme.colors.status.info;
+    if (isIncoming) badgeColor = Theme.colors.status.success;
+    if (item.type === 'OUT') badgeColor = Theme.colors.status.error;
+
     return (
       <View style={styles.card}>
-        <View style={[styles.iconBadge, { backgroundColor: isIncoming ? '#f0fdf4' : '#fff7ed' }]}>
+        <View style={[styles.iconBadge, { backgroundColor: `${badgeColor}15` }]}>
           {isIncoming ? 
-            <ArrowDownLeft size={20} color="#15803d" /> : 
-            <ArrowUpRight size={20} color="#c2410c" />
+            <ArrowDownLeft size={20} color={badgeColor} /> : 
+            (isScan ? <Clock size={20} color={badgeColor} /> : <ArrowUpRight size={20} color={badgeColor} />)
           }
         </View>
         <View style={styles.info}>
           <Text style={styles.itemName}>{item.items?.name || 'Deleted Item'}</Text>
           <View style={styles.metaRow}>
-            <Clock size={12} color="#94a3b8" />
+            <Clock size={12} color={Theme.colors.text.secondary} />
             <Text style={styles.metaText}>{date} • {time}</Text>
           </View>
+          {item.reason && <Text style={[styles.metaText, { marginTop: 2 }]}>{item.reason}</Text>}
         </View>
         <View style={styles.qtyContainer}>
-          <Text style={[styles.qtyText, { color: isIncoming ? '#15803d' : '#c2410c' }]}>
-            {isIncoming ? '+' : '-'}{item.quantity_changed}
+          <Text style={[styles.qtyText, { color: badgeColor }]}>
+            {isIncoming ? '+' : (isScan ? '' : '-')}{item.quantity_changed}
           </Text>
           <Text style={styles.typeText}>{item.type}</Text>
         </View>
@@ -69,13 +77,13 @@ export default function HistoryScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Activity Log</Text>
         <TouchableOpacity onPress={fetchHistory} style={styles.refreshButton}>
-          <RefreshCcw size={20} color="#6366f1" />
+          <RefreshCcw size={20} color={Theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#6366f1" />
+          <ActivityIndicator size="large" color={Theme.colors.primary} />
         </View>
       ) : (
         <FlatList 
@@ -86,7 +94,7 @@ export default function HistoryScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Clock size={48} color="#e2e8f0" />
+              <Clock size={48} color={Theme.colors.border} />
               <Text style={styles.emptyText}>No activity recorded yet</Text>
               <Text style={styles.emptySubtext}>Adjust stock levels to see history here</Text>
             </View>
@@ -101,7 +109,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -112,30 +120,37 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   refreshButton: {
     padding: 8,
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderColor: Theme.colors.border,
   },
   list: {
     paddingBottom: 20,
   },
   card: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: Theme.colors.surface,
     borderRadius: 20,
     padding: 16,
     marginBottom: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    ...Platform.select({
+      web: { boxShadow: '0 2px 10px rgba(0,0,0,0.2)' },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 10,
+        elevation: 2,
+      }
+    }),
   },
   iconBadge: {
     width: 44,
@@ -151,7 +166,7 @@ const styles = StyleSheet.create({
   itemName: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
   metaRow: {
     flexDirection: 'row',
@@ -161,7 +176,7 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     fontWeight: '500',
   },
   qtyContainer: {
@@ -174,7 +189,7 @@ const styles = StyleSheet.create({
   typeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     textTransform: 'uppercase',
   },
   center: {
@@ -187,13 +202,13 @@ const styles = StyleSheet.create({
     marginTop: 100,
   },
   emptyText: {
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
     marginTop: 10,
     fontSize: 18,
     fontWeight: '700',
   },
   emptySubtext: {
-    color: '#94a3b8',
+    color: Theme.colors.text.secondary,
     marginTop: 4,
     fontSize: 14,
     textAlign: 'center',
