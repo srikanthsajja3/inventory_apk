@@ -324,6 +324,8 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
   );
 };
 
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
+
 export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEstimation, onNavigate }: { onUpdateGoldRate?: () => void, onManageStones?: () => void, onEstimation?: (item: any) => void, onNavigate?: (tab: string) => void }) {
   const [stats, setStats] = useState({ total: 0, lowStock: 0, salesToday: 0, inventoryValue: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -335,40 +337,27 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
   const [showEmployeesModal, setShowEmployeesModal] = useState(false);
   const { role } = useRole();
 
+  const { calculateEstimation } = useJewelryCalc();
+
   const fetchDashboardData = async () => {
     try {
       setLoading(true);
       
       const { data: settings } = await supabase.from('master_rates').select('*');
-      const threshold = settings?.find(s => s.key === 'low_stock_threshold')?.value || 5;
-      const goldRate = settings?.find(s => s.key === 'gold_18kt')?.value || 0;
-      const diamondRate = settings?.find(s => s.key === 'diamond_rd_rate')?.value || 65000;
-      const stoneRate = settings?.find(s => s.key === 'stone_rate')?.value || 3500;
-      const certRate = settings?.find(s => s.key === 'cert_rate_per_ct')?.value || 950;
-      const taxPct = settings?.find(s => s.key === 'tax_gst_pct')?.value || 3;
+      const rateMap: any = {};
+      settings?.forEach(r => { rateMap[r.key] = r.value; });
+
+      const threshold = rateMap.low_stock_threshold || 5;
 
       const { data: allItems, count: totalCount } = await supabase.from('items').select('*', { count: 'exact' });
       const lowCount = (allItems || []).filter(i => (i.quantity || 0) < threshold).length;
 
-      // Calculate Total Inventory Value
+      // Calculate Total Inventory Value using centralized hook
       const totalInventoryValue = (allItems || []).reduce((acc, item) => {
         const qty = parseFloat(String(item.quantity)) || 0;
         if (qty <= 0) return acc;
 
-        const netWt = parseFloat(String(item.net_wt)) || 0;
-        const wastagePct = parseFloat(String(item.wastage)) || 22;
-        const billingWt = netWt * (1 + (wastagePct / 100));
-        const goldValue = billingWt * goldRate;
-
-        const daiWt = parseFloat(String(item.dai_wt)) || 0;
-        const clrStoneWt = parseFloat(String(item.clr_stone_wt)) || 0;
-        const stonesValue = (daiWt * diamondRate) + (clrStoneWt * stoneRate);
-
-        const labourAmt = parseFloat(String(item.labour_amt)) || 0;
-        const certCharges = (item.name || '').trim().toUpperCase().startsWith('D') ? (daiWt * certRate) : 0;
-        const otherCharges = parseFloat(String(item.other_charges)) || 0;
-
-        const itemTotal = (goldValue + stonesValue + labourAmt + certCharges + otherCharges) * (1 + (taxPct / 100));
+        const itemTotal = calculateEstimation(item, rateMap);
         return acc + (itemTotal * qty);
       }, 0);
 
@@ -383,15 +372,26 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
       const { data: allSales } = await supabase.from('sales').select('sale_amount, prc_amount, sold_by').order('sold_at', { ascending: false });
       
       const staffMap = (allSales || []).reduce((acc: any, curr: any) => {
-        const staff = curr.sold_by || 'Unknown';
+        const soldBy = curr.sold_by || 'Unknown';
+        // Split staff names if multiple (comma separated)
+        const staffMembers = soldBy.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
+        
         const saleAmt = parseFloat(String(curr.sale_amount)) || 0;
         const purchaseAmt = parseFloat(String(curr.prc_amount)) || 0;
         const profit = saleAmt - purchaseAmt;
 
-        if (!acc[staff]) acc[staff] = { name: staff, count: 0, sales: 0, profit: 0 };
-        acc[staff].count += 1;
-        acc[staff].sales += saleAmt;
-        acc[staff].profit += profit;
+        // Divide credit among staff members
+        const countShare = 1 / staffMembers.length;
+        const saleShare = saleAmt / staffMembers.length;
+        const profitShare = profit / staffMembers.length;
+
+        staffMembers.forEach((staff: string) => {
+          if (!acc[staff]) acc[staff] = { name: staff, count: 0, sales: 0, profit: 0 };
+          acc[staff].count += countShare;
+          acc[staff].sales += saleShare;
+          acc[staff].profit += profitShare;
+        });
+        
         return acc;
       }, {});
 
@@ -526,9 +526,9 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
                 <Text style={styles.staffName}>{staff.name}</Text>
                 <Text style={styles.staffSales}>₹{staff.sales.toLocaleString('en-IN')}</Text>
                 <View style={styles.staffMeta}>
-                  <Text style={styles.staffMetaText}>{staff.count} Sales</Text>
+                  <Text style={styles.staffMetaText}>{Number(staff.count).toFixed(staff.count % 1 === 0 ? 0 : 1)} Sales</Text>
                   <Text style={[styles.staffMetaText, { color: staff.profit >= 0 ? Theme.colors.status.success : Theme.colors.status.error }]}>
-                    ₹{staff.profit.toLocaleString('en-IN')} P/L
+                    ₹{Math.round(staff.profit).toLocaleString('en-IN')} P/L
                   </Text>
                 </View>
               </View>

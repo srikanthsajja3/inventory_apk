@@ -264,11 +264,12 @@ export default function ImportScreen() {
       }
 
       const updates = items.map(item => {
-        const cleanSku = item.sku.replace(/-/g, '').trim();
+        const sku = item.sku || '';
+        const cleanSku = sku.replace(/-/g, '').trim();
         const cleanLabel = item.label_no ? item.label_no.replace(/-/g, '').trim() : cleanSku;
         let newName = item.name;
-        if (item.name.includes(item.sku)) {
-          newName = item.name.replace(item.sku, cleanSku);
+        if (sku && item.name.includes(sku)) {
+          newName = item.name.replace(sku, cleanSku);
         }
         return {
           ...item,

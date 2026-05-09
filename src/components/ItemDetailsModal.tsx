@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag } from 'lucide-react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
@@ -68,6 +68,51 @@ const DetailRow = ({ label, value, icon: Icon }: any) => {
   );
 };
 
+const StoneDetailsList = ({ stonesJson }: { stonesJson: string | null }) => {
+  if (!stonesJson) return null;
+  
+  try {
+    const stones = JSON.parse(stonesJson);
+    if (!Array.isArray(stones) || stones.length === 0) return null;
+
+    return (
+      <View style={styles.stoneListContainer}>
+        {stones.map((stone: any, index: number) => (
+          <View key={stone.id || index} style={styles.stoneCard}>
+            <View style={styles.stoneCardHeader}>
+              <View style={styles.stoneIconContainer}>
+                <Gem size={18} color={Theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.stoneName}>{stone.name || 'Stone'}</Text>
+                <Text style={styles.stoneCategory}>{stone.category || 'Detail'}</Text>
+              </View>
+            </View>
+            <View style={styles.stoneCardGrid}>
+              <View style={styles.stoneGridItem}>
+                <Text style={styles.stoneGridLabel}>Weight</Text>
+                <Text style={styles.stoneGridValue}>{stone.weight}g</Text>
+              </View>
+              <View style={styles.stoneGridItem}>
+                <Text style={styles.stoneGridLabel}>Pieces</Text>
+                <Text style={styles.stoneGridValue}>{stone.pcs}</Text>
+              </View>
+              {stone.rate && (
+                <View style={styles.stoneGridItem}>
+                  <Text style={styles.stoneGridLabel}>Rate</Text>
+                  <Text style={styles.stoneGridValue}>₹{stone.rate}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  } catch (e) {
+    return <Text style={styles.detailValue}>{stonesJson}</Text>;
+  }
+};
+
 const SectionHeader = ({ title }: { title: string }) => (
   <View style={styles.sectionHeader}>
     <Text style={styles.sectionTitle}>{title}</Text>
@@ -75,84 +120,15 @@ const SectionHeader = ({ title }: { title: string }) => (
   </View>
 );
 
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
+
 const EstimationBadge = ({ item }: { item: any }) => {
-  const [rates, setRates] = useState<any>({});
-  const [loading, setLoading] = useState(true);
+  const { calculateEstimation, loading } = useJewelryCalc();
 
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const { data } = await supabase
-          .from('master_rates')
-          .select('key, value');
-        if (data) {
-          const rateMap: any = {};
-          data.forEach(r => { rateMap[r.key] = r.value; });
-          setRates(rateMap);
-        }
-      } catch (e) {
-        console.error('Rates Fetch Error:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchRates();
-  }, [item.id]);
+  if (loading) return null;
 
-  if (loading || Object.keys(rates).length === 0) return null;
-
-  const num = (v: any) => parseFloat(String(v)) || 0;
-  const goldRate = rates.gold_18kt || 0;
-  const diamondRate = rates.diamond_rd_rate || 65000;
-  const stoneRate = rates.stone_rate || 3500;
-  const certRate = rates.cert_rate_per_ct || 950;
-  const taxPct = rates.tax_gst_pct || 3;
-
-  const grossWt = num(item.gross_wt);
-  const wastagePct = num(item.wastage || rates.default_wastage_pct || 22);
-  const netWt = num(item.net_wt) || (grossWt * 0.8);
-  const billingWt = netWt * (1 + (wastagePct / 100));
-  const goldValue = billingWt * goldRate;
-  
-  const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
-  
-  // Tiered Special D Rule
-  const t1Limit = num(rates.special_d_tier1_weight || 5.2);
-  const t1Labor = num(rates.special_d_tier1_labor || 10000);
-  const t2Limit = num(rates.special_d_tier2_weight || 8.0);
-  const t2Labor = num(rates.special_d_tier2_labor || 12000);
-  const defaultLaborDiamond = num(rates.default_labor_diamond || 1200);
-  const defaultLaborRegular = num(rates.default_labor_regular || 550);
-
-  let makingValue = netWt * (isDiamond ? defaultLaborDiamond : defaultLaborRegular);
-
-  if (isDiamond) {
-    if (netWt <= t1Limit && netWt > 0) {
-      makingValue = t1Labor;
-    } else if (netWt < t2Limit && netWt > t1Limit) {
-      makingValue = t2Labor;
-    }
-  }
-  
-  let stonesValue = 0;
-  try {
-    if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
-      const stones = JSON.parse(item.stones_in_detail);
-      stonesValue = stones.reduce((acc: number, s: any) => {
-        const sWt = num(s.weight);
-        const sPcs = num(s.pcs);
-        const sRate = num(s.rate);
-        return acc + (sWt === 0 ? sPcs * sRate : sWt * sRate);
-      }, 0);
-    } else {
-      stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
-    }
-  } catch (e) {
-    stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
-  }
-
-  const certCharges = isDiamond ? (num(item.dai_wt) * certRate) : 0;
-  const total = (goldValue + stonesValue + makingValue + certCharges) * (1 + (taxPct / 100));
+  const total = calculateEstimation(item);
+  if (total === 0) return null;
 
   return (
     <View style={styles.estimationBadge}>
@@ -174,7 +150,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [saleAmount, setSaleAmount] = useState('');
   const [selling, setSelling] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
-  const [selectedEmployee, setSelectedEmployee] = useState<string>('');
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const { role, user } = useRole();
 
   useEffect(() => {
@@ -200,7 +176,37 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   };
 
   const fetchLogs = async () => {
-    // ... (keep fetchLogs implementation)
+    if (!item?.id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          id,
+          type,
+          quantity_changed,
+          reason,
+          created_at,
+          performed_by_name
+        `)
+        .eq('item_id', item.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setLogs(data || []);
+    } catch (e: any) {
+      console.error('Fetch Logs Error:', e.message);
+    }
+  };
+
+  const { calculateEstimation, rates } = useJewelryCalc();
+
+  const toggleEmployee = (name: string) => {
+    setSelectedEmployees(prev => 
+      prev.includes(name) 
+        ? prev.filter(n => n !== name) 
+        : [...prev, name]
+    );
   };
 
   const handleSell = async () => {
@@ -217,68 +223,19 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
       return;
     }
 
-    if (!selectedEmployee) {
-      Alert.alert('Error', 'Please select a staff member');
+    if (selectedEmployees.length === 0) {
+      Alert.alert('Error', 'Please select at least one staff member');
       return;
     }
 
     try {
       setSelling(true);
       
+      // Join staff names for DB storage
+      const staffNames = selectedEmployees.join(', ');
+      
       // Calculate real purchase price (estimated value) for P/L
-      const { data: ratesData } = await supabase.from('master_rates').select('key, value');
-      const rates: any = {};
-      ratesData?.forEach(r => { rates[r.key] = r.value; });
-
-      const numVal = (v: any) => parseFloat(String(v)) || 0;
-      const goldRate = rates.gold_18kt || 0;
-      const diamondRate = rates.diamond_rd_rate || 65000;
-      const stoneRate = rates.stone_rate || 3500;
-      const certRate = rates.cert_rate_per_ct || 950;
-      const taxPct = rates.tax_gst_pct || 3;
-
-      const grossWt = numVal(item.gross_wt);
-      const wastagePct = numVal(item.wastage || rates.default_wastage_pct || 22);
-      const netWt = numVal(item.net_wt) || (grossWt * 0.8);
-      const billingWt = netWt * (1 + (wastagePct / 100));
-      const goldValue = billingWt * goldRate;
-      
-      const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
-      
-      const t1Limit = numVal(rates.special_d_tier1_weight || 5.2);
-      const t1Labor = numVal(rates.special_d_tier1_labor || 10000);
-      const t2Limit = numVal(rates.special_d_tier2_weight || 8.0);
-      const t2Labor = numVal(rates.special_d_tier2_labor || 12000);
-      const defaultLaborDiamond = numVal(rates.default_labor_diamond || 1200);
-      const defaultLaborRegular = numVal(rates.default_labor_regular || 550);
-
-      let makingValue = netWt * (isDiamond ? defaultLaborDiamond : defaultLaborRegular);
-      if (isDiamond) {
-        if (netWt <= t1Limit && netWt > 0) makingValue = t1Labor;
-        else if (netWt < t2Limit && netWt > t1Limit) makingValue = t2Labor;
-      }
-      
-      let stonesValue = 0;
-      try {
-        if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
-          const stones = JSON.parse(item.stones_in_detail);
-          stonesValue = stones.reduce((acc: number, s: any) => {
-            const sWt = numVal(s.weight);
-            const sPcs = numVal(s.pcs);
-            const sRate = numVal(s.rate);
-            return acc + (sWt === 0 ? sPcs * sRate : sWt * sRate);
-          }, 0);
-        } else {
-          stonesValue = (numVal(item.dai_wt) * diamondRate) + (numVal(item.clr_stone_wt) * stoneRate);
-        }
-      } catch (e) {
-        stonesValue = (numVal(item.dai_wt) * diamondRate) + (numVal(item.clr_stone_wt) * stoneRate);
-      }
-
-      const certCharges = isDiamond ? (numVal(item.dai_wt) * certRate) : 0;
-      const otherCharges = numVal(item.other_charges);
-      const estimatedCost = (goldValue + stonesValue + makingValue + certCharges + otherCharges) * (1 + (taxPct / 100));
-
+      const estimatedCost = calculateEstimation(item);
       const profitLoss = amount - estimatedCost;
 
       const { error: saleError } = await supabase
@@ -290,7 +247,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
           prc_amount: estimatedCost,
           sale_amount: amount,
           profit_loss: profitLoss,
-          sold_by: selectedEmployee,
+          sold_by: staffNames,
           sold_at: new Date().toISOString()
         }]);
 
@@ -308,13 +265,13 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
         item_id: item.id,
         type: 'OUT',
         quantity_changed: 1,
-        reason: `Sold for ₹${amount.toLocaleString()} by ${selectedEmployee}`
+        reason: `Sold for ₹${amount.toLocaleString()} by ${staffNames}`
       }]);
 
       Alert.alert('Success', `Item sold for ₹${amount.toLocaleString()}`);
       setShowSellModal(false);
       setSaleAmount('');
-      setSelectedEmployee('');
+      setSelectedEmployees([]);
       onClose();
     } catch (error: any) {
       Alert.alert('Sale Failed', error.message);
@@ -390,8 +347,8 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
             <View style={styles.grid}>
               <DetailRow label="Stone Wt" value={item.clr_stone_wt ? `${item.clr_stone_wt}g` : null} icon={Scale} />
               <DetailRow label="Stone Pcs" value={item.clr_stone_pcs} icon={Hash} />
-              <DetailRow label="Stones Detail" value={item.stones_in_detail} icon={FileText} />
             </View>
+            <StoneDetailsList stonesJson={item.stones_in_detail} />
 
             <SectionHeader title="Scan Tracking" />
             <View style={styles.grid}>
@@ -485,19 +442,19 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
 
         {/* Sell Modal */}
         <Modal visible={showSellModal} transparent animationType="fade">
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { height: 'auto', borderRadius: 32, marginBottom: 40 }]}>
-              <View style={styles.header}>
+          <View style={styles.sellModalOverlay}>
+            <View style={styles.sellModalContent}>
+              <View style={styles.sellHeader}>
                 <Text style={styles.modalTitle}>Confirm Sale</Text>
                 <TouchableOpacity onPress={() => setShowSellModal(false)}><X size={24} color={Theme.colors.text.secondary} /></TouchableOpacity>
               </View>
-              <View style={styles.body}>
-                <Text style={[styles.detailLabel, { marginBottom: 12 }]}>ITEM: {item.name}</Text>
-                <Text style={styles.detailLabel}>ENTER SALE AMOUNT (₹)</Text>
+              <View style={styles.sellBody}>
+                <Text style={[styles.detailLabel, { marginBottom: 12, fontSize: 14 }]} numberOfLines={1}>ITEM: {item.name}</Text>
+                <Text style={[styles.detailLabel, { fontSize: 12 }]}>ENTER SALE AMOUNT (₹)</Text>
                 <View style={[styles.inputWrapper, { backgroundColor: Theme.colors.surface, marginTop: 8, borderWidth: 2, borderColor: Theme.colors.primary }]}>
-                  <IndianRupee size={20} color={Theme.colors.primary} />
+                  <IndianRupee size={18} color={Theme.colors.primary} />
                   <TextInput 
-                    style={[styles.input, { fontSize: 24, fontWeight: '800', color: Theme.colors.text.primary }]}
+                    style={[styles.input, { fontSize: 20, fontWeight: '800', color: Theme.colors.text.primary }]}
                     keyboardType="numeric"
                     placeholder="0"
                     placeholderTextColor={Theme.colors.text.muted}
@@ -507,30 +464,32 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                   />
                 </View>
 
-                <Text style={[styles.detailLabel, { marginTop: 20, marginBottom: 8 }]}>SELECT STAFF MEMBER</Text>
-                <View style={{ minHeight: 50 }}>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+                <Text style={[styles.detailLabel, { marginTop: 15, marginBottom: 8, fontSize: 12 }]}>SELECT STAFF</Text>
+                <View style={{ minHeight: 45 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {employees.length > 0 ? (
                       employees.map((emp) => (
                         <TouchableOpacity 
                           key={emp.name}
                           style={[
                             styles.staffSelectBtn, 
-                            selectedEmployee === emp.name && styles.staffSelectBtnActive
+                            selectedEmployees.includes(emp.name) && styles.staffSelectBtnActive,
+                            { paddingVertical: 6 }
                           ]}
-                          onPress={() => setSelectedEmployee(emp.name)}
+                          onPress={() => toggleEmployee(emp.name)}
                         >
-                          <User size={16} color={selectedEmployee === emp.name ? Theme.colors.text.black : Theme.colors.text.secondary} />
+                          <User size={14} color={selectedEmployees.includes(emp.name) ? Theme.colors.text.black : Theme.colors.text.secondary} />
                           <Text style={[
                             styles.staffSelectText,
-                            selectedEmployee === emp.name && styles.staffSelectTextActive
+                            selectedEmployees.includes(emp.name) && styles.staffSelectTextActive,
+                            { fontSize: 11 }
                           ]}>{emp.name}</Text>
                         </TouchableOpacity>
                       ))
                     ) : (
-                      <View style={{ paddingVertical: 10 }}>
-                        <Text style={{ color: Theme.colors.status.error, fontSize: 12, fontWeight: '700' }}>
-                          ⚠️ No active staff found. Add them in Dashboard first.
+                      <View style={{ paddingVertical: 5 }}>
+                        <Text style={{ color: Theme.colors.status.error, fontSize: 10, fontWeight: '700' }}>
+                          ⚠️ No staff found.
                         </Text>
                       </View>
                     )}
@@ -538,12 +497,12 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                 </View>
 
                 <TouchableOpacity 
-                  style={[styles.saveButton, { backgroundColor: Theme.colors.primary, marginTop: 24 }, (selling || !selectedEmployee) && { opacity: 0.7 }]}
+                  style={[styles.saveButton, { backgroundColor: Theme.colors.primary, marginTop: 15, paddingVertical: 12 }, (selling || selectedEmployees.length === 0) && { opacity: 0.7 }]}
                   onPress={handleSell}
-                  disabled={selling || !selectedEmployee}
+                  disabled={selling || selectedEmployees.length === 0}
                 >
-                  {selling ? <ActivityIndicator color={Theme.colors.text.black} /> : <ShoppingBag size={20} color={Theme.colors.text.black} />}
-                  <Text style={styles.saveButtonText}>Confirm Sale</Text>
+                  {selling ? <ActivityIndicator color={Theme.colors.text.black} /> : <ShoppingBag size={18} color={Theme.colors.text.black} />}
+                  <Text style={[styles.saveButtonText, { fontSize: 14 }]}>Confirm Sale</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -634,6 +593,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
+  sellModalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: 20
+  },
   modalContent: {
     backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
@@ -642,6 +608,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Theme.colors.border,
   },
+  sellModalContent: { 
+    backgroundColor: Theme.colors.background, 
+    borderRadius: 32, 
+    width: '100%',
+    maxWidth: 340,
+    aspectRatio: 1,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    justifyContent: 'center'
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -649,6 +631,15 @@ const styles = StyleSheet.create({
     padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.border,
+  },
+  sellHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12,
+    borderBottomWidth: 1, 
+    borderBottomColor: Theme.colors.border 
   },
   modalTitle: {
     fontSize: 20,
@@ -661,6 +652,7 @@ const styles = StyleSheet.create({
   body: {
     padding: 24,
   },
+  sellBody: { padding: 20, flex: 1, justifyContent: 'center' },
   topInfo: {
     flexDirection: 'row',
     marginBottom: 24,
@@ -920,5 +912,108 @@ const styles = StyleSheet.create({
     color: Theme.colors.text.black,
     fontSize: 16,
     fontWeight: '700',
+  },
+  stoneListContainer: {
+    gap: 8,
+    marginTop: -8,
+    marginBottom: 16,
+  },
+  stoneListItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneMainInfo: {
+    flex: 1,
+  },
+  stoneName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  stoneCategory: {
+    fontSize: 10,
+    color: Theme.colors.text.muted,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  stoneMetaInfo: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  stoneMetaItem: {
+    alignItems: 'flex-end',
+  },
+  stoneMetaLabel: {
+    fontSize: 8,
+    color: Theme.colors.text.secondary,
+    fontWeight: '700',
+  },
+  stoneMetaValue: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+  },
+  stoneCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingBottom: 12,
+  },
+  stoneIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneName: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  stoneCategory: {
+    fontSize: 10,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  stoneCardGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stoneGridItem: {
+    flex: 1,
+  },
+  stoneGridLabel: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  stoneGridValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.primary,
   },
 });

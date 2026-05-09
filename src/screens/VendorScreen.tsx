@@ -79,7 +79,8 @@ export default function VendorScreen() {
             salesMap[vendorName] = { qty: 0, netWt: 0 };
           }
           salesMap[vendorName].qty += (t.quantity_changed || 0);
-          salesMap[vendorName].netWt += (t.quantity_changed || 0) * (parseFloat(item.net_wt) || 0);
+          const itemNetWt = item.net_wt ? parseFloat(item.net_wt) : 0;
+          salesMap[vendorName].netWt += (t.quantity_changed || 0) * itemNetWt;
         }
       });
 
@@ -106,8 +107,8 @@ export default function VendorScreen() {
         }
         
         const qty = (item.quantity || 0);
-        const netWt = (parseFloat(item.net_wt) || 0);
-        const daiWt = (parseFloat(item.dai_wt) || 0);
+        const netWt = (parseFloat(item.net_wt as any) || 0);
+        const daiWt = (parseFloat(item.dai_wt as any) || 0);
         
         group[vendorName].totalItems += 1;
         group[vendorName].totalQty += qty;

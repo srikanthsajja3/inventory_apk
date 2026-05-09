@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput, Modal } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock  } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem  } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
 import StoneEntryModal from '../components/StoneEntryModal';
 
 import { Theme } from '../theme';
@@ -23,6 +24,51 @@ const DetailBadge = ({ label, value, icon: Icon, color = Theme.colors.primary }:
   );
 };
 
+const StoneDetailsList = ({ stonesJson }: { stonesJson: string | null }) => {
+  if (!stonesJson) return null;
+  
+  try {
+    const stones = JSON.parse(stonesJson);
+    if (!Array.isArray(stones) || stones.length === 0) return null;
+
+    return (
+      <View style={styles.stoneListContainer}>
+        {stones.map((stone: any, index: number) => (
+          <View key={stone.id || index} style={styles.stoneCard}>
+            <View style={styles.stoneCardHeader}>
+              <View style={styles.stoneIconContainer}>
+                <Gem size={18} color={Theme.colors.primary} />
+              </View>
+              <View>
+                <Text style={styles.stoneNameText}>{stone.name || 'Stone'}</Text>
+                <Text style={styles.stoneCategoryText}>{stone.category || 'Detail'}</Text>
+              </View>
+            </View>
+            <View style={styles.stoneCardGrid}>
+              <View style={styles.stoneGridItem}>
+                <Text style={styles.stoneGridLabel}>Weight</Text>
+                <Text style={styles.stoneGridValue}>{stone.weight}g</Text>
+              </View>
+              <View style={styles.stoneGridItem}>
+                <Text style={styles.stoneGridLabel}>Pieces</Text>
+                <Text style={styles.stoneGridValue}>{stone.pcs}</Text>
+              </View>
+              {stone.rate && (
+                <View style={styles.stoneGridItem}>
+                  <Text style={styles.stoneGridLabel}>Rate</Text>
+                  <Text style={styles.stoneGridValue}>₹{stone.rate}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ))}
+      </View>
+    );
+  } catch (e) {
+    return <Text style={styles.badgeValue}>{stonesJson}</Text>;
+  }
+};
+
 export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any) => void }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
@@ -31,7 +77,106 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
   const [scannedData, setScannedData] = useState<string>('');
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [manualSku, setManualSku] = useState('');
+  
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [saleAmount, setSaleAmount] = useState('');
+  const [selling, setSelling] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+
+  const toggleEmployee = (name: string) => {
+    setSelectedEmployees(prev => 
+      prev.includes(name) 
+        ? prev.filter(n => n !== name) 
+        : [...prev, name]
+    );
+  };
+
   const { role, user } = useRole();
+  const { calculateEstimation } = useJewelryCalc();
+
+  useEffect(() => {
+    if (showSellModal) {
+      fetchEmployees();
+    }
+  }, [showSellModal]);
+
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase.from('employees').select('name').eq('is_active', true).order('name');
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (e: any) {
+      console.error('Fetch Employees Error:', e.message);
+    }
+  };
+
+  const handleSell = async () => {
+    if (!itemFound || (itemFound.quantity || 0) <= 0) {
+      Alert.alert('Error', 'This item is out of stock and cannot be sold.');
+      return;
+    }
+
+    const amount = parseFloat(saleAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid sale amount');
+      return;
+    }
+
+    if (selectedEmployees.length === 0) {
+      Alert.alert('Error', 'Please select at least one staff member');
+      return;
+    }
+
+    try {
+      setSelling(true);
+      
+      const estimatedCost = calculateEstimation(itemFound);
+      const profitLoss = amount - estimatedCost;
+      const staffNames = selectedEmployees.join(', ');
+
+      const { error: saleError } = await supabase
+        .from('sales')
+        .insert([{
+          item_id: itemFound.id,
+          sku: itemFound.sku,
+          item_name: itemFound.name,
+          prc_amount: estimatedCost,
+          sale_amount: amount,
+          profit_loss: profitLoss,
+          sold_by: staffNames,
+          sold_at: new Date().toISOString()
+        }]);
+
+      if (saleError) throw saleError;
+
+      const newQty = Math.max(0, (itemFound.quantity || 1) - 1);
+      const { error: itemError } = await supabase
+        .from('items')
+        .update({ quantity: newQty })
+        .eq('id', itemFound.id);
+
+      if (itemError) throw itemError;
+
+      await supabase.from('transactions').insert([{
+        item_id: itemFound.id,
+        type: 'OUT',
+        quantity_changed: 1,
+        reason: `Sold for ₹${amount.toLocaleString()} by ${staffNames} (via Scan)`
+      }]);
+
+      Alert.alert('Success', `Item sold for ₹${amount.toLocaleString()} by ${staffNames}`);
+      setShowSellModal(false);
+      setSaleAmount('');
+      setSelectedEmployees([]);
+      setScanned(false);
+      setItemFound(null);
+      setSelling(false);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to record sale: ' + error.message);
+      setSelling(false);
+    }
+  };
 
   if (!permission) return <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
 
@@ -263,15 +408,20 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                   <DetailBadge label="Net Weight" value={itemFound.net_wt ? `${itemFound.net_wt}g` : '0g'} icon={Scale} color="#6366f1" />
                   <DetailBadge label="Gross Weight" value={itemFound.gross_wt ? `${itemFound.gross_wt}g` : '0g'} icon={Scale} color="#8b5cf6" />
                   <DetailBadge label="Stone Wt" value={itemFound.clr_stone_wt ? `${itemFound.clr_stone_wt}g` : '0g'} icon={Scale} color="#10b981" />
-                  <DetailBadge label="Wastage" value={itemFound.wastage ? `${itemFound.wastage}g` : '0g'} icon={Scale} color="#f59e0b" />
+                  <DetailBadge label="Wastage" value={itemFound.wastage ? `${itemFound.wastage}%` : '0%'} icon={Scale} color="#f59e0b" />
                   <DetailBadge label="Making" value={itemFound.labour_amt ? `₹${itemFound.labour_amt}` : '₹0'} icon={IndianRupee} color="#6366f1" />
                   <DetailBadge label="Purity" value={itemFound.purity} icon={Tag} color="#f59e0b" />
                   <DetailBadge label="HUID" value={itemFound.huid} icon={FileText} color="#ef4444" />
                   <DetailBadge label="Label No" value={itemFound.label_no} icon={Hash} color="#64748b" />
-                  <DetailBadge label="Stones Detail" value={itemFound.stones_in_detail} icon={Info} color="#8b5cf6" />
                   <DetailBadge label="Last Scanned By" value={itemFound.last_scanned_by} icon={User} color="#6366f1" />
                   <DetailBadge label="Last Scanned At" value={itemFound.last_scanned_at ? new Date(itemFound.last_scanned_at).toLocaleString() : null} icon={Clock} color="#64748b" />
                 </View>
+
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Stones Detail</Text>
+                  <View style={styles.sectionLine} />
+                </View>
+                <StoneDetailsList stonesJson={itemFound.stones_in_detail} />
                 
                 <View style={{ height: 150 }} />
               </ScrollView>
@@ -288,6 +438,15 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
 
                 <View style={styles.actionRow}>
                   <TouchableOpacity 
+                    style={[styles.estimateBtn, { backgroundColor: Theme.colors.status.success }]}
+                    onPress={() => setShowSellModal(true)}
+                    disabled={itemFound.quantity <= 0}
+                  >
+                    <ShoppingBag size={18} color="white" />
+                    <Text style={styles.doneBtnText}>Sell</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
                     style={[styles.estimateBtn, { backgroundColor: '#1e293b' }]}
                     onPress={() => setIsAddModalVisible(true)}
                   >
@@ -300,14 +459,14 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                     onPress={() => onEstimation && onEstimation(itemFound)}
                   >
                     <Calculator size={18} color="white" />
-                    <Text style={styles.doneBtnText}>Estimate</Text>
+                    <Text style={styles.doneBtnText}>Est</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity 
                     style={styles.doneBtn}
                     onPress={() => { setScanned(false); setItemFound(null); }}
                   >
-                    <Text style={styles.doneBtnText}>Done</Text>
+                    <Text style={styles.doneBtnText}>OK</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -349,6 +508,75 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
         initialSku={scannedData}
         initialData={itemFound}
       />
+
+      {/* Sell Modal */}
+      <Modal visible={showSellModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.sellModalContent}>
+            <View style={styles.sellHeader}>
+              <Text style={styles.headerTitle}>Confirm Sale</Text>
+              <TouchableOpacity onPress={() => setShowSellModal(false)}><X size={24} color={Theme.colors.text.secondary} /></TouchableOpacity>
+            </View>
+            <View style={styles.sellBody}>
+              <Text style={[styles.badgeLabel, { marginBottom: 12, fontSize: 14 }]} numberOfLines={1}>ITEM: {itemFound?.name}</Text>
+              <Text style={[styles.badgeLabel, { fontSize: 12 }]}>ENTER SALE AMOUNT (₹)</Text>
+              <View style={[styles.inputWrapper, { backgroundColor: Theme.colors.surface, marginTop: 8, borderWidth: 2, borderColor: Theme.colors.primary }]}>
+                <IndianRupee size={18} color={Theme.colors.primary} />
+                <TextInput 
+                  style={[styles.sellInput, { fontSize: 20, fontWeight: '800', color: Theme.colors.text.primary }]}
+                  keyboardType="numeric"
+                  placeholder="0"
+                  placeholderTextColor={Theme.colors.text.muted}
+                  value={saleAmount}
+                  onChangeText={setSaleAmount}
+                  autoFocus
+                />
+              </View>
+
+              <Text style={[styles.badgeLabel, { marginTop: 15, marginBottom: 8, fontSize: 12 }]}>SELECT STAFF</Text>
+              <View style={{ minHeight: 45 }}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {employees.length > 0 ? (
+                    employees.map((emp) => (
+                      <TouchableOpacity 
+                        key={emp.name}
+                        style={[
+                          styles.staffSelectBtn, 
+                          selectedEmployees.includes(emp.name) && styles.staffSelectBtnActive,
+                          { paddingVertical: 6 }
+                        ]}
+                        onPress={() => toggleEmployee(emp.name)}
+                      >
+                        <User size={14} color={selectedEmployees.includes(emp.name) ? Theme.colors.background : Theme.colors.text.secondary} />
+                        <Text style={[
+                          styles.staffSelectText,
+                          selectedEmployees.includes(emp.name) && styles.staffSelectTextActive,
+                          { fontSize: 11 }
+                        ]}>{emp.name}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={{ paddingVertical: 5 }}>
+                      <Text style={{ color: Theme.colors.status.error, fontSize: 10, fontWeight: '700' }}>
+                        ⚠️ No staff found.
+                      </Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+
+              <TouchableOpacity 
+                style={[styles.saveButton, { backgroundColor: Theme.colors.primary, marginTop: 15, paddingVertical: 12 }, (selling || selectedEmployees.length === 0) && { opacity: 0.7 }]}
+                onPress={handleSell}
+                disabled={selling || selectedEmployees.length === 0}
+              >
+                {selling ? <ActivityIndicator color={Theme.colors.background} /> : <ShoppingBag size={18} color={Theme.colors.background} />}
+                <Text style={[styles.saveButtonText, { fontSize: 14 }]}>Confirm Sale</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -411,4 +639,106 @@ const styles = StyleSheet.create({
   addBtnText: { color: Theme.colors.background, fontWeight: '800', fontSize: 16 },
   retryBtn: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
   retryBtnText: { color: Theme.colors.text.secondary, fontWeight: '700', fontSize: 16 },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: 20
+  },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 16, gap: 12 },
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: Theme.colors.text.secondary, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionLine: { flex: 1, height: 1, backgroundColor: Theme.colors.border },
+  stoneListContainer: { gap: 8, marginTop: 0, marginBottom: 16 },
+  stoneCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingBottom: 12,
+  },
+  stoneIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneNameText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  stoneCategoryText: {
+    fontSize: 10,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  stoneCardGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stoneGridItem: {
+    flex: 1,
+  },
+  stoneGridLabel: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  stoneGridValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+  },
+  sellModalContent: { 
+    backgroundColor: Theme.colors.background, 
+    borderRadius: 32, 
+    width: '100%',
+    maxWidth: 340,
+    aspectRatio: 1,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    justifyContent: 'center'
+  },
+  sellHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: 20, 
+    paddingVertical: 12,
+    borderBottomWidth: 1, 
+    borderBottomColor: Theme.colors.border 
+  },
+  sellBody: { padding: 20, flex: 1, justifyContent: 'center' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.muted, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: Theme.colors.border },
+  sellInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 10, fontSize: 16, color: Theme.colors.text.primary },
+  staffSelectBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, marginRight: 8, borderWidth: 1, borderColor: Theme.colors.border, gap: 6 },
+  staffSelectBtnActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
+  staffSelectText: { fontSize: 12, fontWeight: '700', color: Theme.colors.text.secondary },
+  staffSelectTextActive: { color: Theme.colors.background },
+  saveButton: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, gap: 8 },
+  saveButtonText: { color: Theme.colors.background, fontSize: 16, fontWeight: '700' },
 });

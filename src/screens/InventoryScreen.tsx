@@ -125,6 +125,8 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
   </TouchableOpacity>
 );
 
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
+
 export default function InventoryScreen({ onEstimation }: { onEstimation: (item: any) => void }) {
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
@@ -156,7 +158,13 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const { role } = useRole();
   // const navigation = useNavigation(); // REMOVED
 
-  const EXHIBITION_FOLDER = { id: 'virtual-exhibition', name: 'Exhibition', isVirtual: true };
+  const EXHIBITION_FOLDER = { 
+    id: 'virtual-exhibition', 
+    name: 'Exhibition', 
+    isVirtual: true,
+    created_at: new Date().toISOString(),
+    parent_id: null as string | null
+  };
 
   const handleBarcodeScanned = ({ data }: any) => {
     if (data) {
@@ -167,7 +175,22 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
   useEffect(() => {
     fetchLocations();
+    fetchMasterRates();
   }, []);
+
+  const fetchMasterRates = async () => {
+    try {
+      const { data, error } = await supabase.from('master_rates').select('*');
+      if (error) throw error;
+      if (data) {
+        const rateMap: any = {};
+        data.forEach(r => { rateMap[r.key] = r.value; });
+        setMasterRates(rateMap);
+      }
+    } catch (error) {
+      console.error('Error fetching master rates:', error);
+    }
+  };
 
   const fetchLocations = async () => {
     try {
@@ -178,7 +201,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       if (error) throw error;
 
-      const uniqueLocations = Array.from(new Set(data.map(i => i.location))).sort();
+      const uniqueLocations = Array.from(new Set(data.map(i => i.location).filter(Boolean) as string[])).sort();
       setLocations(['All Locations', ...uniqueLocations]);
     } catch (error) {
       console.error('Error fetching locations:', error);
@@ -251,36 +274,19 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     return [...folders, ...items].filter(i => selectedIds.has(i.id));
   };
 
+  const { calculateEstimation } = useJewelryCalc();
+
   const calculateStats = () => {
     if (!items || items.length === 0) {
       return { folders: folders.length, items: 0, totalQty: 0, totalValue: 0 };
     }
-
-    const goldRate = masterRates.gold_18kt || 0;
-    const diamondRate = masterRates.diamond_rd_rate || 65000;
-    const stoneRate = masterRates.stone_rate || 3500;
-    const certRate = masterRates.cert_rate_per_ct || 950;
-    const taxPct = masterRates.tax_gst_pct || 3;
 
     const totalItems = items.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
     const totalValue = items.reduce((acc, item) => {
       const qty = parseFloat(String(item.quantity)) || 0;
       if (qty <= 0) return acc;
 
-      const netWt = parseFloat(String(item.net_wt)) || 0;
-      const wastagePct = parseFloat(String(item.wastage)) || 22;
-      const billingWt = netWt * (1 + (wastagePct / 100));
-      const goldValue = billingWt * goldRate;
-
-      const daiWt = parseFloat(String(item.dai_wt)) || 0;
-      const clrStoneWt = parseFloat(String(item.clr_stone_wt)) || 0;
-      const stonesValue = (daiWt * diamondRate) + (clrStoneWt * stoneRate);
-
-      const labourAmt = parseFloat(String(item.labour_amt)) || 0;
-      const certCharges = (item.name || '').trim().toUpperCase().startsWith('D') ? (daiWt * certRate) : 0;
-      const otherCharges = parseFloat(String(item.other_charges)) || 0;
-
-      const itemTotal = (goldValue + stonesValue + labourAmt + certCharges + otherCharges) * (1 + (taxPct / 100));
+      const itemTotal = calculateEstimation(item, masterRates);
       return acc + (itemTotal * qty);
     }, 0);
 
@@ -320,7 +326,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         const expiredIds: string[] = [];
 
         (exItems || []).forEach(item => {
-          const addedAt = new Date(item.exhibition_added_at).getTime();
+          const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
           if (now - addedAt < timerMs) {
             activeItems.push(item);
           } else {
@@ -329,8 +335,15 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         });
 
         if (expiredIds.length > 0) {
-          // Background update
-          supabase.from('items').update({ in_exhibition: false }).in('id', expiredIds).then();
+          // Await update to ensure DB consistency
+          const { error: revertError } = await supabase
+            .from('items')
+            .update({ in_exhibition: false, exhibition_added_at: null })
+            .in('id', expiredIds);
+          
+          if (revertError) {
+            console.error('Auto-revert error:', revertError.message);
+          }
         }
 
         setFolders([]);
@@ -373,7 +386,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const now = Date.now();
       const filteredItems = (itemData || []).filter(item => {
         if (item.in_exhibition) {
-          const addedAt = new Date(item.exhibition_added_at).getTime();
+          const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
           return now - addedAt >= timerMs;
         }
         return true;

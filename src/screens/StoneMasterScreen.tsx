@@ -10,8 +10,8 @@ interface StoneMaster {
   name: string;
   category: string;
   sub_category: string | null;
-  min_wt: number;
-  max_wt: number;
+  min_wt: number | null;
+  max_wt: number | null;
   rate: number;
 }
 

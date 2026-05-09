@@ -23,7 +23,7 @@ export function useRole() {
       if (savedUserJson) {
         const mockUser = JSON.parse(savedUserJson);
         setUser(mockUser);
-        setRoleState(mockUser.role);
+        setRoleState(mockUser.role as 'admin' | 'staff');
       } else {
         setUser(null);
         setRoleState(null);
@@ -75,7 +75,7 @@ export function useRole() {
       }
 
       setUser(userData);
-      setRoleState(userData.role);
+      setRoleState(userData.role as 'admin' | 'staff');
       return { error: null };
 
     } catch (err: any) {
