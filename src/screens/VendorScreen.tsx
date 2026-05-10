@@ -2,20 +2,256 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Platform } from 'react-native';
 import { Users, Package, ShoppingCart, Weight, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
 import { supabase } from '../../supabase';
-
-interface VendorStats {
-  name: string;
-  totalItems: number; 
-  totalQty: number;   
-  totalNetWt: number; 
-  goldNetWt: number;    // Net weight of gold-only items
-  diamondNetWt: number; // Gold weight of diamond items
-  diamondCt: number;    // Diamond carats/weight
-  soldQty: number;    
-  soldNetWt: number;  
-}
-
 import { Theme } from '../theme';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: Theme.colors.background,
+  },
+  summaryCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 24,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+      }
+    })
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+    marginBottom: 15,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  summaryItem: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  summaryValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+    marginBottom: 20,
+  },
+  backBtn: {
+    padding: 8,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 12,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 15,
+    padding: 6,
+    marginBottom: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 8,
+  },
+  activeTab: {
+    backgroundColor: Theme.colors.background,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: Theme.colors.text.secondary,
+  },
+  activeTabText: {
+    color: Theme.colors.primary,
+    fontWeight: '700',
+  },
+  list: {
+    paddingBottom: 30,
+  },
+  card: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    ...Platform.select({
+      web: { boxShadow: '0 4px 10px rgba(0,0,0,0.2)' },
+      default: {
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 4 },
+      }
+    }),
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  vendorIcon: {
+    width: 40,
+    height: 40,
+    backgroundColor: Theme.colors.background,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vendorName: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+  },
+  vendorSubtitle: {
+    fontSize: 12,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  statsGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: Theme.colors.background,
+    borderRadius: 15,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  statBox: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statLabel: {
+    fontSize: 10,
+    color: Theme.colors.text.secondary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 4,
+  },
+  statValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+    marginTop: 2,
+  },
+  statSubValue: {
+    fontSize: 10,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    padding: 16,
+    borderRadius: 15,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  itemInfo: {
+    flex: 1,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+  },
+  itemSku: {
+    fontSize: 12,
+    color: Theme.colors.text.secondary,
+    marginTop: 2,
+  },
+  saleDate: {
+    fontSize: 11,
+    color: Theme.colors.text.secondary,
+    marginTop: 4,
+  },
+  itemStats: {
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  itemWt: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Theme.colors.primary,
+  },
+  qtyBadge: {
+    backgroundColor: Theme.colors.background,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+  },
+  qtyText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 100,
+  },
+  emptyText: {
+    color: Theme.colors.text.secondary,
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: '600',
+  }
+});
 
 interface VendorStats {
   name: string;
@@ -353,242 +589,3 @@ export default function VendorScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: Theme.colors.background,
-  },
-  summaryCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 24,
-    padding: 20,
-    marginBottom: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  summaryTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-    marginBottom: 15,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  summaryItem: {
-    flex: 1,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  summaryValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 15,
-    marginBottom: 20,
-  },
-  backBtn: {
-    padding: 8,
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 12,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-    marginBottom: 20,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 15,
-    padding: 6,
-    marginBottom: 20,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
-  },
-  activeTab: {
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
-  },
-  tabText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.text.secondary,
-  },
-  activeTabText: {
-    color: Theme.colors.primary,
-    fontWeight: '700',
-  },
-  list: {
-    paddingBottom: 30,
-  },
-  card: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    ...Platform.select({
-      web: { boxShadow: '0 4px 10px rgba(0,0,0,0.2)' },
-      default: {
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        shadowOffset: { width: 0, height: 4 },
-      }
-    }),
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  vendorIcon: {
-    width: 40,
-    height: 40,
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vendorName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Theme.colors.text.primary,
-  },
-  vendorSubtitle: {
-    fontSize: 12,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: Theme.colors.background,
-    borderRadius: 15,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  statBox: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statLabel: {
-    fontSize: 10,
-    color: Theme.colors.text.secondary,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginTop: 4,
-  },
-  statValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-    marginTop: 2,
-  },
-  statSubValue: {
-    fontSize: 10,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  itemRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    padding: 16,
-    borderRadius: 15,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  itemInfo: {
-    flex: 1,
-  },
-  itemName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Theme.colors.text.primary,
-  },
-  itemSku: {
-    fontSize: 12,
-    color: Theme.colors.text.secondary,
-    marginTop: 2,
-  },
-  saleDate: {
-    fontSize: 11,
-    color: Theme.colors.text.secondary,
-    marginTop: 4,
-  },
-  itemStats: {
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  itemWt: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.primary,
-  },
-  qtyBadge: {
-    backgroundColor: Theme.colors.background,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: Theme.colors.primary,
-  },
-  qtyText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    marginTop: 100,
-  },
-  emptyText: {
-    color: Theme.colors.text.secondary,
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: '600',
-  }
-});

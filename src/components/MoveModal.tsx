@@ -1,47 +1,43 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, FlatList, ActivityIndicator, Alert, Platform } from 'react-native';
 import { X, Folder, ChevronRight, ArrowLeft, Check, Move } from 'lucide-react-native';
 import { supabase } from '../../supabase';
-
-interface MoveItem {
-  id: string;
-  name: string;
-  type: 'item' | 'folder';
-}
+import { Theme } from '../theme';
 
 interface MoveModalProps {
   isVisible: boolean;
   onClose: () => void;
   onMove: () => void;
-  itemsToMove: MoveItem[];
+  itemsToMove: { id: string; name: string, type: 'item' | 'folder' }[];
 }
 
 export default function MoveModal({ isVisible, onClose, onMove, itemsToMove }: MoveModalProps) {
   const [currentFolder, setCurrentFolder] = useState<any>(null);
-  const [history, setHistory] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [moving, setMoving] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
 
   useEffect(() => {
     if (isVisible) {
-      fetchFolders();
+      fetchFolders(null);
+      setHistory([]);
+      setCurrentFolder(null);
     }
-  }, [isVisible, currentFolder]);
+  }, [isVisible]);
 
-  const fetchFolders = async () => {
+  const fetchFolders = async (parentId: string | null) => {
     try {
       setLoading(true);
-      const parentId = currentFolder ? currentFolder.id : null;
+      let query = supabase.from('categories').select('id, name');
       
-      let query = supabase.from('categories').select('*');
       if (parentId) {
         query = query.eq('parent_id', parentId);
       } else {
         query = query.is('parent_id', null);
       }
 
-      // Don't show the folders themselves as a destination
+      // Exclude the folders being moved
       const folderIdsToMove = itemsToMove.filter(i => i.type === 'folder').map(i => i.id);
       if (folderIdsToMove.length > 0) {
         query = query.not('id', 'in', `(${folderIdsToMove.join(',')})`);
@@ -51,127 +47,112 @@ export default function MoveModal({ isVisible, onClose, onMove, itemsToMove }: M
       if (error) throw error;
       setFolders(data || []);
     } catch (error: any) {
-      console.error('Fetch Folders Error:', error.message);
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMove = async () => {
-    if (itemsToMove.length === 0) return;
+  const navigateTo = (folder: any) => {
+    setHistory([...history, currentFolder]);
+    setCurrentFolder(folder);
+    fetchFolders(folder.id);
+  };
 
+  const navigateBack = () => {
+    const prev = history.pop();
+    setHistory([...history]);
+    setCurrentFolder(prev);
+    fetchFolders(prev ? prev.id : null);
+  };
+
+  const handleMove = async () => {
     try {
       setMoving(true);
-      const targetId = currentFolder ? currentFolder.id : null;
+      const destinationId = currentFolder ? currentFolder.id : null;
 
-      const folderItems = itemsToMove.filter(i => i.type === 'folder');
-      const itemItems = itemsToMove.filter(i => i.type === 'item');
-
-      if (folderItems.length > 0) {
+      for (const item of itemsToMove) {
+        const table = item.type === 'folder' ? 'categories' : 'items';
+        const column = item.type === 'folder' ? 'parent_id' : 'category_id';
+        
         const { error } = await supabase
-          .from('categories')
-          .update({ parent_id: targetId })
-          .in('id', folderItems.map(f => f.id));
+          .from(table)
+          .update({ [column]: destinationId })
+          .eq('id', item.id);
+        
         if (error) throw error;
       }
 
-      if (itemItems.length > 0) {
-        const { error } = await supabase
-          .from('items')
-          .update({ category_id: targetId })
-          .in('id', itemItems.map(i => i.id));
-        if (error) throw error;
-      }
-
-      Alert.alert('Success', `${itemsToMove.length} item(s) moved successfully`);
+      Alert.alert('Success', `Moved ${itemsToMove.length} item(s)`);
       onMove();
       onClose();
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Move Failed', error.message);
     } finally {
       setMoving(false);
     }
   };
 
-  const navigateToFolder = (folder: any) => {
-    setHistory([...history, currentFolder]);
-    setCurrentFolder(folder);
-  };
-
-  const navigateBack = () => {
-    const newHistory = [...history];
-    const prevFolder = newHistory.pop();
-    setHistory(newHistory);
-    setCurrentFolder(prevFolder || null);
-  };
-
-  const renderFolder = ({ item }: any) => (
-    <TouchableOpacity 
-      style={styles.folderCard} 
-      onPress={() => navigateToFolder(item)}
-    >
-      <Folder size={20} color="#6366f1" />
-      <Text style={styles.folderName}>{item.name}</Text>
-      <ChevronRight size={18} color="#cbd5e1" />
-    </TouchableOpacity>
-  );
-
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
+      <View style={styles.overlay}>
+        <View style={styles.content}>
           <View style={styles.header}>
-            <View>
-              <Text style={styles.modalTitle}>Move to...</Text>
-              <Text style={styles.itemToMoveText}>
-                Moving: {itemsToMove.length === 1 ? itemsToMove[0].name : `${itemsToMove.length} items`}
-              </Text>
-            </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color="#64748b" />
+            <Text style={styles.title}>Move to...</Text>
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <X size={24} color={Theme.colors.text.secondary} />
             </TouchableOpacity>
           </View>
 
           <View style={styles.breadcrumb}>
+            <TouchableOpacity onPress={() => { setCurrentFolder(null); setHistory([]); fetchFolders(null); }}>
+              <Text style={[styles.breadcrumbText, !currentFolder && styles.activeCrumb]}>Root</Text>
+            </TouchableOpacity>
             {currentFolder && (
-              <TouchableOpacity onPress={navigateBack} style={styles.backBtn}>
-                <ArrowLeft size={18} color="#6366f1" />
-                <Text style={styles.backText}>Back</Text>
-              </TouchableOpacity>
+              <>
+                <ChevronRight size={14} color={Theme.colors.text.muted} />
+                <Text style={[styles.breadcrumbText, styles.activeCrumb]}>{currentFolder.name}</Text>
+              </>
             )}
-            <Text style={styles.pathText}>
-              {currentFolder ? currentFolder.name : 'Home Root'}
-            </Text>
           </View>
 
-          {loading ? (
-            <ActivityIndicator style={styles.loader} color="#6366f1" />
-          ) : (
-            <FlatList
-              data={folders}
-              renderItem={renderFolder}
-              keyExtractor={item => item.id}
-              contentContainerStyle={styles.list}
-              ListEmptyComponent={
-                <Text style={styles.emptyText}>No subfolders here</Text>
-              }
-            />
-          )}
+          <View style={styles.listContainer}>
+            {currentFolder && (
+              <TouchableOpacity style={styles.backItem} onPress={navigateBack}>
+                <ArrowLeft size={18} color={Theme.colors.primary} />
+                <Text style={styles.backText}>Go Back</Text>
+              </TouchableOpacity>
+            )}
+
+            {loading ? (
+              <ActivityIndicator style={styles.loader} color={Theme.colors.primary} />
+            ) : (
+              <FlatList
+                data={folders}
+                keyExtractor={item => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.folderItem} onPress={() => navigateTo(item)}>
+                    <Folder size={20} color={Theme.colors.primary} fill={Theme.colors.surface} />
+                    <Text style={styles.folderName}>{item.name}</Text>
+                    <ChevronRight size={18} color={Theme.colors.text.muted} />
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.emptyText}>No sub-folders here</Text>
+                }
+              />
+            )}
+          </View>
 
           <View style={styles.footer}>
+            <Text style={styles.selectionInfo}>Moving {itemsToMove.length} items to {currentFolder ? currentFolder.name : 'Root'}</Text>
             <TouchableOpacity 
-              style={[styles.moveButton, moving && styles.disabled]} 
+              style={[styles.moveBtn, moving && { opacity: 0.7 }]} 
               onPress={handleMove}
               disabled={moving}
             >
-              {moving ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <>
-                  <Check size={20} color="white" />
-                  <Text style={styles.moveButtonText}>Move Here</Text>
-                </>
-              )}
+              {moving ? <ActivityIndicator color={Theme.colors.text.black} /> : <Check size={20} color={Theme.colors.text.black} />}
+              <Text style={styles.moveBtnText}>Confirm Move</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -181,91 +162,104 @@ export default function MoveModal({ isVisible, onClose, onMove, itemsToMove }: M
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#fff',
+  content: {
+    backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
-    height: '70%',
+    height: '80%',
     padding: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 20,
   },
-  modalTitle: {
-    fontSize: 20,
+  title: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#1e293b',
+    color: Theme.colors.text.primary,
   },
-  itemToMoveText: {
-    fontSize: 13,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  closeButton: {
+  closeBtn: {
     padding: 4,
   },
   breadcrumb: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: Theme.colors.surface,
     padding: 12,
     borderRadius: 12,
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 20,
+    gap: 8,
   },
-  backBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  backText: {
-    color: '#6366f1',
+  breadcrumbText: {
+    fontSize: 14,
+    color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
-  pathText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1e293b',
+  activeCrumb: {
+    color: Theme.colors.primary,
+    fontWeight: '800',
   },
-  list: {
-    paddingBottom: 20,
+  listContainer: {
+    flex: 1,
   },
-  folderCard: {
+  backItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    paddingVertical: 12,
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  backText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  folderItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
   },
   folderName: {
     flex: 1,
-    fontSize: 15,
-    color: '#1e293b',
+    fontSize: 16,
     fontWeight: '600',
+    color: Theme.colors.text.primary,
   },
   emptyText: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: Theme.colors.text.muted,
     marginTop: 40,
+    fontSize: 15,
   },
   loader: {
     marginTop: 40,
   },
   footer: {
-    paddingTop: 16,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
   },
-  moveButton: {
-    backgroundColor: '#6366f1',
+  selectionInfo: {
+    fontSize: 12,
+    color: Theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 15,
+    fontWeight: '600',
+  },
+  moveBtn: {
+    backgroundColor: Theme.colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -273,12 +267,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     gap: 8,
   },
-  moveButtonText: {
-    color: 'white',
+  moveBtnText: {
+    color: Theme.colors.text.black,
     fontSize: 16,
     fontWeight: '700',
   },
-  disabled: {
-    opacity: 0.7,
-  }
 });

@@ -4,51 +4,503 @@ import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, Indian
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
 
-interface ItemDetailsModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  item: any;
-  onEdit: (item: any) => void;
-  onEstimate?: (item: any) => void;
-}
+const styles = StyleSheet.create({
+  historyContainer: {
+    gap: 12,
+  },
+  historyItem: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  typeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  typeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  historyDate: {
+    fontSize: 10,
+    color: Theme.colors.text.muted,
+    fontWeight: '600',
+  },
+  historyContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  historyMain: {
+    flex: 1,
+  },
+  historyReason: {
+    fontSize: 13,
+    color: Theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  historyUser: {
+    fontSize: 11,
+    color: Theme.colors.text.muted,
+    fontWeight: '500',
+  },
+  qtyChange: {
+    paddingLeft: 12,
+  },
+  qtyChangeText: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  emptyHistory: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 16,
+    gap: 8,
+  },
+  emptyHistoryText: {
+    fontSize: 12,
+    color: Theme.colors.text.muted,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  sellModalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: 20
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.background,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    height: '90%',
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  sellModalContent: { 
+    backgroundColor: Theme.colors.background, 
+    borderRadius: Theme.radius.xl, 
+    width: '90%',
+    maxWidth: 340,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    justifyContent: 'center'
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  sellHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: Theme.spacing.md, 
+    paddingVertical: Theme.spacing.sm,
+    borderBottomWidth: 1, 
+    borderBottomColor: Theme.colors.border 
+  },
+  modalTitle: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  body: {
+    padding: Theme.spacing.md,
+  },
+  sellBody: { padding: Theme.spacing.md, justifyContent: 'center' },
+  topInfo: {
+    flexDirection: 'row',
+    marginBottom: Theme.spacing.md,
+    gap: Theme.spacing.md,
+  },
+  imageSection: {
+    width: 80,
+    height: 80,
+  },
+  multiImageContainer: {
+    width: 80,
+    height: 80,
+  },
+  imageWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.surface,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginRight: 8,
+  },
+  imageContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.surface,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  itemImage: {
+    width: '100%',
+    height: '100%',
+  },
+  imagePlaceholder: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryInfo: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  itemName: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  itemSku: {
+    fontSize: Theme.typography.size.sm,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  qtyBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Theme.colors.muted,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: Theme.radius.sm,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  qtyText: {
+    color: Theme.colors.primary,
+    fontWeight: '700',
+    fontSize: Theme.typography.size.xs,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Theme.spacing.lg,
+    marginBottom: Theme.spacing.md,
+    gap: Theme.spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Theme.colors.border,
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Theme.spacing.sm,
+  },
+  detailRow: {
+    width: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+    backgroundColor: Theme.colors.surface,
+    padding: 10,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  iconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: Theme.colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: Theme.spacing.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  detailTextContainer: {
+    flex: 1,
+  },
+  detailLabel: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '600',
+  },
+  detailValue: {
+    fontSize: 12,
+    color: Theme.colors.text.primary,
+    fontWeight: '700',
+  },
+  descriptionText: {
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.secondary,
+    lineHeight: 22,
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  footer: {
+    padding: Theme.spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? 40 : Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
+  },
+  estimationBadge: {
+    backgroundColor: Theme.colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.lg,
+    gap: 15,
+    borderWidth: 2,
+    borderColor: Theme.colors.primary,
+  },
+  estIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  estLabel: {
+    fontSize: 10,
+    color: Theme.colors.text.secondary,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 2,
+  },
+  estValue: {
+    fontSize: 22,
+    color: Theme.colors.primary,
+    fontWeight: '900',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+  },
+  footerButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: Theme.radius.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  estimateButton: {
+    backgroundColor: Theme.colors.primary,
+  },
+  editButton: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  buttonText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.muted,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+  },
+  staffSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    gap: 6,
+  },
+  staffSelectBtnActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  staffSelectText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+  },
+  staffSelectTextActive: {
+    color: Theme.colors.text.black,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Theme.radius.md,
+    gap: 8,
+  },
+  saveButtonText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+  stoneListContainer: {
+    gap: 12,
+    marginTop: 0,
+    marginBottom: 20,
+  },
+  stoneCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border + '40',
+    paddingBottom: 10,
+  },
+  stoneIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneMainInfo: {
+    flex: 1,
+  },
+  stoneName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  stoneCategory: {
+    fontSize: 9,
+    color: Theme.colors.primary,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  stoneCardGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  stoneGridItem: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+    padding: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  stoneGridLabel: {
+    fontSize: 8,
+    color: Theme.colors.text.muted,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  stoneGridValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: Theme.colors.text.primary,
+  },
+});
 
 const HistoryItem = ({ log }: any) => {
-  const date = new Date(log.created_at).toLocaleString();
   const isPositive = log.quantity_changed >= 0;
   const isScan = log.type === 'SCAN';
+  const date = new Date(log.created_at).toLocaleDateString();
+  const time = new Date(log.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  
+  let Icon = Package;
+  let iconColor = Theme.colors.text.secondary;
+  if (log.type === 'IN') { Icon = ArrowDownLeft; iconColor = Theme.colors.status.success; }
+  if (log.type === 'OUT') { Icon = ArrowUpRight; iconColor = Theme.colors.status.error; }
+  if (log.type === 'SCAN') { Icon = Clock; iconColor = Theme.colors.primary; }
 
   return (
     <View style={styles.historyItem}>
-      <View style={styles.historyHeader}>
-        <View style={[styles.typeBadge, { 
-          backgroundColor: isScan ? Theme.colors.muted : log.type === 'IN' ? Theme.colors.status.success + '20' : log.type === 'OUT' ? Theme.colors.status.error + '20' : Theme.colors.muted 
-        }]}>
-          <Text style={[styles.typeText, { 
-            color: isScan ? Theme.colors.primary : log.type === 'IN' ? Theme.colors.status.success : log.type === 'OUT' ? Theme.colors.status.error : Theme.colors.text.secondary 
-          }]}>
-            {log.type}
+      <View style={[styles.iconContainer, { backgroundColor: iconColor + '15', width: 36, height: 36, borderRadius: 10 }]}>
+        <Icon size={18} color={iconColor} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.detailValue, { fontSize: 13 }]} numberOfLines={1}>{log.reason}</Text>
+        <Text style={[styles.detailLabel, { fontSize: 10, marginTop: 2 }]}>{date} • {time}</Text>
+      </View>
+      {!isScan && (
+        <View style={[styles.qtyBadge, { marginTop: 0, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: iconColor + '15', borderColor: iconColor + '30' }]}>
+          <Text style={[styles.qtyText, { color: iconColor, fontSize: 13 }]}>
+            {isPositive ? '+' : ''}{log.quantity_changed}
           </Text>
         </View>
-        <Text style={styles.historyDate}>{date}</Text>
-      </View>
-      
-      <View style={styles.historyContent}>
-        <View style={styles.historyMain}>
-          <Text style={styles.historyReason}>{log.reason}</Text>
-          <View style={styles.userRow}>
-            <User size={12} color={Theme.colors.text.muted} />
-            <Text style={styles.historyUser}>{log.reason.includes('by') ? log.reason.split('by')[1].trim().split('(')[0].trim() : 'System'}</Text>
-          </View>
-        </View>
-        {!isScan && (
-          <View style={styles.qtyChange}>
-            <Text style={[styles.qtyChangeText, { color: isPositive ? Theme.colors.status.success : Theme.colors.status.error }]}>
-              {isPositive ? '+' : ''}{log.quantity_changed}
-            </Text>
-          </View>
-        )}
-      </View>
+      )}
     </View>
   );
 };
@@ -76,32 +528,22 @@ const StoneDetailsList = ({ stonesJson }: { stonesJson: string | null }) => {
     if (!Array.isArray(stones) || stones.length === 0) return null;
 
     return (
-      <View style={styles.stoneListContainer}>
+      <View style={{ gap: 20, marginBottom: 20 }}>
         {stones.map((stone: any, index: number) => (
-          <View key={stone.id || index} style={styles.stoneCard}>
-            <View style={styles.stoneCardHeader}>
-              <View style={styles.stoneIconContainer}>
-                <Gem size={18} color={Theme.colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.stoneName}>{stone.name || 'Stone'}</Text>
-                <Text style={styles.stoneCategory}>{stone.category || 'Detail'}</Text>
-              </View>
+          <View key={stone.id || index}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 12, fontWeight: '800', color: Theme.colors.primary, letterSpacing: 0.5 }}>{stone.name?.toUpperCase() || 'STONE'}</Text>
+              <Text style={{ fontSize: 9, color: Theme.colors.text.muted, fontWeight: '700' }}>{stone.category?.toUpperCase() || 'DETAIL'}</Text>
             </View>
-            <View style={styles.stoneCardGrid}>
-              <View style={styles.stoneGridItem}>
-                <Text style={styles.stoneGridLabel}>Weight</Text>
-                <Text style={styles.stoneGridValue}>{stone.weight}g</Text>
-              </View>
-              <View style={styles.stoneGridItem}>
-                <Text style={styles.stoneGridLabel}>Pieces</Text>
-                <Text style={styles.stoneGridValue}>{stone.pcs}</Text>
-              </View>
+            <View style={styles.grid}>
+              <DetailRow label="Weight" value={stone.weight ? `${stone.weight}g` : '0g'} icon={Scale} />
+              <DetailRow label="Pieces" value={stone.pcs || '0'} icon={Package} />
               {stone.rate && (
-                <View style={styles.stoneGridItem}>
-                  <Text style={styles.stoneGridLabel}>Rate</Text>
-                  <Text style={styles.stoneGridValue}>₹{stone.rate}</Text>
-                </View>
+                <DetailRow 
+                  label="Rate" 
+                  value={`₹${parseFloat(String(stone.rate)).toLocaleString('en-IN')}`} 
+                  icon={IndianRupee} 
+                />
               )}
             </View>
           </View>
@@ -120,8 +562,6 @@ const SectionHeader = ({ title }: { title: string }) => (
   </View>
 );
 
-import { useJewelryCalc } from '../hooks/useJewelryCalc';
-
 const EstimationBadge = ({ item }: { item: any }) => {
   const { calculateEstimation, loading } = useJewelryCalc();
 
@@ -131,17 +571,28 @@ const EstimationBadge = ({ item }: { item: any }) => {
   if (total === 0) return null;
 
   return (
-    <View style={styles.estimationBadge}>
-      <View style={styles.estIconContainer}>
-        <IndianRupee size={16} color={Theme.colors.status.success} />
-      </View>
-      <View>
-        <Text style={styles.estLabel}>Approx. Estimate (18KT)</Text>
-        <Text style={styles.estValue}>₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+    <View style={{ marginBottom: Theme.spacing.lg }}>
+      <SectionHeader title="Valuation" />
+      <View style={[styles.detailRow, { width: '100%', borderColor: Theme.colors.primary, borderWidth: 1.5, backgroundColor: Theme.colors.primary + '10' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: Theme.colors.primary, width: 36, height: 36, borderRadius: 10 }]}>
+          <IndianRupee size={20} color="black" />
+        </View>
+        <View style={styles.detailTextContainer}>
+          <Text style={[styles.detailLabel, { color: Theme.colors.primary, fontWeight: '800' }]}>APPROX. ESTIMATE (18KT)</Text>
+          <Text style={[styles.detailValue, { fontSize: 20, color: Theme.colors.text.primary, fontWeight: '900' }]}>₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+        </View>
       </View>
     </View>
   );
 };
+
+interface ItemDetailsModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  item: any;
+  onEdit: (item: any) => void;
+  onEstimate?: (item: any) => void;
+}
 
 export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onEstimate }: ItemDetailsModalProps) {
   const [logs, setLogs] = useState<any[]>([]);
@@ -179,6 +630,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
     if (!item?.id) return;
     
     try {
+      setLoadingLogs(true);
       const { data, error } = await supabase
         .from('transactions')
         .select(`
@@ -186,8 +638,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
           type,
           quantity_changed,
           reason,
-          created_at,
-          performed_by_name
+          created_at
         `)
         .eq('item_id', item.id)
         .order('created_at', { ascending: false });
@@ -196,10 +647,12 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
       setLogs(data || []);
     } catch (e: any) {
       console.error('Fetch Logs Error:', e.message);
+    } finally {
+      setLoadingLogs(false);
     }
   };
 
-  const { calculateEstimation, rates } = useJewelryCalc();
+  const { calculateEstimation } = useJewelryCalc();
 
   const toggleEmployee = (name: string) => {
     setSelectedEmployees(prev => 
@@ -231,10 +684,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
     try {
       setSelling(true);
       
-      // Join staff names for DB storage
       const staffNames = selectedEmployees.join(', ');
-      
-      // Calculate real purchase price (estimated value) for P/L
       const estimatedCost = calculateEstimation(item);
       const profitLoss = amount - estimatedCost;
 
@@ -325,6 +775,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               </View>
             </View>
 
+            <SectionHeader title="Valuation" />
             <EstimationBadge item={item} />
 
             <SectionHeader title="Identification" />
@@ -344,10 +795,6 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
             </View>
 
             <SectionHeader title="Stones & Detail" />
-            <View style={styles.grid}>
-              <DetailRow label="Stone Wt" value={item.clr_stone_wt ? `${item.clr_stone_wt}g` : null} icon={Scale} />
-              <DetailRow label="Stone Pcs" value={item.clr_stone_pcs} icon={Hash} />
-            </View>
             <StoneDetailsList stonesJson={item.stones_in_detail} />
 
             <SectionHeader title="Scan Tracking" />
@@ -512,508 +959,3 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  historyContainer: {
-    gap: 12,
-  },
-  historyItem: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  historyHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  typeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  typeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  historyDate: {
-    fontSize: 10,
-    color: Theme.colors.text.muted,
-    fontWeight: '600',
-  },
-  historyContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  historyMain: {
-    flex: 1,
-  },
-  historyReason: {
-    fontSize: 13,
-    color: Theme.colors.text.primary,
-    fontWeight: '600',
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
-  },
-  historyUser: {
-    fontSize: 11,
-    color: Theme.colors.text.muted,
-    fontWeight: '500',
-  },
-  qtyChange: {
-    paddingLeft: 12,
-  },
-  qtyChangeText: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  emptyHistory: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    gap: 8,
-  },
-  emptyHistoryText: {
-    fontSize: 12,
-    color: Theme.colors.text.muted,
-    fontWeight: '600',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  sellModalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.8)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    padding: 20
-  },
-  modalContent: {
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    height: '90%',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  sellModalContent: { 
-    backgroundColor: Theme.colors.background, 
-    borderRadius: 32, 
-    width: '100%',
-    maxWidth: 340,
-    aspectRatio: 1,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    justifyContent: 'center'
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 24,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  sellHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 12,
-    borderBottomWidth: 1, 
-    borderBottomColor: Theme.colors.border 
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  body: {
-    padding: 24,
-  },
-  sellBody: { padding: 20, flex: 1, justifyContent: 'center' },
-  topInfo: {
-    flexDirection: 'row',
-    marginBottom: 24,
-    gap: 20,
-  },
-  imageSection: {
-    width: 100,
-    height: 100,
-  },
-  multiImageContainer: {
-    width: 100,
-    height: 100,
-  },
-  imageWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.surface,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginRight: 8,
-  },
-  imageContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-    backgroundColor: Theme.colors.surface,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  itemImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imagePlaceholder: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  itemName: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  itemSku: {
-    fontSize: 14,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  qtyBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: Theme.colors.muted,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  qtyText: {
-    color: Theme.colors.primary,
-    fontWeight: '700',
-    fontSize: 12,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    gap: 12,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Theme.colors.text.secondary,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: Theme.colors.border,
-  },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-  },
-  detailRow: {
-    width: '47%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    backgroundColor: Theme.colors.surface,
-    padding: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  iconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: Theme.colors.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  detailTextContainer: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontSize: 10,
-    color: Theme.colors.text.muted,
-    fontWeight: '600',
-  },
-  detailValue: {
-    fontSize: 13,
-    color: Theme.colors.text.primary,
-    fontWeight: '700',
-  },
-  descriptionText: {
-    fontSize: 15,
-    color: Theme.colors.text.secondary,
-    lineHeight: 22,
-    backgroundColor: Theme.colors.surface,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  footer: {
-    padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-    backgroundColor: Theme.colors.background,
-  },
-  estimationBadge: {
-    backgroundColor: Theme.colors.muted,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    borderRadius: 20,
-    marginBottom: 24,
-    gap: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.primary + '40',
-  },
-  estIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  estLabel: {
-    fontSize: 11,
-    color: Theme.colors.text.secondary,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  estValue: {
-    fontSize: 20,
-    color: Theme.colors.primary,
-    fontWeight: '900',
-  },
-  footerActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  footerButton: {
-    flex: 1,
-    height: 56,
-    borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  estimateButton: {
-    backgroundColor: Theme.colors.primary,
-  },
-  editButton: {
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  buttonText: {
-    color: Theme.colors.text.black,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.muted,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    color: Theme.colors.text.primary,
-  },
-  staffSelectBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    gap: 6,
-  },
-  staffSelectBtnActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  staffSelectText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Theme.colors.text.secondary,
-  },
-  staffSelectTextActive: {
-    color: Theme.colors.text.black,
-  },
-  saveButton: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-  },
-  saveButtonText: {
-    color: Theme.colors.text.black,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  stoneListContainer: {
-    gap: 8,
-    marginTop: -8,
-    marginBottom: 16,
-  },
-  stoneListItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  stoneMainInfo: {
-    flex: 1,
-  },
-  stoneName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  stoneCategory: {
-    fontSize: 10,
-    color: Theme.colors.text.muted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  stoneMetaInfo: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  stoneMetaItem: {
-    alignItems: 'flex-end',
-  },
-  stoneMetaLabel: {
-    fontSize: 8,
-    color: Theme.colors.text.secondary,
-    fontWeight: '700',
-  },
-  stoneMetaValue: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-  stoneCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  stoneCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    paddingBottom: 12,
-  },
-  stoneIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Theme.colors.muted,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  stoneName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  stoneCategory: {
-    fontSize: 10,
-    color: Theme.colors.text.muted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  stoneCardGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stoneGridItem: {
-    flex: 1,
-  },
-  stoneGridLabel: {
-    fontSize: 9,
-    color: Theme.colors.text.muted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  stoneGridValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-});

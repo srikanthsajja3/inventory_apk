@@ -34,7 +34,8 @@
           "cameraPermission": "Allow Inventory Manager to access your camera to scan barcodes."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "web": {
       "favicon": "./assets/favicon.png"

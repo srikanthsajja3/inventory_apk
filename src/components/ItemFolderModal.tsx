@@ -4,19 +4,219 @@ import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, Edit3, Image as ImageI
 import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '../../supabase';
 import { decode } from 'base64-arraybuffer';
+import { Theme } from '../theme';
 
-interface ItemFolderModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  onSave: () => void;
-  currentFolderId: string | null;
-  initialData?: any; 
-}
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.background,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    height: '90%',
+    padding: Theme.spacing.lg,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  modalTitle: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.surface,
+    padding: 4,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.lg,
+  },
+  typeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Theme.radius.sm,
+    gap: 8,
+  },
+  typeBtnActive: {
+    backgroundColor: Theme.colors.primary,
+  },
+  typeBtnText: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '600',
+    color: Theme.colors.text.secondary,
+  },
+  typeBtnTextActive: {
+    color: Theme.colors.text.black,
+  },
+  imagePickerSection: {
+    marginBottom: Theme.spacing.lg,
+  },
+  imagesScrollView: {
+    flexDirection: 'row',
+    paddingBottom: 10,
+  },
+  imagePickerWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: Theme.radius.md,
+    marginRight: 12,
+    position: 'relative',
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    overflow: 'hidden',
+  },
+  imagePickerSmall: {
+    width: 80,
+    height: 80,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 2,
+    borderColor: Theme.colors.border,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePlaceholderSmall: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  imagePlaceholderTextSmall: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+  },
+  removeImageSmall: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: Theme.colors.status.error,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  form: {
+    flex: 1,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: Theme.spacing.lg,
+    marginBottom: Theme.spacing.md,
+    gap: 10,
+  },
+  sectionIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: Theme.colors.muted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sectionTitle: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  sectionLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Theme.colors.border,
+    marginLeft: 8,
+  },
+  inputGroup: {
+    marginBottom: Theme.spacing.md,
+  },
+  label: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  inputIcon: {
+    marginRight: 8,
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    paddingTop: 10,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 10,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+    fontWeight: '500',
+  },
+  textArea: {
+    height: 60,
+    textAlignVertical: 'top',
+  },
+  footer: {
+    paddingTop: Theme.spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Theme.radius.md,
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+    backgroundColor: Theme.colors.muted,
+  },
+  saveButtonText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+});
 
 const SectionHeader = ({ title, icon: Icon }: any) => (
   <View style={styles.sectionHeader}>
     <View style={styles.sectionIconContainer}>
-      <Icon size={16} color="#6366f1" />
+      <Icon size={16} color={Theme.colors.primary} />
     </View>
     <Text style={styles.sectionTitle}>{title}</Text>
     <View style={styles.sectionLine} />
@@ -27,19 +227,27 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
   <View style={styles.inputGroup}>
     <Text style={styles.label}>{label}</Text>
     <View style={[styles.inputWrapper, multiline && styles.textAreaWrapper]}>
-      {Icon && <Icon size={18} color="#94a3b8" style={styles.inputIcon} />}
+      {Icon && <Icon size={18} color={Theme.colors.text.muted} style={styles.inputIcon} />}
       <TextInput
         style={[styles.input, multiline && styles.textArea]}
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder || `Enter ${label.toLowerCase()}...`}
-        placeholderTextColor="#cbd5e1"
+        placeholderTextColor={Theme.colors.text.muted}
         keyboardType={keyboardType}
         multiline={multiline}
       />
     </View>
   </View>
 );
+
+interface ItemFolderModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  currentFolderId: string | null;
+  initialData?: any; 
+}
 
 export default function ItemFolderModal({ isVisible, onClose, onSave, currentFolderId, initialData }: ItemFolderModalProps) {
   const [type, setType] = useState<'item' | 'folder'>('item');
@@ -727,221 +935,3 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    height: '90%',
-    padding: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#1e293b',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    padding: 4,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  typeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
-  },
-  typeBtnActive: {
-    backgroundColor: '#6366f1',
-    elevation: 2,
-  },
-  typeBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748b',
-  },
-  typeBtnTextActive: {
-    color: 'white',
-  },
-  imagePickerSection: {
-    marginBottom: 24,
-  },
-  imagesScrollView: {
-    flexDirection: 'row',
-    paddingBottom: 10,
-  },
-  imagePickerWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 16,
-    marginRight: 12,
-    position: 'relative',
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    overflow: 'hidden',
-  },
-  imagePickerSmall: {
-    width: 100,
-    height: 100,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  imagePlaceholderSmall: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  imagePlaceholderTextSmall: {
-    fontSize: 10,
-    color: '#94a3b8',
-    fontWeight: '700',
-  },
-  removeImageSmall: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(239, 68, 68, 0.8)',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  previewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  form: {
-    flex: 1,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 16,
-    gap: 10,
-  },
-  sectionIconContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#1e293b',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  sectionLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#f1f5f9',
-    marginLeft: 8,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#64748b',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  inputIcon: {
-    marginRight: 8,
-  },
-  textAreaWrapper: {
-    alignItems: 'flex-start',
-    paddingTop: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: '#1e293b',
-    fontWeight: '500',
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  footer: {
-    paddingTop: 20,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-  },
-  saveButton: {
-    backgroundColor: '#6366f1',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-    elevation: 4,
-    ...Platform.select({
-      web: { boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' },
-      default: {
-        shadowColor: '#6366f1',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      }
-    }),
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-    backgroundColor: '#94a3b8',
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

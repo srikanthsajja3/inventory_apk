@@ -16,6 +16,157 @@ import StoneMasterScreen from './src/screens/StoneMasterScreen';
 import EstimationScreen from './src/screens/EstimationScreen';
 import SalesScreen from './src/screens/SalesScreen';
 
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  header: {
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  logo: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    letterSpacing: -0.5,
+  },
+  roleBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: 8,
+  },
+  roleBadge: {
+    fontSize: Theme.typography.size.xs,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    letterSpacing: 0.5,
+    opacity: 0.8,
+  },
+  userEmail: {
+    fontSize: Theme.typography.size.xs,
+    color: Theme.colors.text.secondary,
+    fontWeight: '500',
+  },
+  content: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    paddingTop: Theme.spacing.sm,
+    paddingBottom: Platform.OS === 'ios' ? 25 : Theme.spacing.sm,
+    backgroundColor: Theme.colors.background,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  navLabel: {
+    fontSize: Theme.typography.size.xs,
+    fontWeight: '500',
+  },
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  // Login Styles
+  loginContainer: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+    justifyContent: 'center',
+    padding: Theme.spacing.lg,
+  },
+  loginContent: {
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+  },
+  loginLogo: {
+    width: 80,
+    height: 80,
+    borderRadius: Theme.radius.md,
+    backgroundColor: Theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  loginTitle: {
+    fontSize: Theme.typography.size.xl,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  loginSubtitle: {
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: Theme.spacing.xl,
+    fontWeight: '500',
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  inputIcon: {
+    marginRight: Theme.spacing.sm,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: Theme.spacing.md,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  eyeIcon: {
+    padding: 10,
+  },
+  loginBtn: {
+    borderRadius: Theme.radius.md,
+    paddingVertical: Theme.spacing.md,
+    alignItems: 'center',
+    marginTop: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: `0 4px 8px ${Theme.colors.primary}33`,
+      }
+    })
+  },
+  loginBtnText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+});
+
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [estimationItem, setEstimationItem] = useState<any>(null);
@@ -221,145 +372,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-  },
-  logo: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    letterSpacing: -0.5,
-  },
-  roleBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    gap: 8,
-  },
-  roleBadge: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-    letterSpacing: 0.5,
-    opacity: 0.8,
-  },
-  userEmail: {
-    fontSize: 10,
-    color: Theme.colors.text.secondary,
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
-    backgroundColor: Theme.colors.background,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  navLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.background,
-  },
-  // Login Styles
-  loginContainer: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-    justifyContent: 'center',
-    padding: 30,
-  },
-  loginContent: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  loginLogo: {
-    width: 100,
-    height: 100,
-    borderRadius: 24,
-    backgroundColor: Theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  loginTitle: {
-    fontSize: 28,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  loginSubtitle: {
-    fontSize: 16,
-    color: Theme.colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: 32,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: 16,
-    marginBottom: 16,
-    paddingHorizontal: 15,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 15,
-    fontSize: 16,
-    color: Theme.colors.text.primary,
-    fontWeight: '600',
-  },
-  eyeIcon: {
-    padding: 10,
-  },
-  loginBtn: {
-    borderRadius: 16,
-    paddingVertical: 18,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: Theme.colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  loginBtnText: {
-    color: Theme.colors.text.black,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

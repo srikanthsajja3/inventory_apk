@@ -4,6 +4,344 @@ import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock, Settings, X
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
+import { useJewelryCalc } from '../hooks/useJewelryCalc';
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  welcomeText: {
+    fontSize: Theme.typography.size.sm,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  title: {
+    fontSize: Theme.typography.size.xl,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  ratesBtn: {
+    padding: Theme.spacing.sm,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: Theme.spacing.lg,
+    marginBottom: Theme.spacing.sm,
+  },
+  sectionTitle: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  statValue: {
+    fontSize: Theme.typography.size.xl,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+    marginTop: Theme.spacing.sm,
+  },
+  statLabel: {
+    fontSize: Theme.typography.size.xs,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  adminActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  adminActionTitle: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  adminActionSub: {
+    fontSize: Theme.typography.size.xs,
+    color: Theme.colors.text.secondary,
+    marginTop: 2,
+  },
+  activityList: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.xs,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginBottom: Theme.spacing.xl,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  iconBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: Theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityInfo: {
+    flex: 1,
+    marginLeft: Theme.spacing.md,
+  },
+  activityText: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+  },
+  activityTime: {
+    fontSize: Theme.typography.size.xs,
+    color: Theme.colors.text.muted,
+    marginTop: 2,
+  },
+  activityQty: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+  },
+  emptyActivity: {
+    padding: Theme.spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyText: {
+    color: Theme.colors.text.muted,
+    marginTop: Theme.spacing.sm,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.background,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    padding: Theme.spacing.lg,
+    height: '85%',
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.lg,
+  },
+  modalTitle: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  modalBody: {
+    flex: 1,
+  },
+  categorySection: {
+    marginBottom: Theme.spacing.lg,
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
+  },
+  categoryTitle: {
+    fontSize: Theme.typography.size.xs,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    marginBottom: Theme.spacing.md,
+    letterSpacing: 1,
+  },
+  rateInputGroup: {
+    marginBottom: Theme.spacing.md,
+  },
+  rateLabel: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '600',
+    color: Theme.colors.text.secondary,
+    marginBottom: 6,
+  },
+  rateInputWrapper: {
+    backgroundColor: Theme.colors.background,
+    borderRadius: Theme.radius.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  rateInput: {
+    paddingVertical: Theme.spacing.sm,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+    fontWeight: '700',
+  },
+  saveBtn: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    gap: 12,
+    marginTop: Theme.spacing.md,
+    marginBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  saveBtnText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+  // User Management
+  userForm: {
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
+    gap: 12,
+  },
+  userInput: {
+    backgroundColor: Theme.colors.background,
+    borderRadius: Theme.radius.sm,
+    padding: Theme.spacing.sm,
+    color: Theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  roleBtn: {
+    flex: 1,
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.radius.sm,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  roleBtnActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  roleBtnText: {
+    fontSize: Theme.typography.size.xs,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+  },
+  roleBtnTextActive: {
+    color: Theme.colors.text.black,
+  },
+  userAddBtn: {
+    backgroundColor: Theme.colors.primary,
+    width: 44,
+    borderRadius: Theme.radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    marginBottom: 10,
+  },
+  userRowName: {
+    color: Theme.colors.text.primary,
+    fontWeight: '700',
+    fontSize: Theme.typography.size.md,
+  },
+  userRowRole: {
+    color: Theme.colors.primary,
+    fontSize: Theme.typography.size.xs,
+  },
+  userRowPass: {
+    color: Theme.colors.text.muted,
+    fontSize: Theme.typography.size.xs,
+    marginTop: 2,
+  },
+  staffCard: {
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.lg,
+    marginRight: 12,
+    minWidth: 150,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  staffName: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  staffSales: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    marginVertical: 4,
+  },
+  staffMeta: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  staffMetaText: {
+    fontSize: Theme.typography.size.xs,
+    fontWeight: '700',
+    color: Theme.colors.text.muted,
+  }
+});
+
+const ActivityItem = ({ type, item, qty, time }: any) => (
+  <View style={styles.activityItem}>
+    <View style={[styles.iconBadge, { backgroundColor: Theme.colors.muted }]}>
+      {type === 'IN' ? 
+        <ArrowDownLeft size={18} color={Theme.colors.status.success} /> : 
+        <ArrowUpRight size={18} color={Theme.colors.status.error} />
+      }
+    </View>
+    <View style={styles.activityInfo}>
+      <Text style={styles.activityText} numberOfLines={1}>{item}</Text>
+      <Text style={styles.activityTime}>{time}</Text>
+    </View>
+    <Text style={[styles.activityQty, { color: type === 'IN' ? Theme.colors.status.success : Theme.colors.status.error }]}>
+      {qty}
+    </Text>
+  </View>
+);
 
 const MasterRatesModal = ({ isVisible, onClose }: any) => {
   const [rates, setRates] = useState<any[]>([]);
@@ -28,7 +366,6 @@ const MasterRatesModal = ({ isVisible, onClose }: any) => {
   const saveRates = async () => {
     setSaving(true);
     try {
-      // Use upsert for batch update instead of loop
       const updates = rates.map(rate => ({
         id: rate.id,
         value: rate.value,
@@ -121,7 +458,7 @@ const EmployeeManagementModal = ({ isVisible, onClose }: any) => {
       if (error) throw error;
       setEmployees(data || []);
     } catch (e: any) {
-      Alert.alert('Database Error', 'Failed to fetch staff: ' + e.message + '\n\nEnsure you have run the latest SQL migration.');
+      Alert.alert('Database Error', 'Failed to fetch staff: ' + e.message);
     } finally {
       setLoading(false);
     }
@@ -324,8 +661,6 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
   );
 };
 
-import { useJewelryCalc } from '../hooks/useJewelryCalc';
-
 export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEstimation, onNavigate }: { onUpdateGoldRate?: () => void, onManageStones?: () => void, onEstimation?: (item: any) => void, onNavigate?: (tab: string) => void }) {
   const [stats, setStats] = useState({ total: 0, lowStock: 0, salesToday: 0, inventoryValue: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
@@ -352,61 +687,42 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
       const { data: allItems, count: totalCount } = await supabase.from('items').select('*', { count: 'exact' });
       const lowCount = (allItems || []).filter(i => (i.quantity || 0) < threshold).length;
 
-      // Calculate Total Inventory Value using centralized hook
       const totalInventoryValue = (allItems || []).reduce((acc, item) => {
         const qty = parseFloat(String(item.quantity)) || 0;
         if (qty <= 0) return acc;
-
         const itemTotal = calculateEstimation(item, rateMap);
         return acc + (itemTotal * qty);
       }, 0);
 
-      // Today's Sales
       const today = new Date();
       today.setHours(0,0,0,0);
-      const { data: todaySales } = await supabase.from('sales').select('sale_amount, profit_loss').gte('sold_at', today.toISOString());
-      
+      const { data: todaySales } = await supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString());
       const salesTotal = (todaySales || []).reduce((acc, s) => acc + (parseFloat(String(s.sale_amount)) || 0), 0);
 
-      // Staff Analytics
       const { data: allSales } = await supabase.from('sales').select('sale_amount, prc_amount, sold_by').order('sold_at', { ascending: false });
-      
       const staffMap = (allSales || []).reduce((acc: any, curr: any) => {
         const soldBy = curr.sold_by || 'Unknown';
-        // Split staff names if multiple (comma separated)
         const staffMembers = soldBy.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
-        
         const saleAmt = parseFloat(String(curr.sale_amount)) || 0;
         const purchaseAmt = parseFloat(String(curr.prc_amount)) || 0;
         const profit = saleAmt - purchaseAmt;
-
-        // Divide credit among staff members
         const countShare = 1 / staffMembers.length;
         const saleShare = saleAmt / staffMembers.length;
         const profitShare = profit / staffMembers.length;
-
         staffMembers.forEach((staff: string) => {
           if (!acc[staff]) acc[staff] = { name: staff, count: 0, sales: 0, profit: 0 };
           acc[staff].count += countShare;
           acc[staff].sales += saleShare;
           acc[staff].profit += profitShare;
         });
-        
         return acc;
       }, {});
 
       setStaffStats(Object.values(staffMap).sort((a: any, b: any) => b.sales - a.sales));
-
       const { data: activity } = await supabase.from('transactions').select('*, items(*)').order('created_at', { ascending: false }).limit(5);
 
-      setStats({
-        total: totalCount || 0,
-        lowStock: lowCount || 0,
-        salesToday: salesTotal,
-        inventoryValue: totalInventoryValue
-      });
+      setStats({ total: totalCount || 0, lowStock: lowCount || 0, salesToday: salesTotal, inventoryValue: totalInventoryValue });
       setRecentActivity(activity || []);
-      
     } catch (error: any) {
       console.error('Dashboard Fetch Error:', error.message);
     } finally {
@@ -415,525 +731,45 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
     }
   };
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, []);
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    fetchDashboardData();
-  };
+  useEffect(() => { fetchDashboardData(); }, []);
+  const onRefresh = () => { setRefreshing(true); fetchDashboardData(); };
 
   if (loading && !refreshing) {
-    return (
-      <View style={styles.centerContent}>
-        <ActivityIndicator size="large" color={Theme.colors.primary} />
-      </View>
-    );
+    return <View style={styles.centerContent}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
   }
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />
-      }
-    >
+    <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Welcome Back,</Text>
-          <Text style={styles.title}>Inventory Overview</Text>
-        </View>
+        <View><Text style={styles.welcomeText}>Welcome Back,</Text><Text style={styles.title}>Inventory Overview</Text></View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity 
-            style={styles.ratesBtn}
-            onPress={onUpdateGoldRate}
-          >
-            <Coins size={20} color={Theme.colors.primary} />
-          </TouchableOpacity>
-          
+          <TouchableOpacity style={styles.ratesBtn} onPress={onUpdateGoldRate}><Coins size={20} color={Theme.colors.primary} /></TouchableOpacity>
           {role === 'admin' && (
             <>
-              <TouchableOpacity 
-                style={styles.ratesBtn}
-                onPress={onManageStones}
-              >
-                <Diamond size={20} color={Theme.colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.ratesBtn}
-                onPress={() => setShowEmployeesModal(true)}
-              >
-                <Users size={20} color={Theme.colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.ratesBtn}
-                onPress={() => setShowUsersModal(true)}
-              >
-                <UserIcon size={20} color={Theme.colors.primary} />
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.ratesBtn}
-                onPress={() => setShowRatesModal(true)}
-              >
-                <Settings size={20} color={Theme.colors.text.secondary} />
-              </TouchableOpacity>
+              <TouchableOpacity style={styles.ratesBtn} onPress={onManageStones}><Diamond size={20} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowEmployeesModal(true)}><Users size={20} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowUsersModal(true)}><UserIcon size={20} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowRatesModal(true)}><Settings size={20} color={Theme.colors.text.secondary} /></TouchableOpacity>
             </>
           )}
         </View>
       </View>
-      
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}>
-          <View style={[styles.iconBadge, { backgroundColor: Theme.colors.primary + '20' }]}>
-            <Package size={24} color={Theme.colors.primary} />
-          </View>
-          <Text style={styles.statValue}>{stats.total}</Text>
-          <Text style={styles.statLabel}>Total Items</Text>
-        </View>
-        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}>
-          <View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}>
-            <ShoppingBag size={24} color={Theme.colors.status.success} />
-          </View>
-          <Text style={styles.statValue}>₹{stats.salesToday.toLocaleString('en-IN')}</Text>
-          <Text style={styles.statLabel}>Today's Sales</Text>
-        </View>
+        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.primary + '20' }]}><Package size={24} color={Theme.colors.primary} /></View><Text style={styles.statValue}>{stats.total}</Text><Text style={styles.statLabel}>Total Items</Text></View>
+        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}><ShoppingBag size={24} color={Theme.colors.status.success} /></View><Text style={styles.statValue}>₹{stats.salesToday.toLocaleString('en-IN')}</Text><Text style={styles.statLabel}>Today's Sales</Text></View>
       </View>
-
       {role === 'admin' && (
-        <View style={{ marginBottom: 15 }}>
-          <View style={[styles.adminActionCard, { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary }]}>
-            <View style={[styles.iconBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}>
-              <Coins size={24} color="white" />
-            </View>
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={[styles.adminActionTitle, { color: 'white' }]}>Total Inventory Value</Text>
-              <Text style={[styles.adminActionSub, { color: 'rgba(255,255,255,0.8)' }]}>Estimated worth of current stock</Text>
-            </View>
-            <Text style={{ fontSize: 20, fontWeight: '900', color: 'white' }}>₹{stats.inventoryValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
-          </View>
-        </View>
+        <View style={{ marginBottom: 15 }}><View style={[styles.adminActionCard, { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary }]}><View style={[styles.iconBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Coins size={24} color="white" /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={[styles.adminActionTitle, { color: 'white' }]}>Total Inventory Value</Text><Text style={[styles.adminActionSub, { color: 'rgba(255,255,255,0.8)' }]}>Estimated worth of current stock</Text></View><Text style={{ fontSize: 20, fontWeight: '900', color: 'white' }}>₹{stats.inventoryValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text></View></View>
       )}
-
       {role === 'admin' && (
-        <>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Staff Performance</Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-            {staffStats.map((staff, idx) => (
-              <View key={idx} style={styles.staffCard}>
-                <Text style={styles.staffName}>{staff.name}</Text>
-                <Text style={styles.staffSales}>₹{staff.sales.toLocaleString('en-IN')}</Text>
-                <View style={styles.staffMeta}>
-                  <Text style={styles.staffMetaText}>{Number(staff.count).toFixed(staff.count % 1 === 0 ? 0 : 1)} Sales</Text>
-                  <Text style={[styles.staffMetaText, { color: staff.profit >= 0 ? Theme.colors.status.success : Theme.colors.status.error }]}>
-                    ₹{Math.round(staff.profit).toLocaleString('en-IN')} P/L
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-
-          <TouchableOpacity 
-            style={styles.adminActionCard}
-            onPress={() => onNavigate && onNavigate('sales')}
-          >
-            <View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}>
-              <TrendingUp size={24} color={Theme.colors.status.success} />
-            </View>
-            <View style={{ flex: 1, marginLeft: 15 }}>
-              <Text style={styles.adminActionTitle}>Full Sales Analytics</Text>
-              <Text style={styles.adminActionSub}>Detailed Profit/Loss breakdown</Text>
-            </View>
-            <ArrowUpRight size={20} color={Theme.colors.text.secondary} />
-          </TouchableOpacity>
-        </>
+        <><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Staff Performance</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>{staffStats.map((staff, idx) => (<View key={idx} style={styles.staffCard}><Text style={styles.staffName}>{staff.name}</Text><Text style={styles.staffSales}>₹{staff.sales.toLocaleString('en-IN')}</Text><View style={styles.staffMeta}><Text style={styles.staffMetaText}>{Number(staff.count).toFixed(staff.count % 1 === 0 ? 0 : 1)} Sales</Text><Text style={[styles.staffMetaText, { color: staff.profit >= 0 ? Theme.colors.status.success : Theme.colors.status.error }]}>₹{Math.round(staff.profit).toLocaleString('en-IN')} P/L</Text></View></View>))}</ScrollView><TouchableOpacity style={styles.adminActionCard} onPress={() => onNavigate && onNavigate('sales')}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}><TrendingUp size={24} color={Theme.colors.status.success} /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={styles.adminActionTitle}>Full Sales Analytics</Text><Text style={styles.adminActionSub}>Detailed Profit/Loss breakdown</Text></View><ArrowUpRight size={20} color={Theme.colors.text.secondary} /></TouchableOpacity></>
       )}
-
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <TouchableOpacity onPress={onRefresh}>
-          <RefreshCw size={16} color={Theme.colors.text.secondary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.activityList}>
-        {recentActivity.length > 0 ? (
-          recentActivity.map((item) => (
-            <TouchableOpacity 
-              key={item.id} 
-              onPress={() => onEstimation && onEstimation(item.items)}
-            >
-              <ActivityItem 
-                type={item.type} 
-                item={item.items?.name || 'Item'} 
-                qty={`${item.type === 'IN' ? '+' : '-'}${item.quantity_changed}`} 
-                time={new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-              />
-            </TouchableOpacity>
-          ))
-        ) : (
-          <View style={styles.emptyActivity}>
-            <Clock size={32} color={Theme.colors.border} />
-            <Text style={styles.emptyText}>No recent movements</Text>
-          </View>
-        )}
-      </View>
-
-      <MasterRatesModal 
-        isVisible={showRatesModal} 
-        onClose={() => setShowRatesModal(false)} 
-      />
-
-      <EmployeeManagementModal
-        isVisible={showEmployeesModal}
-        onClose={() => setShowEmployeesModal(false)}
-      />
-
-      <UserManagementModal
-        isVisible={showUsersModal}
-        onClose={() => setShowUsersModal(false)}
-      />
-      
+      <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Recent Activity</Text><TouchableOpacity onPress={onRefresh}><RefreshCw size={16} color={Theme.colors.text.secondary} /></TouchableOpacity></View>
+      <View style={styles.activityList}>{recentActivity.length > 0 ? (recentActivity.map((item) => (<TouchableOpacity key={item.id} onPress={() => onEstimation && onEstimation(item.items)}><ActivityItem type={item.type} item={item.items?.name || 'Item'} qty={`${item.type === 'IN' ? '+' : '-'}${item.quantity_changed}`} time={new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} /></TouchableOpacity>))) : (<View style={styles.emptyActivity}><Clock size={32} color={Theme.colors.border} /><Text style={styles.emptyText}>No recent movements</Text></View>)}</View>
+      <MasterRatesModal isVisible={showRatesModal} onClose={() => setShowRatesModal(false)} />
+      <EmployeeManagementModal isVisible={showEmployeesModal} onClose={() => setShowEmployeesModal(false)} />
+      <UserManagementModal isVisible={showUsersModal} onClose={() => setShowUsersModal(false)} />
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
-
-const ActivityItem = ({ type, item, qty, time }: any) => (
-  <View style={styles.activityItem}>
-    <View style={[styles.iconBadge, { backgroundColor: Theme.colors.muted }]}>
-      {type === 'IN' ? 
-        <ArrowDownLeft size={18} color={Theme.colors.status.success} /> : 
-        <ArrowUpRight size={18} color={Theme.colors.status.error} />
-      }
-    </View>
-    <View style={styles.activityInfo}>
-      <Text style={styles.activityText} numberOfLines={1}>{item}</Text>
-      <Text style={styles.activityTime}>{time}</Text>
-    </View>
-    <Text style={[styles.activityQty, { color: type === 'IN' ? Theme.colors.status.success : Theme.colors.status.error }]}>
-      {qty}
-    </Text>
-  </View>
-);
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    backgroundColor: Theme.colors.background,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  welcomeText: {
-    fontSize: 14,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  ratesBtn: {
-    padding: 12,
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 30,
-    marginBottom: 15,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Theme.colors.text.primary,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    gap: 15,
-    marginBottom: 15,
-  },
-  statCard: {
-    flex: 1,
-    padding: 20,
-    borderRadius: 24,
-    alignItems: 'flex-start',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-    marginTop: 12,
-  },
-  statLabel: {
-    fontSize: 13,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  adminActionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    padding: 20,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  adminActionTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  adminActionSub: {
-    fontSize: 12,
-    color: Theme.colors.text.secondary,
-    marginTop: 2,
-  },
-  activityList: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 24,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    marginBottom: 30,
-  },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  iconBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityInfo: {
-    flex: 1,
-    marginLeft: 15,
-  },
-  activityText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Theme.colors.text.primary,
-  },
-  activityTime: {
-    fontSize: 12,
-    color: Theme.colors.text.muted,
-    marginTop: 2,
-  },
-  activityQty: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  emptyActivity: {
-    padding: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    color: Theme.colors.text.muted,
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    padding: 24,
-    height: '85%',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 24,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  modalBody: {
-    flex: 1,
-  },
-  categorySection: {
-    marginBottom: 25,
-    backgroundColor: Theme.colors.surface,
-    padding: 15,
-    borderRadius: 20,
-  },
-  categoryTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-    marginBottom: 15,
-    letterSpacing: 1,
-  },
-  rateInputGroup: {
-    marginBottom: 15,
-  },
-  rateLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Theme.colors.text.secondary,
-    marginBottom: 6,
-  },
-  rateInputWrapper: {
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    paddingHorizontal: 15,
-  },
-  rateInput: {
-    paddingVertical: 10,
-    fontSize: 15,
-    color: Theme.colors.text.primary,
-    fontWeight: '700',
-  },
-  saveBtn: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 18,
-    borderRadius: 18,
-    gap: 12,
-    marginTop: 20,
-    marginBottom: Platform.OS === 'ios' ? 20 : 0,
-  },
-  saveBtnText: {
-    color: Theme.colors.text.black,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  // User Management
-  userForm: {
-    backgroundColor: Theme.colors.surface,
-    padding: 15,
-    borderRadius: 20,
-    gap: 12,
-  },
-  userInput: {
-    backgroundColor: Theme.colors.background,
-    borderRadius: 12,
-    padding: 12,
-    color: Theme.colors.text.primary,
-    fontWeight: '600',
-  },
-  roleBtn: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  roleBtnActive: {
-    backgroundColor: Theme.colors.primary,
-    borderColor: Theme.colors.primary,
-  },
-  roleBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: Theme.colors.text.secondary,
-  },
-  roleBtnTextActive: {
-    color: Theme.colors.text.black,
-  },
-  userAddBtn: {
-    backgroundColor: Theme.colors.primary,
-    width: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  userRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 15,
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    marginBottom: 10,
-  },
-  userRowName: {
-    color: Theme.colors.text.primary,
-    fontWeight: '700',
-    fontSize: 15,
-  },
-  userRowRole: {
-    color: Theme.colors.primary,
-    fontSize: 11,
-  },
-  userRowPass: {
-    color: Theme.colors.text.muted,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  staffCard: {
-    backgroundColor: Theme.colors.surface,
-    padding: 16,
-    borderRadius: 20,
-    marginRight: 12,
-    minWidth: 150,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  staffName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  staffSales: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    marginVertical: 4,
-  },
-  staffMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 4,
-  },
-  staffMetaText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: Theme.colors.text.muted,
-  }
-});

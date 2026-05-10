@@ -1,3 +1,5 @@
+import { moderateScale, normalize } from './utils/scaling';
+
 export const Theme = {
   colors: {
     primary: '#D4AF37', // Gold
@@ -18,4 +20,29 @@ export const Theme = {
       info: '#D4AF37',
     },
   },
+  spacing: {
+    xs: moderateScale(4),
+    sm: moderateScale(8),
+    md: moderateScale(16),
+    lg: moderateScale(24),
+    xl: moderateScale(32),
+  },
+  typography: {
+    size: {
+      xs: normalize(10),
+      sm: normalize(12),
+      md: normalize(14),
+      lg: normalize(18),
+      xl: normalize(24),
+      xxl: normalize(32),
+    },
+  },
+  radius: {
+    sm: moderateScale(8),
+    md: moderateScale(12),
+    lg: moderateScale(24),
+    xl: moderateScale(32),
+  }
 };
+
+export default Theme;

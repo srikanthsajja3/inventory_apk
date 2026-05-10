@@ -4,12 +4,121 @@ import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, IndianRupee } from 'lu
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
 
-interface AddItemModalProps {
-  isVisible: boolean;
-  onClose: () => void;
-  onSave: () => void;
-  currentFolderId: string | null;
-}
+const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Theme.colors.background,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    height: '85%',
+    padding: Theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+  },
+  modalTitle: {
+    fontSize: Theme.typography.size.lg,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  closeButton: {
+    padding: 4,
+  },
+  typeSelector: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.surface,
+    padding: 4,
+    borderRadius: Theme.radius.md,
+    marginBottom: Theme.spacing.lg,
+  },
+  typeBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    borderRadius: Theme.radius.sm,
+    gap: 8,
+  },
+  typeBtnActive: {
+    backgroundColor: Theme.colors.primary,
+  },
+  typeBtnText: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '600',
+    color: Theme.colors.text.secondary,
+  },
+  typeBtnTextActive: {
+    color: Theme.colors.text.black,
+  },
+  form: {
+    flex: 1,
+  },
+  inputGroup: {
+    marginBottom: Theme.spacing.md,
+  },
+  label: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '600',
+    color: Theme.colors.text.secondary,
+    marginBottom: 8,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.muted,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    paddingTop: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+  },
+  textArea: {
+    height: 80,
+    textAlignVertical: 'top',
+  },
+  footer: {
+    paddingTop: Theme.spacing.md,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: Theme.radius.md,
+    gap: 8,
+  },
+  saveButtonDisabled: {
+    opacity: 0.7,
+    backgroundColor: Theme.colors.muted,
+  },
+  saveButtonText: {
+    color: Theme.colors.text.black,
+    fontSize: Theme.typography.size.md,
+    fontWeight: '700',
+  },
+});
 
 const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'default', multiline = false }: any) => (
   <View style={styles.inputGroup}>
@@ -28,6 +137,13 @@ const InputField = ({ label, icon: Icon, value, onChangeText, keyboardType = 'de
     </View>
   </View>
 );
+
+interface AddItemModalProps {
+  isVisible: boolean;
+  onClose: () => void;
+  onSave: () => void;
+  currentFolderId: string | null;
+}
 
 export default function AddItemModal({ isVisible, onClose, onSave, currentFolderId }: AddItemModalProps) {
   const [type, setType] = useState<'item' | 'folder'>('item');
@@ -182,118 +298,3 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    height: '85%',
-    padding: 24,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  closeButton: {
-    padding: 4,
-  },
-  typeSelector: {
-    flexDirection: 'row',
-    backgroundColor: Theme.colors.surface,
-    padding: 4,
-    borderRadius: 12,
-    marginBottom: 24,
-  },
-  typeBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    gap: 8,
-  },
-  typeBtnActive: {
-    backgroundColor: Theme.colors.primary,
-  },
-  typeBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.text.secondary,
-  },
-  typeBtnTextActive: {
-    color: Theme.colors.text.black,
-  },
-  form: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Theme.colors.text.secondary,
-    marginBottom: 8,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.muted,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  textAreaWrapper: {
-    alignItems: 'flex-start',
-    paddingTop: 12,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    fontSize: 16,
-    color: Theme.colors.text.primary,
-  },
-  textArea: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  footer: {
-    paddingTop: 20,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 0,
-  },
-  saveButton: {
-    backgroundColor: Theme.colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 16,
-    gap: 8,
-  },
-  saveButtonDisabled: {
-    opacity: 0.7,
-  },
-  saveButtonText: {
-    color: Theme.colors.text.black,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});

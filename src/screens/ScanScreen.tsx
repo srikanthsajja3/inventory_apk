@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput, Modal } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput, Modal, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem  } from 'lucide-react-native';
 import { supabase } from '../../supabase';
@@ -8,13 +8,226 @@ import { useJewelryCalc } from '../hooks/useJewelryCalc';
 import StoneEntryModal from '../components/StoneEntryModal';
 
 import { Theme } from '../theme';
+import { SCREEN_WIDTH } from '../utils/scaling';
 
-const DetailBadge = ({ label, value, icon: Icon, color = Theme.colors.primary }: any) => {
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: Theme.colors.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
+  cameraContainer: { flex: 1, position: 'relative' },
+  camera: { flex: 1 },
+  overlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
+  scanArea: { 
+    width: Math.min(SCREEN_WIDTH * 0.7, 280), 
+    height: Math.min(SCREEN_WIDTH * 0.7, 280), 
+    borderWidth: 3, 
+    borderColor: Theme.colors.primary, 
+    backgroundColor: 'transparent', 
+    borderRadius: 24,
+    ...Platform.select({
+      ios: {
+        shadowColor: Theme.colors.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+      },
+      web: {
+        boxShadow: `0 0 15px ${Theme.colors.primary}`,
+      }
+    })
+  },
+  scanText: { 
+    color: 'white', 
+    fontSize: 16, 
+    fontWeight: '700', 
+    marginTop: 30, 
+    textAlign: 'center',
+    ...Platform.select({
+      ios: {
+        textShadowColor: 'black', 
+        textShadowOffset: { width: 0, height: 1 }, 
+        textShadowRadius: 4
+      },
+      android: {
+        textShadowColor: 'black', 
+        textShadowOffset: { width: 0, height: 1 }, 
+        textShadowRadius: 4
+      },
+      web: {
+        textShadow: '0 1px 4px black'
+      }
+    })
+  },
+  controls: { position: 'absolute', bottom: 40, width: '100%', flexDirection: 'row', justifyContent: 'center', gap: 20 },
+  controlBtn: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  manualEntryContainer: { width: '85%', maxWidth: 400, marginTop: 40 },
+  manualInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 16, paddingHorizontal: 12, height: 56, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  manualIcon: { marginRight: 10 },
+  manualInput: { flex: 1, height: '100%', color: 'white', fontSize: 16, fontWeight: '600' },
+  manualBtn: { backgroundColor: Theme.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
+  manualBtnText: { color: Theme.colors.background, fontWeight: '700', fontSize: 14 },
+  buttonText: { color: Theme.colors.background, fontWeight: '700', fontSize: Theme.typography.size.sm },
+  resultContainer: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.7)', 
+    justifyContent: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? 'center' : 'flex-end' 
+  },
+  fullWidthCard: { 
+    backgroundColor: Theme.colors.surface, 
+    borderTopLeftRadius: Theme.radius.xl, 
+    borderTopRightRadius: Theme.radius.xl, 
+    borderBottomLeftRadius: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? Theme.radius.xl : 0,
+    borderBottomRightRadius: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? Theme.radius.xl : 0,
+    height: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? '80%' : '90%', 
+    width: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? 500 : '100%',
+    alignSelf: 'center',
+    overflow: 'hidden'
+  },
+  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: Theme.spacing.md, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
+  headerTitle: { fontSize: Theme.typography.size.lg, fontWeight: '800', color: Theme.colors.text.primary },
+  closeBtn: { padding: 8, backgroundColor: Theme.colors.background, borderRadius: Theme.radius.sm },
+  resultScroll: { flex: 1, padding: Theme.spacing.md },
+  itemTopSection: { flexDirection: 'row', gap: Theme.spacing.md, marginBottom: Theme.spacing.md },
+  imageSection: { width: 80, height: 80 },
+  multiImageContainer: { width: 80, height: 80 },
+  imageWrapper: { width: 80, height: 80, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border, marginRight: 8 },
+  imageContainer: { width: 80, height: 80, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border },
+  itemImage: { width: '100%', height: '100%' },
+  imagePlaceholder: { width: 80, height: 80, backgroundColor: Theme.colors.background, borderRadius: Theme.radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  itemBasicInfo: { flex: 1, justifyContent: 'center' },
+  itemName: { fontSize: Theme.typography.size.lg, fontWeight: '800', color: Theme.colors.text.primary },
+  itemSku: { fontSize: Theme.typography.size.sm, color: Theme.colors.text.secondary, marginTop: 4, fontWeight: '600' },
+  vendorBadge: { backgroundColor: Theme.colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 8 },
+  vendorText: { fontSize: 10, fontWeight: '700', color: Theme.colors.text.secondary },
+  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  detailBadge: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.background, padding: Theme.spacing.sm, borderRadius: Theme.radius.md, borderWidth: 1, borderColor: Theme.colors.border, gap: 8 },
+  badgeIcon: { width: 28, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
+  badgeLabel: { fontSize: 9, color: Theme.colors.text.secondary, fontWeight: '600' },
+  badgeValue: { fontSize: 12, color: Theme.colors.text.primary, fontWeight: '800' },
+  stickyControls: { padding: Theme.spacing.md, paddingBottom: Platform.OS === 'ios' ? 40 : Theme.spacing.md, backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderTopColor: Theme.colors.border },
+  stockControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: Theme.spacing.md },
+  qtyDisplay: { alignItems: 'center' },
+  qtyValue: { fontSize: Theme.typography.size.xl, fontWeight: '900', color: Theme.colors.text.primary },
+  qtyLabel: { fontSize: 9, color: Theme.colors.text.secondary, fontWeight: '700', textTransform: 'uppercase' },
+  actionRow: { flexDirection: 'row', gap: 10 },
+  estimateBtn: { flex: 1, backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: Theme.radius.md, gap: 8 },
+  doneBtn: { flex: 1, backgroundColor: Theme.colors.muted, paddingVertical: 14, borderRadius: Theme.radius.md, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  doneBtnText: { color: '#fff', fontSize: Theme.typography.size.md, fontWeight: '700' },
+  notFoundCard: { backgroundColor: Theme.colors.surface, borderRadius: Theme.radius.lg, padding: Theme.spacing.lg, margin: Theme.spacing.md, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border, maxWidth: 500, alignSelf: 'center' },
+  notFoundTitle: { fontSize: Theme.typography.size.xl, fontWeight: '800', color: Theme.colors.text.primary, marginTop: 15 },
+  notFoundText: { textAlign: 'center', color: Theme.colors.text.secondary, marginTop: 10, fontSize: Theme.typography.size.md, lineHeight: 22 },
+  scannedDataText: { fontWeight: '700', color: Theme.colors.primary },
+  notFoundActions: { width: '100%', marginTop: Theme.spacing.lg, gap: 10 },
+  addBtn: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: Theme.radius.md, gap: 8 },
+  addBtnText: { color: Theme.colors.background, fontWeight: '800', fontSize: Theme.typography.size.md },
+  retryBtn: { paddingVertical: 14, borderRadius: Theme.radius.md, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  retryBtnText: { color: Theme.colors.text.secondary, fontWeight: '700', fontSize: Theme.typography.size.md },
+  modalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: Theme.spacing.md
+  },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: Theme.spacing.lg, marginBottom: Theme.spacing.md, gap: Theme.spacing.sm },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: Theme.colors.text.secondary, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionLine: { flex: 1, height: 1, backgroundColor: Theme.colors.border },
+  stoneListContainer: { gap: Theme.spacing.xs, marginTop: 0, marginBottom: Theme.spacing.md },
+  stoneCard: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    padding: Theme.spacing.md,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingBottom: 10,
+  },
+  stoneIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Theme.colors.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  stoneNameText: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  stoneCategoryText: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  stoneCardGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  stoneGridItem: {
+    flex: 1,
+  },
+  stoneGridLabel: {
+    fontSize: 8,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  stoneGridValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+  },
+  sellModalContent: { 
+    backgroundColor: Theme.colors.background, 
+    borderRadius: Theme.radius.xl, 
+    width: '90%',
+    maxWidth: 340,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    justifyContent: 'center'
+  },
+  sellHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    paddingHorizontal: Theme.spacing.md, 
+    paddingVertical: Theme.spacing.sm,
+    borderBottomWidth: 1, 
+    borderBottomColor: Theme.colors.border 
+  },
+  sellBody: { padding: Theme.spacing.md, justifyContent: 'center' },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.muted, borderRadius: Theme.radius.sm, paddingHorizontal: Theme.spacing.sm, borderWidth: 1, borderColor: Theme.colors.border },
+  sellInput: { flex: 1, paddingVertical: 10, paddingHorizontal: 8, fontSize: Theme.typography.size.md, color: Theme.colors.text.primary },
+  staffSelectBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10, marginRight: 8, borderWidth: 1, borderColor: Theme.colors.border, gap: 6 },
+  staffSelectBtnActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
+  staffSelectText: { fontSize: 11, fontWeight: '700', color: Theme.colors.text.secondary },
+  staffSelectTextActive: { color: Theme.colors.background },
+  saveButton: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: Theme.radius.md, gap: 8, marginTop: 15 },
+  saveButtonText: { color: Theme.colors.background, fontSize: Theme.typography.size.md, fontWeight: '700' },
+  message: { textAlign: 'center', fontSize: 16, color: Theme.colors.text.secondary, padding: 20 },
+  button: { backgroundColor: Theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 10 },
+});
+
+const DetailBadge = ({ label, value, icon: Icon, color }: any) => {
   if (value === null || value === undefined || value === '') return null;
+  const badgeColor = color || Theme.colors.primary;
   return (
     <View style={styles.detailBadge}>
-      <View style={[styles.badgeIcon, { backgroundColor: `${color}15` }]}>
-        <Icon size={14} color={color} />
+      <View style={[styles.badgeIcon, { backgroundColor: `${badgeColor}15` }]}>
+        <Icon size={14} color={badgeColor} />
       </View>
       <View>
         <Text style={styles.badgeLabel}>{label}</Text>
@@ -94,6 +307,8 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
 
   const { role, user } = useRole();
   const { calculateEstimation } = useJewelryCalc();
+
+  const [showManualInput, setShowManualInput] = useState(Platform.OS === 'web');
 
   useEffect(() => {
     if (showSellModal) {
@@ -323,40 +538,81 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
     Alert.alert("Success", "Item updated successfully");
   };
 
+  const renderCameraView = () => (
+    <View style={styles.cameraContainer}>
+      <CameraView
+        style={styles.camera}
+        onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+        barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+      />
+      <View style={styles.overlay}>
+        <View style={styles.scanArea} />
+        <Text style={styles.scanText}>Align QR Code within the frame</Text>
+        
+        <View style={styles.manualEntryContainer}>
+          <View style={styles.manualInputWrapper}>
+            <Keyboard size={20} color="white" style={styles.manualIcon} />
+            <TextInput
+              style={styles.manualInput}
+              placeholder="ENTER SKU MANUALLY"
+              placeholderTextColor="rgba(255,255,255,0.6)"
+              value={manualSku}
+              onChangeText={(t) => setManualSku(t.toUpperCase())}
+              autoCapitalize="characters"
+              onSubmitEditing={handleManualSearch}
+            />
+            <TouchableOpacity 
+              style={styles.manualBtn}
+              onPress={handleManualSearch}
+            >
+              <Text style={styles.manualBtnText}>FIND</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </View>
+  );
+
+  const renderManualView = () => (
+    <View style={[styles.center, { padding: 20 }]}>
+      <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: Theme.colors.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+        <Keyboard size={40} color={Theme.colors.primary} />
+      </View>
+      <Text style={[styles.headerTitle, { marginBottom: 10 }]}>Manual SKU Entry</Text>
+      <Text style={[styles.vendorText, { textAlign: 'center', marginBottom: 30, fontSize: 14 }]}>Enter the product SKU or barcode number below</Text>
+      
+      <View style={[styles.manualInputWrapper, { backgroundColor: Theme.colors.surface, width: '100%', maxWidth: 400, borderColor: Theme.colors.border }]}>
+        <TextInput
+          style={[styles.manualInput, { color: Theme.colors.text.primary }]}
+          placeholder="e.g. RING001"
+          placeholderTextColor={Theme.colors.text.muted}
+          value={manualSku}
+          onChangeText={setManualSku}
+          autoCapitalize="characters"
+          autoFocus
+          onSubmitEditing={handleManualSearch}
+        />
+        <TouchableOpacity 
+          style={styles.manualBtn}
+          onPress={handleManualSearch}
+        >
+          <Text style={styles.manualBtnText}>Search</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity 
+        style={[styles.retryBtn, { marginTop: 20, width: '100%', maxWidth: 400 }]}
+        onPress={() => setShowManualInput(false)}
+      >
+        <Text style={styles.retryBtnText}>Back to Camera</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       {!scanned ? (
-        <View style={styles.cameraContainer}>
-          <CameraView
-            style={styles.camera}
-            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-            barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          />
-          <View style={styles.overlay}>
-            <View style={styles.scanTarget} />
-            <Text style={styles.hint}>Align QR Code within the frame</Text>
-            
-            <View style={styles.manualEntryContainer}>
-              <View style={styles.manualInputWrapper}>
-                <Keyboard size={20} color="#94a3b8" style={styles.manualIcon} />
-                <TextInput
-                  style={styles.manualInput}
-                  placeholder="Manual SKU Entry"
-                  placeholderTextColor="#94a3b8"
-                  value={manualSku}
-                  onChangeText={setManualSku}
-                  autoCapitalize="characters"
-                />
-                <TouchableOpacity 
-                  style={styles.manualBtn}
-                  onPress={handleManualSearch}
-                >
-                  <Text style={styles.manualBtnText}>Find</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
+        showManualInput ? renderManualView() : renderCameraView()
       ) : (
         <View style={styles.resultContainer}>
           {loading && !itemFound ? (
@@ -580,165 +836,3 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Theme.colors.background },
-  cameraContainer: { flex: 1, position: 'relative' },
-  camera: { flex: 1 },
-  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  scanTarget: { width: 260, height: 260, borderWidth: 4, borderColor: Theme.colors.primary, borderRadius: 30, backgroundColor: 'transparent' },
-  hint: { color: '#fff', marginTop: 30, fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-  manualEntryContainer: { width: '80%', marginTop: 40 },
-  manualInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, borderRadius: 15, paddingHorizontal: 12, height: 54, borderWidth: 1, borderColor: Theme.colors.border },
-  manualIcon: { marginRight: 10 },
-  manualInput: { flex: 1, height: '100%', color: Theme.colors.text.primary, fontSize: 16, fontWeight: '600' },
-  manualBtn: { backgroundColor: Theme.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 10 },
-  manualBtnText: { color: Theme.colors.background, fontWeight: '700', fontSize: 14 },
-  message: { textAlign: 'center', marginBottom: 20, fontSize: 16, color: Theme.colors.text.secondary },
-  button: { backgroundColor: Theme.colors.primary, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 },
-  buttonText: { color: Theme.colors.background, fontWeight: '700' },
-  resultContainer: { flex: 1, backgroundColor: Theme.colors.background, justifyContent: 'flex-end' },
-  fullWidthCard: { backgroundColor: Theme.colors.surface, borderTopLeftRadius: 32, borderTopRightRadius: 32, height: '85%', width: '100%', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 20, elevation: 5 },
-  resultHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 24, borderBottomWidth: 1, borderBottomColor: Theme.colors.border },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: Theme.colors.text.primary },
-  closeBtn: { padding: 8, backgroundColor: Theme.colors.background, borderRadius: 12 },
-  resultScroll: { flex: 1, padding: 24 },
-  itemTopSection: { flexDirection: 'row', gap: 20, marginBottom: 24 },
-  imageSection: { width: 100, height: 100 },
-  multiImageContainer: { width: 100, height: 100 },
-  imageWrapper: { width: 100, height: 100, borderRadius: 20, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border, marginRight: 8 },
-  imageContainer: { width: 100, height: 100, borderRadius: 20, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border },
-  itemImage: { width: '100%', height: '100%' },
-  imagePlaceholder: { width: 100, height: 100, backgroundColor: Theme.colors.background, borderRadius: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
-  itemBasicInfo: { flex: 1, justifyContent: 'center' },
-  itemName: { fontSize: 20, fontWeight: '800', color: Theme.colors.text.primary },
-  itemSku: { fontSize: 14, color: Theme.colors.text.secondary, marginTop: 4, fontWeight: '600' },
-  vendorBadge: { backgroundColor: Theme.colors.background, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, alignSelf: 'flex-start', marginTop: 8 },
-  vendorText: { fontSize: 11, fontWeight: '700', color: Theme.colors.text.secondary },
-  detailGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  detailBadge: { width: '48%', flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.background, padding: 12, borderRadius: 16, borderWidth: 1, borderColor: Theme.colors.border, gap: 10 },
-  badgeIcon: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  badgeLabel: { fontSize: 10, color: Theme.colors.text.secondary, fontWeight: '600' },
-  badgeValue: { fontSize: 13, color: Theme.colors.text.primary, fontWeight: '800' },
-  stickyControls: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 24, paddingBottom: Platform.OS === 'ios' ? 40 : 24, backgroundColor: Theme.colors.surface, borderTopWidth: 1, borderTopColor: Theme.colors.border },
-  stockControl: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
-  qtyDisplay: { alignItems: 'center' },
-  qtyValue: { fontSize: 32, fontWeight: '900', color: Theme.colors.text.primary },
-  qtyLabel: { fontSize: 10, color: Theme.colors.text.secondary, fontWeight: '700', textTransform: 'uppercase' },
-  actionRow: { flexDirection: 'row', gap: 12 },
-  estimateBtn: { flex: 1, backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, gap: 10 },
-  doneBtn: { flex: 1, backgroundColor: Theme.colors.muted, paddingVertical: 16, borderRadius: 16, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
-  doneBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  notFoundCard: { backgroundColor: Theme.colors.surface, borderRadius: 32, padding: 30, margin: 20, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
-  notFoundTitle: { fontSize: 24, fontWeight: '800', color: Theme.colors.text.primary, marginTop: 15 },
-  notFoundText: { textAlign: 'center', color: Theme.colors.text.secondary, marginTop: 10, fontSize: 16, lineHeight: 24 },
-  scannedDataText: { fontWeight: '700', color: Theme.colors.primary },
-  notFoundActions: { width: '100%', marginTop: 30, gap: 12 },
-  addBtn: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 18, gap: 10 },
-  addBtnText: { color: Theme.colors.background, fontWeight: '800', fontSize: 16 },
-  retryBtn: { paddingVertical: 16, borderRadius: 18, alignItems: 'center', borderWidth: 1, borderColor: Theme.colors.border },
-  retryBtnText: { color: Theme.colors.text.secondary, fontWeight: '700', fontSize: 16 },
-  modalOverlay: { 
-    flex: 1, 
-    backgroundColor: 'rgba(0,0,0,0.8)', 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    padding: 20
-  },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginTop: 24, marginBottom: 16, gap: 12 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: Theme.colors.text.secondary, textTransform: 'uppercase', letterSpacing: 1 },
-  sectionLine: { flex: 1, height: 1, backgroundColor: Theme.colors.border },
-  stoneListContainer: { gap: 8, marginTop: 0, marginBottom: 16 },
-  stoneCard: {
-    backgroundColor: Theme.colors.surface,
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 4,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  stoneCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    paddingBottom: 12,
-  },
-  stoneIconContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Theme.colors.background,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  stoneNameText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
-  stoneCategoryText: {
-    fontSize: 10,
-    color: Theme.colors.text.muted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  stoneCardGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  stoneGridItem: {
-    flex: 1,
-  },
-  stoneGridLabel: {
-    fontSize: 9,
-    color: Theme.colors.text.muted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  stoneGridValue: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-  },
-  sellModalContent: { 
-    backgroundColor: Theme.colors.background, 
-    borderRadius: 32, 
-    width: '100%',
-    maxWidth: 340,
-    aspectRatio: 1,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    justifyContent: 'center'
-  },
-  sellHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    paddingHorizontal: 20, 
-    paddingVertical: 12,
-    borderBottomWidth: 1, 
-    borderBottomColor: Theme.colors.border 
-  },
-  sellBody: { padding: 20, flex: 1, justifyContent: 'center' },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.muted, borderRadius: 12, paddingHorizontal: 12, borderWidth: 1, borderColor: Theme.colors.border },
-  sellInput: { flex: 1, paddingVertical: 12, paddingHorizontal: 10, fontSize: 16, color: Theme.colors.text.primary },
-  staffSelectBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: Theme.colors.surface, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, marginRight: 8, borderWidth: 1, borderColor: Theme.colors.border, gap: 6 },
-  staffSelectBtnActive: { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary },
-  staffSelectText: { fontSize: 12, fontWeight: '700', color: Theme.colors.text.secondary },
-  staffSelectTextActive: { color: Theme.colors.background },
-  saveButton: { backgroundColor: Theme.colors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 16, gap: 8 },
-  saveButtonText: { color: Theme.colors.background, fontSize: 16, fontWeight: '700' },
-});
