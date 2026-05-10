@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView } from 'react-native';
-import { X, Save, Plus, Trash2, Scale, Tag, Hash, Package, Gem, Calculator, Info } from 'lucide-react-native';
+import { X, Save, Plus, Trash2, Scale, Tag, Hash, Package, Gem, Calculator, Info, IndianRupee } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
 
