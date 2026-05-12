@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem } from 'lucide-react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
+import OptimizedImage from './OptimizedImage';
+import ImageModal from './ImageModal';
 
 const styles = StyleSheet.create({
   historyContainer: {
@@ -602,6 +604,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [selling, setSelling] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
   const { role, user } = useRole();
 
   useEffect(() => {
@@ -749,15 +752,22 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                 {item.image_urls && item.image_urls.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
                     {item.image_urls.map((url: string, index: number) => (
-                      <View key={index} style={styles.imageWrapper}>
-                        <Image source={{ uri: url }} style={styles.itemImage} />
-                      </View>
+                      <TouchableOpacity 
+                        key={index} 
+                        style={styles.imageWrapper} 
+                        onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
+                      >
+                        <OptimizedImage url={url} width={80} height={80} />
+                      </TouchableOpacity>
                     ))}
                   </ScrollView>
                 ) : item.image_url ? (
-                  <View style={styles.imageContainer}>
-                    <Image source={{ uri: item.image_url }} style={styles.itemImage} />
-                  </View>
+                  <TouchableOpacity 
+                    style={styles.imageContainer} 
+                    onPress={() => setPreviewGallery({ urls: [item.image_url], index: 0 })}
+                  >
+                    <OptimizedImage url={item.image_url} width={80} height={80} />
+                  </TouchableOpacity>
                 ) : (
                   <View style={styles.imageContainer}>
                     <View style={styles.imagePlaceholder}>
@@ -847,6 +857,16 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
             
             <View style={{ height: 40 }} />
           </ScrollView>
+
+          {previewGallery && (
+            <ImageModal
+              visible={!!previewGallery}
+              onClose={() => setPreviewGallery(null)}
+              urls={previewGallery.urls}
+              initialIndex={previewGallery.index}
+              title={item.name}
+            />
+          )}
 
           <View style={styles.footer}>
             <View style={styles.footerActions}>
