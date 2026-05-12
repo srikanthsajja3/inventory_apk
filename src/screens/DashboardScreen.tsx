@@ -24,16 +24,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: Theme.spacing.md,
   },
-  welcomeText: {
-    fontSize: Theme.typography.size.sm,
-    color: Theme.colors.text.secondary,
-    fontWeight: '600',
-  },
-  title: {
-    fontSize: Theme.typography.size.xl,
-    fontWeight: '800',
-    color: Theme.colors.text.primary,
-  },
   ratesBtn: {
     padding: Theme.spacing.sm,
     backgroundColor: Theme.colors.surface,
@@ -741,15 +731,14 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
   return (
     <ScrollView style={styles.container} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Theme.colors.primary} />}>
       <View style={styles.header}>
-        <View><Text style={styles.welcomeText}>Welcome Back,</Text><Text style={styles.title}>Inventory Overview</Text></View>
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity style={styles.ratesBtn} onPress={onUpdateGoldRate}><Coins size={20} color={Theme.colors.primary} /></TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-start', flex: 1 }}>
+          <TouchableOpacity style={[styles.ratesBtn, { padding: 6 }]} onPress={onUpdateGoldRate}><Coins size={18} color={Theme.colors.primary} /></TouchableOpacity>
           {role === 'admin' && (
             <>
-              <TouchableOpacity style={styles.ratesBtn} onPress={onManageStones}><Diamond size={20} color={Theme.colors.primary} /></TouchableOpacity>
-              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowEmployeesModal(true)}><Users size={20} color={Theme.colors.primary} /></TouchableOpacity>
-              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowUsersModal(true)}><UserIcon size={20} color={Theme.colors.primary} /></TouchableOpacity>
-              <TouchableOpacity style={styles.ratesBtn} onPress={() => setShowRatesModal(true)}><Settings size={20} color={Theme.colors.text.secondary} /></TouchableOpacity>
+              <TouchableOpacity style={[styles.ratesBtn, { padding: 6 }]} onPress={onManageStones}><Diamond size={18} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={[styles.ratesBtn, { padding: 6 }]} onPress={() => setShowEmployeesModal(true)}><Users size={18} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={[styles.ratesBtn, { padding: 6 }]} onPress={() => setShowUsersModal(true)}><UserIcon size={18} color={Theme.colors.primary} /></TouchableOpacity>
+              <TouchableOpacity style={[styles.ratesBtn, { padding: 6 }]} onPress={() => setShowRatesModal(true)}><Settings size={18} color={Theme.colors.text.secondary} /></TouchableOpacity>
             </>
           )}
         </View>
