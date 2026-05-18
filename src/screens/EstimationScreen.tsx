@@ -381,6 +381,7 @@ export default function EstimationScreen({ route, navigation }: any) {
 
   const netWtFromDb = num(calcData.net_wt);
   const isDProduct = calcData.name.trim().toUpperCase().startsWith('D');
+  const isGProduct = calcData.name.trim().toUpperCase().startsWith('G');
   const t1Limit = num(rateMap.special_d_tier1_weight || 5.2);
   const t1Labor = num(rateMap.special_d_tier1_labor || 10000);
   const t2Limit = num(rateMap.special_d_tier2_weight || 8.0);
@@ -388,6 +389,7 @@ export default function EstimationScreen({ route, navigation }: any) {
 
   let makingGoldAmt = netWtFromDb * num(calcData.making_gold_rate);
   let isSpecialD = false;
+  let isSpecialG = false;
 
   if (isDProduct) {
     if (netWtFromDb <= t1Limit && netWtFromDb > 0) {
@@ -396,6 +398,14 @@ export default function EstimationScreen({ route, navigation }: any) {
     } else if (netWtFromDb < t2Limit && netWtFromDb > t1Limit) {
       makingGoldAmt = t2Labor;
       isSpecialD = true;
+    }
+  } else if (isGProduct) {
+    if (netWtFromDb < 5 && netWtFromDb > 0) {
+      makingGoldAmt = 4000;
+      isSpecialG = true;
+    } else if (netWtFromDb >= 5 && netWtFromDb <= 8) {
+      makingGoldAmt = 8000;
+      isSpecialG = true;
     }
   }
 
@@ -521,9 +531,9 @@ export default function EstimationScreen({ route, navigation }: any) {
           <SpreadsheetRow 
             label="Labour Charges" 
             weight={formatNum(netWtFromDb)} 
-            rate={isSpecialD ? "-" : calcData.making_gold_rate} 
+            rate={(isSpecialD || isSpecialG) ? "-" : calcData.making_gold_rate} 
             amount={formatNum(makingGoldAmt)} 
-            onRateChange={isSpecialD ? null : (v: any) => setCalcData({...calcData, making_gold_rate: v})} 
+            onRateChange={(isSpecialD || isSpecialG) ? null : (v: any) => setCalcData({...calcData, making_gold_rate: v})} 
             bg={Theme.colors.surface} 
             isTablet={isTablet} 
           />

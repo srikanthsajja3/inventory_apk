@@ -6,6 +6,7 @@ import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
 import StoneEntryModal from '../components/StoneEntryModal';
+import OptimizedImage from '../components/OptimizedImage';
 
 import { Theme } from '../theme';
 import { SCREEN_WIDTH } from '../utils/scaling';
@@ -633,13 +634,13 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
                         {itemFound.image_urls.map((url: string, index: number) => (
                           <View key={index} style={styles.imageWrapper}>
-                            <Image source={{ uri: url }} style={styles.itemImage} />
+                            <OptimizedImage url={url} width={80} height={80} />
                           </View>
                         ))}
                       </ScrollView>
                     ) : itemFound.image_url ? (
                       <View style={styles.imageContainer}>
-                        <Image source={{ uri: itemFound.image_url }} style={styles.itemImage} />
+                        <OptimizedImage url={itemFound.image_url} width={80} height={80} />
                       </View>
                     ) : (
                       <View style={styles.imageContainer}>

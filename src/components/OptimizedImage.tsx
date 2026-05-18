@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Image, StyleSheet, View, ActivityIndicator, ImageStyle, StyleProp } from 'react-native';
 import { getOptimizedImageUrl, getPlaceholderUrl } from '../utils/images';
 import { Theme } from '../theme';
@@ -21,16 +21,25 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  const imageUrl = error 
-    ? getPlaceholderUrl() 
-    : getOptimizedImageUrl(url, { width, height, quality });
+  // Reset states when the source URL changes
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+  }, [url, width, height, quality]);
+
+  const imageUrl = useMemo(() => {
+    return error 
+      ? getPlaceholderUrl() 
+      : getOptimizedImageUrl(url, { width, height, quality });
+  }, [url, width, height, quality, error]);
+
+  const source = useMemo(() => ({ uri: imageUrl }), [imageUrl]);
 
   return (
     <View style={[styles.container, style]}>
       <Image
-        source={{ uri: imageUrl }}
+        source={source}
         style={[styles.image, style]}
-        onLoadStart={() => setLoading(true)}
         onLoadEnd={() => setLoading(false)}
         onError={() => {
           setError(true);
@@ -39,7 +48,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
         // @ts-ignore
         loading="lazy"
       />
-      {loading && (
+      {loading && !error && (
         <View style={styles.loader}>
           <ActivityIndicator color={Theme.colors.primary} />
         </View>

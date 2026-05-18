@@ -8,6 +8,7 @@ import { useRole } from '../hooks/useRole';
 import ItemFolderModal from '../components/ItemFolderModal';
 import ItemDetailsModal from '../components/ItemDetailsModal';
 import MoveModal from '../components/MoveModal';
+import OptimizedImage from '../components/OptimizedImage';
 import { Theme } from '../theme';
 import { SCREEN_WIDTH } from '../utils/scaling';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
@@ -500,7 +501,7 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
     )}
     <View style={viewMode === 'grid' ? styles.itemIconGrid : styles.itemIcon}>
       {item.image_url ? (
-        <Image source={{ uri: item.image_url }} style={styles.itemThumb} />
+        <OptimizedImage url={item.image_url} width={viewMode === 'grid' ? 120 : 44} height={viewMode === 'grid' ? 120 : 44} />
       ) : (
         <Package size={viewMode === 'grid' ? 24 : 20} color={Theme.colors.text.secondary} />
       )}

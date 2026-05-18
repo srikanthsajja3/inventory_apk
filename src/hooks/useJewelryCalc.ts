@@ -80,6 +80,7 @@ export function useJewelryCalc() {
     const goldValue = billingWt * goldRate;
     
     const isDiamond = item.name?.trim().toUpperCase().startsWith('D');
+    const isGold = item.name?.trim().toUpperCase().startsWith('G');
     
     // Tiered Special D Rule
     const t1Limit = num(activeRates.special_d_tier1_weight || 5.2);
@@ -96,6 +97,12 @@ export function useJewelryCalc() {
         makingValue = t1Labor;
       } else if (netWt < t2Limit && netWt > t1Limit) {
         makingValue = t2Labor;
+      }
+    } else if (isGold) {
+      if (netWt < 5 && netWt > 0) {
+        makingValue = 4000;
+      } else if (netWt >= 5 && netWt <= 8) {
+        makingValue = 8000;
       }
     }
     

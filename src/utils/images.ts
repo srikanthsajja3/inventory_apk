@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase } from '../../supabase';
 
 /**
  * Generates an optimized image URL using Supabase's transformation service.
