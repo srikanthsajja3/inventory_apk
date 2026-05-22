@@ -128,7 +128,7 @@ export function useJewelryCalc() {
       stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
     }
 
-    const certCharges = isDiamond ? (num(item.dai_wt) * certRate) : 0;
+    const certCharges = isDiamond ? (num(item.dai_wt) > 0 ? Math.max(num(item.dai_wt) * certRate, certRate) : 0) : 0;
     const otherCharges = num(item.other_charges);
     
     const totalBeforeTax = goldValue + stonesValue + makingValue + certCharges + otherCharges;

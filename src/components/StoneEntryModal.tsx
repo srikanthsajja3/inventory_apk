@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Platform, KeyboardAvoidingView } from 'react-native';
-import { X, Save, Plus, Trash2, Scale, Tag, Hash, Package, Gem, Calculator, Info, IndianRupee } from 'lucide-react-native';
+import { X, Save, Plus, Trash2, Scale, Tag, Hash, Package, Gem, Calculator, Info, IndianRupee, Search, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
 
@@ -16,6 +16,26 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
   const [loading, setLoading] = useState(false);
   const [stones, setStones] = useState<any[]>([]);
   const [itemName, setItemName] = useState('');
+  const [masterStones, setMasterStones] = useState<any[]>([]);
+  const [showPicker, setShowPicker] = useState<string | null>(null); // ID of stone row opening picker
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchMasterStones();
+  }, []);
+
+  const fetchMasterStones = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('stone_master')
+        .select('*')
+        .order('name', { ascending: true });
+      if (error) throw error;
+      setMasterStones(data || []);
+    } catch (e) {
+      console.error('Error fetching master stones:', e);
+    }
+  };
 
   useEffect(() => {
     if (isVisible) {
@@ -49,6 +69,22 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
   const removeStone = (id: string) => {
     setStones(stones.filter(s => s.id !== id));
   };
+
+  const selectStoneFromMaster = (rowId: string, masterStone: any) => {
+    setStones(stones.map(s => s.id === rowId ? { 
+      ...s, 
+      name: masterStone.name, 
+      category: masterStone.category,
+      rate: String(masterStone.rate || '')
+    } : s));
+    setShowPicker(null);
+    setSearchQuery('');
+  };
+
+  const filteredMasterStones = masterStones.filter(s => 
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleSave = async () => {
     if (!initialData?.id) return;
@@ -114,17 +150,19 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
 
                   <View style={styles.inputGroup}>
                     <Text style={styles.label}>Stone Name</Text>
-                    <View style={styles.inputWrapper}>
-                      <Gem size={16} color={Theme.colors.text.muted} />
-                      <TextInput
-                        style={styles.input}
-                        value={stone.name}
-                        onChangeText={(v) => updateStone(stone.id, 'name', v.toUpperCase())}
-                        placeholder="e.g. VVS-EF RD"
-                        placeholderTextColor={Theme.colors.text.muted}
-                        autoCapitalize="characters"
-                      />
-                    </View>
+                    <TouchableOpacity 
+                      style={styles.inputWrapper}
+                      onPress={() => {
+                        setShowPicker(stone.id);
+                        setSearchQuery(stone.name || '');
+                      }}
+                    >
+                      <Gem size={16} color={Theme.colors.primary} />
+                      <Text style={[styles.input, !stone.name && { color: Theme.colors.text.muted }]}>
+                        {stone.name || 'SELECT STONE...'}
+                      </Text>
+                      <ChevronDown size={16} color={Theme.colors.text.muted} />
+                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.row}>
@@ -211,8 +249,70 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Stone Picker Modal */}
+        <Modal visible={!!showPicker} transparent animationType="fade">
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerContent}>
+              <View style={styles.pickerHeader}>
+                <Text style={styles.pickerTitle}>Select Stone</Text>
+                <TouchableOpacity onPress={() => setShowPicker(null)} style={styles.pickerClose}>
+                  <X size={24} color={Theme.colors.text.secondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.pickerSearch}>
+                <Search size={18} color={Theme.colors.text.muted} />
+                <TextInput
+                  style={styles.pickerSearchInput}
+                  placeholder="Search stone name..."
+                  placeholderTextColor={Theme.colors.text.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+              </View>
+
+              <ScrollView style={styles.pickerList}>
+                {filteredMasterStones.map((s) => (
+                  <TouchableOpacity 
+                    key={s.id} 
+                    style={styles.pickerItem}
+                    onPress={() => showPicker && selectStoneFromMaster(showPicker, s)}
+                  >
+                    <View>
+                      <Text style={styles.pickerItemName}>{s.name}</Text>
+                      <Text style={styles.pickerItemCat}>{s.category}</Text>
+                    </View>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <Text style={styles.pickerItemRate}>₹{s.rate}</Text>
+                      <ChevronRight size={16} color={Theme.colors.text.muted} />
+                    </View>
+                  </TouchableOpacity>
+                ))}
+                {filteredMasterStones.length === 0 && (
+                  <View style={{ padding: 40, alignItems: 'center' }}>
+                    <Text style={{ color: Theme.colors.text.muted }}>No stones match your search.</Text>
+                    <TouchableOpacity 
+                        style={{ marginTop: 20, padding: 10 }}
+                        onPress={() => {
+                            if (showPicker) {
+                                setStones(stones.map(st => st.id === showPicker ? { ...st, name: searchQuery.toUpperCase() } : st));
+                                setShowPicker(null);
+                            }
+                        }}
+                    >
+                        <Text style={{ color: Theme.colors.primary, fontWeight: '700' }}>USE "{searchQuery.toUpperCase()}" ANYWAY</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </KeyboardAvoidingView>
     </Modal>
+
   );
 }
 
@@ -368,5 +468,82 @@ const styles = StyleSheet.create({
     color: Theme.colors.text.black,
     fontSize: 16,
     fontWeight: '800',
+  },
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  pickerContent: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 24,
+    maxHeight: '80%',
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  pickerClose: {
+    padding: 4,
+  },
+  pickerSearch: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.background,
+    margin: 15,
+    paddingHorizontal: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  pickerSearchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    marginLeft: 10,
+    color: Theme.colors.text.primary,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  pickerList: {
+    paddingBottom: 20,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  pickerItemName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: Theme.colors.text.primary,
+  },
+  pickerItemCat: {
+    fontSize: 10,
+    color: Theme.colors.primary,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    marginTop: 2,
+  },
+  pickerItemRate: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+    marginBottom: 2,
   },
 });

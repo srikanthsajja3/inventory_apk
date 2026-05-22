@@ -412,7 +412,7 @@ export default function EstimationScreen({ route, navigation }: any) {
   const billingWt = netWtFromDb * (1 + (num(calcData.wastage_pct) / 100));
   const goldValue = billingWt * goldRate;
   const stonesTotal = dynamicStones.reduce((acc, s) => acc + (num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate)), 0);
-  const certCharges = diamondCarats * num(calcData.cert_rate);
+  const certCharges = diamondCarats > 0 ? Math.max(diamondCarats * num(calcData.cert_rate), num(calcData.cert_rate)) : 0;
   const subTotal = goldValue + stonesTotal + makingGoldAmt + certCharges;
   const totalINR = subTotal * (1 + (num(calcData.tax_pct) / 100));
   const purchaseAmount = num(calcData.prc_amount);
