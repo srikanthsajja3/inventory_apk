@@ -707,7 +707,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
         supabase.from('master_rates').select('*'),
         supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString()),
         supabase.from('sales').select('sale_amount, prc_amount, sold_by').gte('sold_at', performanceCutoff.toISOString()),
-        supabase.from('transactions').select('*, items(name)').order('created_at', { ascending: false }).limit(5)
+        supabase.from('transactions').select('*, items(id, name, sku, quantity, purity, image_url, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount)').order('created_at', { ascending: false }).limit(5)
       ]);
 
       if (settingsRes.error) throw settingsRes.error;
