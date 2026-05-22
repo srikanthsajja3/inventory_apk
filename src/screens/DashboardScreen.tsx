@@ -668,29 +668,46 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
     try {
       setLoading(true);
       
-      const { data: settings } = await supabase.from('master_rates').select('*');
+      const today = new Date();
+      today.setHours(0,0,0,0);
+
+      // Limit performance stats to last 90 days to maintain speed as business grows
+      const performanceCutoff = new Date();
+      performanceCutoff.setDate(performanceCutoff.getDate() - 90);
+
+      // 1. Run all independent fetches in parallel
+      const [settingsRes, itemsRes, todaySalesRes, performanceSalesRes, activityRes] = await Promise.all([
+        supabase.from('master_rates').select('*'),
+        supabase.from('items').select('name, quantity, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges', { count: 'exact' }),
+        supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString()),
+        supabase.from('sales').select('sale_amount, prc_amount, sold_by').gte('sold_at', performanceCutoff.toISOString()),
+        supabase.from('transactions').select('*, items(name)').order('created_at', { ascending: false }).limit(5)
+      ]);
+
+      if (settingsRes.error) throw settingsRes.error;
+      if (itemsRes.error) throw itemsRes.error;
+
       const rateMap: any = {};
-      settings?.forEach(r => { rateMap[r.key] = r.value; });
+      settingsRes.data?.forEach(r => { rateMap[r.key] = r.value; });
 
       const threshold = rateMap.low_stock_threshold || 5;
+      const allItems = itemsRes.data || [];
+      const totalCount = itemsRes.count || 0;
 
-      const { data: allItems, count: totalCount } = await supabase.from('items').select('*', { count: 'exact' });
-      const lowCount = (allItems || []).filter(i => (i.quantity || 0) < threshold).length;
+      // 2. Perform calculations on filtered data
+      const lowCount = allItems.filter(i => (i.quantity || 0) < threshold).length;
 
-      const totalInventoryValue = (allItems || []).reduce((acc, item) => {
+      const totalInventoryValue = allItems.reduce((acc, item) => {
         const qty = parseFloat(String(item.quantity)) || 0;
         if (qty <= 0) return acc;
         const itemTotal = calculateEstimation(item, rateMap);
         return acc + (itemTotal * qty);
       }, 0);
 
-      const today = new Date();
-      today.setHours(0,0,0,0);
-      const { data: todaySales } = await supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString());
-      const salesTotal = (todaySales || []).reduce((acc, s) => acc + (parseFloat(String(s.sale_amount)) || 0), 0);
+      const salesTotal = (todaySalesRes.data || []).reduce((acc, s) => acc + (parseFloat(String(s.sale_amount)) || 0), 0);
 
-      const { data: allSales } = await supabase.from('sales').select('sale_amount, prc_amount, sold_by').order('sold_at', { ascending: false });
-      const staffMap = (allSales || []).reduce((acc: any, curr: any) => {
+      // Processing performance data (now limited to last 90 days)
+      const staffMap = (performanceSalesRes.data || []).reduce((acc: any, curr: any) => {
         const soldBy = curr.sold_by || 'Unknown';
         const staffMembers = soldBy.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
         const saleAmt = parseFloat(String(curr.sale_amount)) || 0;
@@ -709,10 +726,8 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
       }, {});
 
       setStaffStats(Object.values(staffMap).sort((a: any, b: any) => b.sales - a.sales));
-      const { data: activity } = await supabase.from('transactions').select('*, items(*)').order('created_at', { ascending: false }).limit(5);
-
-      setStats({ total: totalCount || 0, lowStock: lowCount || 0, salesToday: salesTotal, inventoryValue: totalInventoryValue });
-      setRecentActivity(activity || []);
+      setStats({ total: totalCount, lowStock: lowCount, salesToday: salesTotal, inventoryValue: totalInventoryValue });
+      setRecentActivity(activityRes.data || []);
     } catch (error: any) {
       console.error('Dashboard Fetch Error:', error.message);
     } finally {

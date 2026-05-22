@@ -708,14 +708,26 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     try {
       setLoading(true);
       const parentId = currentFolder ? currentFolder.id : null;
-      const { data: settings } = await supabase.from('master_rates').select('*');
-      const timerHours = settings?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
+      
+      // 1. Fetch settings and contents in parallel
+      const [settingsRes, catRes, itemRes] = await Promise.all([
+        supabase.from('master_rates').select('*'),
+        parentId 
+          ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
+          : supabase.from('categories').select('*').is('parent_id', null).order('name'),
+        parentId
+          ? supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges').eq('category_id', parentId).order('name')
+          : supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges').is('category_id', null).order('name')
+      ]);
+
+      const timerHours = settingsRes.data?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
       const timerMs = timerHours * 60 * 60 * 1000;
+      const now = Date.now();
 
       if (currentFolder?.id === 'virtual-exhibition') {
-        const { data: exItems, error: exError } = await supabase.from('items').select('*').eq('in_exhibition', true);
+        const { data: exItems, error: exError } = await supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges').eq('in_exhibition', true);
         if (exError) throw exError;
-        const now = Date.now();
+        
         const activeItems: any[] = [];
         const expiredIds: string[] = [];
         (exItems || []).forEach(item => {
@@ -730,22 +742,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         return;
       }
 
-      let catQuery = supabase.from('categories').select('*');
-      if (parentId) catQuery = catQuery.eq('parent_id', parentId);
-      else catQuery = catQuery.is('parent_id', null);
-      const { data: catData, error: catError } = await catQuery.order('name');
-      if (catError) throw catError;
-      const combinedFolders = catData || [];
+      if (catRes.error) throw catRes.error;
+      if (itemRes.error) throw itemRes.error;
+
+      const combinedFolders = catRes.data || [];
       if (!parentId) combinedFolders.unshift(EXHIBITION_FOLDER);
       setFolders(combinedFolders);
 
-      let query = supabase.from('items').select('*');
-      if (parentId) query = query.eq('category_id', parentId);
-      else query = query.is('category_id', null);
-      const { data: itemData, error: itemError } = await query.order('name');
-      if (itemError) throw itemError;
-      const now = Date.now();
-      const filteredItems = (itemData || []).filter(item => {
+      const filteredItems = (itemRes.data || []).filter(item => {
         if (item.in_exhibition) {
           const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
           return now - addedAt >= timerMs;
@@ -753,7 +757,11 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         return true;
       });
       setItems(filteredItems);
-    } catch (error: any) { console.error('Fetch Error:', error.message); } finally { setLoading(false); }
+    } catch (error: any) { 
+      console.error('Fetch Error:', error.message); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const addToExhibition = async (sku: string) => {
