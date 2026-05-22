@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, Modal, TextInput, Alert, Platform, FlatList } from 'react-native';
 import { Package, AlertTriangle, ArrowUpRight, ArrowDownLeft, Clock, Settings, X, Save, RefreshCw, Coins, Diamond, UserPlus, UserMinus, Shield, User as UserIcon, ShoppingBag, Users, Trash2, Plus, TrendingUp } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
@@ -657,6 +658,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
   const [staffStats, setStaffStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [calculatingValue, setCalculatingValue] = useState(false);
   const [showRatesModal, setShowRatesModal] = useState(false);
   const [showUsersModal, setShowUsersModal] = useState(false);
   const [showEmployeesModal, setShowEmployeesModal] = useState(false);
@@ -664,75 +666,122 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
 
   const { calculateEstimation } = useJewelryCalc();
 
+  const CACHE_KEY = 'cached_dashboard_stats';
+
+  // 1. Load from cache immediately on mount
+  useEffect(() => {
+    const loadCache = async () => {
+      try {
+        let cached = null;
+        if (Platform.OS === 'web') {
+          cached = localStorage.getItem(CACHE_KEY);
+        } else {
+          cached = await SecureStore.getItemAsync(CACHE_KEY);
+        }
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setStats(parsed.stats || stats);
+          setStaffStats(parsed.staff || []);
+          setRecentActivity(parsed.activity || []);
+        }
+      } catch (e) {
+        console.error('Cache Load Error:', e);
+      }
+    };
+    loadCache();
+  }, []);
+
   const fetchDashboardData = async () => {
     try {
-      setLoading(true);
+      if (!refreshing) setLoading(true);
       
       const today = new Date();
       today.setHours(0,0,0,0);
 
-      // Limit performance stats to last 90 days to maintain speed as business grows
+      // Limit performance stats to last 90 days to maintain speed
       const performanceCutoff = new Date();
       performanceCutoff.setDate(performanceCutoff.getDate() - 90);
 
-      // 1. Run all independent fetches in parallel
-      const [settingsRes, itemsRes, todaySalesRes, performanceSalesRes, activityRes] = await Promise.all([
+      // PHASE 1: Fast Parallel Fetches (Blocking)
+      const [settingsRes, todaySalesRes, performanceSalesRes, activityRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
-        supabase.from('items').select('name, quantity, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges', { count: 'exact' }),
         supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString()),
         supabase.from('sales').select('sale_amount, prc_amount, sold_by').gte('sold_at', performanceCutoff.toISOString()),
         supabase.from('transactions').select('*, items(name)').order('created_at', { ascending: false }).limit(5)
       ]);
 
       if (settingsRes.error) throw settingsRes.error;
-      if (itemsRes.error) throw itemsRes.error;
 
       const rateMap: any = {};
       settingsRes.data?.forEach(r => { rateMap[r.key] = r.value; });
 
-      const threshold = rateMap.low_stock_threshold || 5;
-      const allItems = itemsRes.data || [];
-      const totalCount = itemsRes.count || 0;
+      const salesToday = (todaySalesRes.data || []).reduce((acc, s) => acc + (parseFloat(String(s.sale_amount)) || 0), 0);
 
-      // 2. Perform calculations on filtered data
-      const lowCount = allItems.filter(i => (i.quantity || 0) < threshold).length;
-
-      const totalInventoryValue = allItems.reduce((acc, item) => {
-        const qty = parseFloat(String(item.quantity)) || 0;
-        if (qty <= 0) return acc;
-        const itemTotal = calculateEstimation(item, rateMap);
-        return acc + (itemTotal * qty);
-      }, 0);
-
-      const salesTotal = (todaySalesRes.data || []).reduce((acc, s) => acc + (parseFloat(String(s.sale_amount)) || 0), 0);
-
-      // Processing performance data (now limited to last 90 days)
       const staffMap = (performanceSalesRes.data || []).reduce((acc: any, curr: any) => {
         const soldBy = curr.sold_by || 'Unknown';
         const staffMembers = soldBy.split(',').map((s: string) => s.trim()).filter((s: string) => s.length > 0);
         const saleAmt = parseFloat(String(curr.sale_amount)) || 0;
         const purchaseAmt = parseFloat(String(curr.prc_amount)) || 0;
         const profit = saleAmt - purchaseAmt;
-        const countShare = 1 / staffMembers.length;
-        const saleShare = saleAmt / staffMembers.length;
-        const profitShare = profit / staffMembers.length;
         staffMembers.forEach((staff: string) => {
           if (!acc[staff]) acc[staff] = { name: staff, count: 0, sales: 0, profit: 0 };
-          acc[staff].count += countShare;
-          acc[staff].sales += saleShare;
-          acc[staff].profit += profitShare;
+          acc[staff].count += 1 / staffMembers.length;
+          acc[staff].sales += saleAmt / staffMembers.length;
+          acc[staff].profit += profit / staffMembers.length;
         });
         return acc;
       }, {});
 
-      setStaffStats(Object.values(staffMap).sort((a: any, b: any) => b.sales - a.sales));
-      setStats({ total: totalCount, lowStock: lowCount, salesToday: salesTotal, inventoryValue: totalInventoryValue });
-      setRecentActivity(activityRes.data || []);
-    } catch (error: any) {
-      console.error('Dashboard Fetch Error:', error.message);
-    } finally {
+      const sortedStaff = Object.values(staffMap).sort((a: any, b: any) => b.sales - a.sales);
+      const activity = activityRes.data || [];
+
+      // Get total count and low stock threshold items quickly
+      const { count: totalItems } = await supabase.from('items').select('*', { count: 'exact', head: true });
+      const threshold = rateMap.low_stock_threshold || 5;
+      const { count: lowStockCount } = await supabase.from('items').select('*', { count: 'exact', head: true }).lt('quantity', threshold);
+
+      // Update blocking state
+      const updatedStats = { ...stats, total: totalItems || 0, lowStock: lowStockCount || 0, salesToday };
+      setStats(updatedStats);
+      setStaffStats(sortedStaff);
+      setRecentActivity(activity);
       setLoading(false);
       setRefreshing(false);
+
+      // PHASE 2: Heavy Background Fetch (Non-blocking)
+      setCalculatingValue(true);
+      const { data: allItems } = await supabase.from('items').select('name, quantity, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges');
+      
+      const totalInventoryValue = (allItems || []).reduce((acc, item) => {
+        const qty = parseFloat(String(item.quantity)) || 0;
+        if (qty <= 0) return acc;
+        const itemTotal = calculateEstimation(item, rateMap);
+        return acc + (itemTotal * qty);
+      }, 0);
+
+      const finalStats = { ...updatedStats, inventoryValue: totalInventoryValue };
+      setStats(finalStats);
+      setCalculatingValue(false);
+
+      // 3. Save everything to cache for next load
+      const cacheData = JSON.stringify({
+        stats: finalStats,
+        staff: sortedStaff,
+        activity: activity,
+        timestamp: Date.now()
+      });
+
+      if (Platform.OS === 'web') {
+        localStorage.setItem(CACHE_KEY, cacheData);
+      } else {
+        await SecureStore.setItemAsync(CACHE_KEY, cacheData);
+      }
+
+    } catch (error: any) {
+      console.error('Dashboard Fetch Error:', error.message);
+      setLoading(false);
+      setRefreshing(false);
+      setCalculatingValue(false);
     }
   };
 
@@ -763,7 +812,13 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
         <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}><ShoppingBag size={24} color={Theme.colors.status.success} /></View><Text style={styles.statValue}>₹{stats.salesToday.toLocaleString('en-IN')}</Text><Text style={styles.statLabel}>Today's Sales</Text></View>
       </View>
       {role === 'admin' && (
-        <View style={{ marginBottom: 15 }}><View style={[styles.adminActionCard, { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary }]}><View style={[styles.iconBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Coins size={24} color="white" /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={[styles.adminActionTitle, { color: 'white' }]}>Total Inventory Value</Text><Text style={[styles.adminActionSub, { color: 'rgba(255,255,255,0.8)' }]}>Estimated worth of current stock</Text></View><Text style={{ fontSize: 20, fontWeight: '900', color: 'white' }}>₹{stats.inventoryValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text></View></View>
+        <View style={{ marginBottom: 15 }}><View style={[styles.adminActionCard, { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary }]}><View style={[styles.iconBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Coins size={24} color="white" /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={[styles.adminActionTitle, { color: 'white' }]}>Total Inventory Value</Text><Text style={[styles.adminActionSub, { color: 'rgba(255,255,255,0.8)' }]}>Estimated worth of current stock</Text></View>
+          {calculatingValue ? (
+            <ActivityIndicator size="small" color="white" />
+          ) : (
+            <Text style={{ fontSize: 20, fontWeight: '900', color: 'white' }}>₹{stats.inventoryValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
+          )}
+        </View></View>
       )}
       {role === 'admin' && (
         <><View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Staff Performance</Text></View><ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>{staffStats.map((staff, idx) => (<View key={idx} style={styles.staffCard}><Text style={styles.staffName}>{staff.name}</Text><Text style={styles.staffSales}>₹{staff.sales.toLocaleString('en-IN')}</Text><View style={styles.staffMeta}><Text style={styles.staffMetaText}>{Number(staff.count).toFixed(staff.count % 1 === 0 ? 0 : 1)} Sales</Text><Text style={[styles.staffMetaText, { color: staff.profit >= 0 ? Theme.colors.status.success : Theme.colors.status.error }]}>₹{Math.round(staff.profit).toLocaleString('en-IN')} P/L</Text></View></View>))}</ScrollView><TouchableOpacity style={styles.adminActionCard} onPress={() => onNavigate && onNavigate('sales')}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}><TrendingUp size={24} color={Theme.colors.status.success} /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={styles.adminActionTitle}>Full Sales Analytics</Text><Text style={styles.adminActionSub}>Detailed Profit/Loss breakdown</Text></View><ArrowUpRight size={20} color={Theme.colors.text.secondary} /></TouchableOpacity></>
