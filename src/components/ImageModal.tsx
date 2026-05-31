@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, View, Image, StyleSheet, TouchableOpacity, Text, Dimensions, Platform } from 'react-native';
+import { Modal, View, Image, StyleSheet, TouchableOpacity, Text, Dimensions, Platform, StatusBar } from 'react-native';
 import { getOptimizedImageUrl } from '../utils/images';
 import { Theme } from '../theme';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react-native';
@@ -49,15 +49,16 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
       animationType="fade"
       onRequestClose={onClose}
     >
+      <StatusBar barStyle="dark-content" />
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title} numberOfLines={1}>{title || 'Image Preview'}</Text>
-            <Text style={styles.counter}>{currentIndex + 1} / {urls.length}</Text>
-          </View>
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <X size={24} color={Theme.colors.text.primary} />
-          </TouchableOpacity>
+        {/* Minimal Close Button Overlay */}
+        <TouchableOpacity style={styles.closeButtonOverlay} onPress={onClose}>
+          <X size={28} color="#000" />
+        </TouchableOpacity>
+
+        {/* Counter Overlay */}
+        <View style={styles.counterOverlay}>
+           <Text style={styles.counterText}>{currentIndex + 1} / {urls.length}</Text>
         </View>
         
         <View style={styles.imageContainer}>
@@ -67,7 +68,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
               onPress={handlePrev}
               disabled={currentIndex === 0}
             >
-              <ChevronLeft size={32} color={currentIndex === 0 ? Theme.colors.text.muted : Theme.colors.text.primary} />
+              <ChevronLeft size={32} color={currentIndex === 0 ? "#ccc" : "#000"} />
             </TouchableOpacity>
           )}
 
@@ -84,16 +85,16 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
               onPress={handleNext}
               disabled={currentIndex === urls.length - 1}
             >
-              <ChevronRight size={32} color={currentIndex === urls.length - 1 ? Theme.colors.text.muted : Theme.colors.text.primary} />
+              <ChevronRight size={32} color={currentIndex === urls.length - 1 ? "#ccc" : "#000"} />
             </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.footer}>
-          <TouchableOpacity style={styles.backButton} onPress={onClose}>
-            <Text style={styles.buttonText}>Back to Details</Text>
-          </TouchableOpacity>
-        </View>
+        {title && (
+          <View style={styles.titleOverlay}>
+             <Text style={styles.titleText}>{title}</Text>
+          </View>
+        )}
       </View>
     </Modal>
   );
@@ -104,46 +105,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 20,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: Theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
+  closeButtonOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 30,
+    right: 20,
+    zIndex: 100,
+    padding: 10,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
-  titleContainer: {
-    flex: 1,
+  counterOverlay: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 65 : 35,
+    left: 20,
+    zIndex: 100,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 15,
   },
-  title: {
-    color: Theme.colors.text.primary,
-    fontSize: Theme.typography.size.md,
-    fontWeight: '800',
-  },
-  counter: {
-    color: Theme.colors.primary,
-    fontSize: 12,
+  counterText: {
+    fontSize: 14,
     fontWeight: '700',
-    marginTop: 2,
-  },
-  closeButton: {
-    padding: 8,
-    backgroundColor: Theme.colors.muted,
-    borderRadius: 20,
+    color: '#fff',
   },
   imageContainer: {
     flex: 1,
-    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
   fullImage: {
     width: screenWidth,
-    height: screenHeight * 0.8,
+    height: screenHeight,
   },
   navButton: {
     position: 'absolute',
@@ -154,35 +150,33 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
   },
   leftButton: {
-    left: 20,
+    left: 10,
   },
   rightButton: {
-    right: 20,
+    right: 10,
   },
   disabledButton: {
-    opacity: 0.3,
+    opacity: 0,
   },
-  footer: {
-    padding: 30,
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
+  titleOverlay: {
+    position: 'absolute',
+    bottom: 40,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    maxWidth: '80%',
   },
-  backButton: {
-    backgroundColor: Theme.colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: Theme.radius.md,
-  },
-  buttonText: {
-    color: Theme.colors.text.black,
-    fontSize: Theme.typography.size.md,
+  titleText: {
+    fontSize: 16,
     fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
   },
 });
 

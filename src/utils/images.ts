@@ -20,7 +20,7 @@ export function getOptimizedImageUrl(
     const baseUrl = url.split('/storage/v1/object/public/')[0];
     const path = url.split('/storage/v1/object/public/')[1];
     
-    return `${baseUrl}/storage/v1/render/image/public/${path}?width=${width}&quality=${quality}&format=${format}`;
+    return `${baseUrl}/storage/v1/render/image/public/${path}?width=${width}&quality=${quality}&format=${format}&resize=contain`;
   } catch (e) {
     return url;
   }

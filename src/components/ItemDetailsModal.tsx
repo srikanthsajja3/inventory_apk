@@ -148,26 +148,26 @@ const styles = StyleSheet.create({
     gap: Theme.spacing.md,
   },
   imageSection: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
   },
   multiImageContainer: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
   },
   imageWrapper: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.surface,
     overflow: 'hidden',
+    marginRight: 8,
     borderWidth: 1,
     borderColor: Theme.colors.border,
-    marginRight: 8,
   },
   imageContainer: {
-    width: 80,
-    height: 80,
+    width: 100,
+    height: 100,
     borderRadius: Theme.radius.md,
     backgroundColor: Theme.colors.surface,
     overflow: 'hidden',
@@ -182,6 +182,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
   },
   primaryInfo: {
     flex: 1,
@@ -757,7 +761,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                         style={styles.imageWrapper} 
                         onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
                       >
-                        <OptimizedImage url={url} width={80} height={80} />
+                        <OptimizedImage url={url} width={100} height={100} />
                       </TouchableOpacity>
                     ))}
                   </ScrollView>
@@ -766,7 +770,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                     style={styles.imageContainer} 
                     onPress={() => setPreviewGallery({ urls: [item.image_url], index: 0 })}
                   >
-                    <OptimizedImage url={item.image_url} width={80} height={80} />
+                    <OptimizedImage url={item.image_url} width={100} height={100} />
                   </TouchableOpacity>
                 ) : (
                   <View style={styles.imageContainer}>

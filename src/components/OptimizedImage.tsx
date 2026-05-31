@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Image, StyleSheet, View, ActivityIndicator, ImageStyle, StyleProp } from 'react-native';
+import { Image, StyleSheet, View, ActivityIndicator, ImageStyle, StyleProp, ImageResizeMode } from 'react-native';
 import { getOptimizedImageUrl, getPlaceholderUrl } from '../utils/images';
 import { Theme } from '../theme';
 
@@ -9,6 +9,7 @@ interface OptimizedImageProps {
   height?: number;
   quality?: number;
   style?: StyleProp<ImageStyle>;
+  resizeMode?: ImageResizeMode;
 }
 
 const OptimizedImage: React.FC<OptimizedImageProps> = ({
@@ -17,6 +18,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   height = 400,
   quality = 80,
   style,
+  resizeMode = 'contain',
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -47,6 +49,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
         }}
         // @ts-ignore
         loading="lazy"
+        resizeMode={resizeMode}
       />
       {loading && !error && (
         <View style={styles.loader}>
@@ -63,9 +66,12 @@ const styles = StyleSheet.create({
     borderRadius: Theme.radius.sm,
     overflow: 'hidden',
     position: 'relative',
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   image: {
-    resizeMode: 'cover',
     width: '100%',
     height: '100%',
   },

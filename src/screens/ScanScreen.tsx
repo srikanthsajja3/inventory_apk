@@ -88,12 +88,12 @@ const styles = StyleSheet.create({
   closeBtn: { padding: 8, backgroundColor: Theme.colors.background, borderRadius: Theme.radius.sm },
   resultScroll: { flex: 1, padding: Theme.spacing.md },
   itemTopSection: { flexDirection: 'row', gap: Theme.spacing.md, marginBottom: Theme.spacing.md },
-  imageSection: { width: 80, height: 80 },
-  multiImageContainer: { width: 80, height: 80 },
-  imageWrapper: { width: 80, height: 80, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border, marginRight: 8 },
-  imageContainer: { width: 80, height: 80, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border },
+  imageSection: { width: 100, height: 100 },
+  multiImageContainer: { width: 100, height: 100 },
+  imageWrapper: { width: 100, height: 100, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', marginRight: 8, borderWidth: 1, borderColor: Theme.colors.border },
+  imageContainer: { width: 100, height: 100, borderRadius: Theme.radius.md, backgroundColor: Theme.colors.background, overflow: 'hidden', borderWidth: 1, borderColor: Theme.colors.border },
   itemImage: { width: '100%', height: '100%' },
-  imagePlaceholder: { width: 80, height: 80, backgroundColor: Theme.colors.background, borderRadius: Theme.radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
+  imagePlaceholder: { width: 100, height: 100, backgroundColor: Theme.colors.background, borderRadius: Theme.radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Theme.colors.border },
   itemBasicInfo: { flex: 1, justifyContent: 'center' },
   itemName: { fontSize: Theme.typography.size.lg, fontWeight: '800', color: Theme.colors.text.primary },
   itemSku: { fontSize: Theme.typography.size.sm, color: Theme.colors.text.secondary, marginTop: 4, fontWeight: '600' },
@@ -634,13 +634,13 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
                         {itemFound.image_urls.map((url: string, index: number) => (
                           <View key={index} style={styles.imageWrapper}>
-                            <OptimizedImage url={url} width={80} height={80} />
+                            <OptimizedImage url={url} width={100} height={100} />
                           </View>
                         ))}
                       </ScrollView>
                     ) : itemFound.image_url ? (
                       <View style={styles.imageContainer}>
-                        <OptimizedImage url={itemFound.image_url} width={80} height={80} />
+                        <OptimizedImage url={itemFound.image_url} width={100} height={100} />
                       </View>
                     ) : (
                       <View style={styles.imageContainer}>

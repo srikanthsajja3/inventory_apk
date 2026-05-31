@@ -573,7 +573,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
                     {images.map((img, index) => (
                       <View key={index} style={styles.imagePickerWrapper}>
-                        <Image source={{ uri: img.uri }} style={styles.previewImage} />
+                        <Image source={{ uri: img.uri }} style={styles.previewImage} resizeMode="contain" />
                         <TouchableOpacity 
                           style={styles.removeImageSmall} 
                           onPress={() => setImages(images.filter((_, i) => i !== index))}
