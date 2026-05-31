@@ -86,7 +86,7 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
   },
   sellModalOverlay: { 
     flex: 1, 
@@ -100,8 +100,18 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: Theme.radius.xl,
     borderTopRightRadius: Theme.radius.xl,
     height: '90%',
+    width: '100%',
     borderTopWidth: 1,
     borderTopColor: Theme.colors.border,
+    ...Platform.select({
+      web: {
+        maxWidth: 600,
+        height: '85%',
+        borderRadius: Theme.radius.xl,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+      }
+    })
   },
   sellModalContent: { 
     backgroundColor: Theme.colors.background, 

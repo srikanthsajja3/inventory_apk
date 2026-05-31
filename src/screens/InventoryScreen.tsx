@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler } from 'react-native';
+import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler, useWindowDimensions } from 'react-native';
 import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -19,7 +19,8 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.background,
   },
   header: {
-    padding: Theme.spacing.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: 4,
     backgroundColor: Theme.colors.background,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -28,32 +29,32 @@ const styles = StyleSheet.create({
   headerTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Theme.spacing.md,
+    gap: 12,
   },
   backBtn: {
-    padding: 8,
+    padding: 6,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.sm,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
   title: {
-    fontSize: Theme.typography.size.xl,
+    fontSize: 18,
     fontWeight: '800',
     color: Theme.colors.text.primary,
   },
   subtitle: {
-    fontSize: Theme.typography.size.xs,
+    fontSize: 9,
     color: Theme.colors.text.secondary,
     fontWeight: '600',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   refreshButton: {
-    padding: 8,
+    padding: 6,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.sm,
     borderWidth: 1,
@@ -65,8 +66,8 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: Theme.colors.primary,
-    width: 40,
-    height: 40,
+    width: 32,
+    height: 32,
     borderRadius: Theme.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
@@ -75,9 +76,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.md,
-    padding: Theme.spacing.sm,
+    paddingVertical: 4,
+    paddingHorizontal: Theme.spacing.sm,
     marginHorizontal: Theme.spacing.md,
-    marginBottom: Theme.spacing.md,
+    marginBottom: Theme.spacing.xs,
     borderWidth: 1,
     borderColor: Theme.colors.border,
     justifyContent: 'space-between',
@@ -85,23 +87,25 @@ const styles = StyleSheet.create({
   summaryItem: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 2,
   },
   summaryDivider: {
     width: 1,
-    height: '100%',
+    height: '70%',
     backgroundColor: Theme.colors.border,
+    alignSelf: 'center',
   },
   summaryLabel: {
-    fontSize: 8,
+    fontSize: 7,
     color: Theme.colors.text.secondary,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   summaryValue: {
-    fontSize: Theme.typography.size.xs,
+    fontSize: 10,
     fontWeight: '800',
     color: Theme.colors.text.primary,
-    marginTop: 2,
+    marginTop: 0,
   },
   searchBar: {
     flexDirection: 'row',
@@ -109,14 +113,14 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.md,
     paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.xs,
+    paddingVertical: 2,
     marginHorizontal: Theme.spacing.md,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
   filterRow: {
-    gap: Theme.spacing.sm,
-    marginBottom: Theme.spacing.md,
+    gap: 6,
+    marginBottom: Theme.spacing.sm,
   },
   locationContainer: {
     paddingHorizontal: Theme.spacing.md,
@@ -129,7 +133,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Theme.colors.surface,
     paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 4,
     borderRadius: Theme.radius.sm,
     marginRight: 8,
     borderWidth: 1,
@@ -195,9 +199,9 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: Theme.typography.size.md,
+    fontSize: Theme.typography.size.sm,
     color: Theme.colors.text.primary,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   list: {
     paddingHorizontal: Theme.spacing.md,
@@ -565,6 +569,9 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
 );
 
 export default function InventoryScreen({ onEstimation }: { onEstimation: (item: any) => void }) {
+  const { width: windowWidth } = useWindowDimensions();
+  const containerWidth = windowWidth;
+
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
@@ -898,7 +905,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       ) : (
         <FlatList 
           key={viewMode}
-          numColumns={viewMode === 'grid' ? (SCREEN_WIDTH > 1400 ? 8 : SCREEN_WIDTH > 1000 ? 6 : SCREEN_WIDTH > 600 ? 4 : 3) : 1}
+          numColumns={viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
           data={displayData}
           extraData={[selectedIds, selectionMode, viewMode]}

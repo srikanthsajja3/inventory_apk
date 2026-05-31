@@ -79,8 +79,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: Theme.radius.xl, 
     borderBottomLeftRadius: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? Theme.radius.xl : 0,
     borderBottomRightRadius: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? Theme.radius.xl : 0,
-    height: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? '80%' : '90%', 
-    width: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? 500 : '100%',
+    height: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? '85%' : '90%', 
+    width: Platform.OS === 'web' && SCREEN_WIDTH > 600 ? 600 : '100%',
     alignSelf: 'center',
     overflow: 'hidden'
   },

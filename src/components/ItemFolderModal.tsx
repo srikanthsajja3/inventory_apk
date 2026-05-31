@@ -10,14 +10,24 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
   },
   modalContent: {
     backgroundColor: Theme.colors.background,
     borderTopLeftRadius: Theme.radius.xl,
     borderTopRightRadius: Theme.radius.xl,
     height: '90%',
+    width: '100%',
     padding: Theme.spacing.lg,
+    ...Platform.select({
+      web: {
+        maxWidth: 600,
+        height: '85%',
+        borderRadius: Theme.radius.xl,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+      }
+    })
   },
   header: {
     flexDirection: 'row',

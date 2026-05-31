@@ -4,7 +4,7 @@ const { width: WINDOW_WIDTH, height: WINDOW_HEIGHT } = Dimensions.get('window');
 
 // For scaling calculations, we cap the width to prevent UI elements 
 // from becoming excessively large on desktop browsers.
-const MAX_SCALING_WIDTH = 500;
+const MAX_SCALING_WIDTH = 375;
 const SCALING_WIDTH = Platform.OS === 'web' ? Math.min(WINDOW_WIDTH, MAX_SCALING_WIDTH) : WINDOW_WIDTH;
 
 // Use the actual window width for layout logic (like number of columns)

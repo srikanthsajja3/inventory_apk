@@ -320,14 +320,23 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+    justifyContent: Platform.OS === 'web' ? 'center' : 'flex-end',
   },
   content: {
     backgroundColor: Theme.colors.background,
     borderTopLeftRadius: 32,
     borderTopRightRadius: 32,
     height: '90%',
+    width: '100%',
     padding: 24,
+    ...Platform.select({
+      web: {
+        maxWidth: 500,
+        borderRadius: 32,
+        borderWidth: 1,
+        borderColor: Theme.colors.border,
+      }
+    })
   },
   header: {
     flexDirection: 'row',

@@ -21,6 +21,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.background,
   },
+  mainWrapper: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+    ...Platform.select({
+      web: {
+        width: '100%',
+        alignSelf: 'stretch',
+      }
+    })
+  },
   header: {
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
@@ -223,55 +233,59 @@ export default function App() {
   };
 
   const renderLogin = () => (
-    <SafeAreaView style={styles.loginContainer}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.loginContent}>
-        <View style={styles.loginLogo}>
-          <Image source={require('./assets/logo.png')} style={{ width: 80, height: 80, borderRadius: 16 }} resizeMode="contain" />
-        </View>
-        <Text style={styles.loginTitle}>Moksha Jewels</Text>
-        <Text style={styles.loginSubtitle}>VJA Inventory Manager</Text>
-        
-        <View style={styles.inputContainer}>
-          <UserIcon size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Username (e.g. C1)"
-            placeholderTextColor={Theme.colors.text.muted}
-            value={username}
-            onChangeText={setUsername}
-            autoCapitalize="characters"
-          />
-        </View>
+    <View style={styles.container}>
+      <View style={styles.mainWrapper}>
+        <SafeAreaView style={styles.loginContainer}>
+          <StatusBar barStyle="light-content" />
+          <View style={styles.loginContent}>
+            <View style={styles.loginLogo}>
+              <Image source={require('./assets/logo.png')} style={{ width: 80, height: 80, borderRadius: 16 }} resizeMode="contain" />
+            </View>
+            <Text style={styles.loginTitle}>Moksha Jewels</Text>
+            <Text style={styles.loginSubtitle}>VJA Inventory Manager</Text>
+            
+            <View style={styles.inputContainer}>
+              <UserIcon size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Username (e.g. C1)"
+                placeholderTextColor={Theme.colors.text.muted}
+                value={username}
+                onChangeText={setUsername}
+                autoCapitalize="characters"
+              />
+            </View>
 
-        <View style={styles.inputContainer}>
-          <Lock size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="Password"
-            placeholderTextColor={Theme.colors.text.muted}
-            secureTextEntry={!showPassword}
-            value={password}
-            onChangeText={setPassword}
-          />
-          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-            {showPassword ? <EyeOff size={20} color={Theme.colors.text.secondary} /> : <Eye size={20} color={Theme.colors.text.secondary} />}
-          </TouchableOpacity>
-        </View>
+            <View style={styles.inputContainer}>
+              <Lock size={20} color={Theme.colors.text.secondary} style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Password"
+                placeholderTextColor={Theme.colors.text.muted}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                {showPassword ? <EyeOff size={20} color={Theme.colors.text.secondary} /> : <Eye size={20} color={Theme.colors.text.secondary} />}
+              </TouchableOpacity>
+            </View>
 
-        <TouchableOpacity 
-          style={[styles.loginBtn, { backgroundColor: Theme.colors.primary }, isLoggingIn && { opacity: 0.7 }]}
-          onPress={handleLogin}
-          disabled={isLoggingIn}
-        >
-          {isLoggingIn ? (
-            <ActivityIndicator color={Theme.colors.text.black} />
-          ) : (
-            <Text style={styles.loginBtnText}>Login</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.loginBtn, { backgroundColor: Theme.colors.primary }, isLoggingIn && { opacity: 0.7 }]}
+              onPress={handleLogin}
+              disabled={isLoggingIn}
+            >
+              {isLoggingIn ? (
+                <ActivityIndicator color={Theme.colors.text.black} />
+              ) : (
+                <Text style={styles.loginBtnText}>Login</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   const renderContent = () => {
@@ -328,34 +342,38 @@ export default function App() {
   );
 
   const renderApp = () => (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <Image source={require('./assets/logo.png')} style={{ width: 32, height: 32, borderRadius: 6 }} resizeMode="contain" />
-          <View>
-            <Text style={styles.logo}>MOKSHA JEWELS VJA</Text>
-            <View style={styles.roleBadgeContainer}>
-              <Text style={styles.roleBadge}>{(role || 'STAFF').toUpperCase()} MODE</Text>
-              <Text style={styles.userEmail}>{user?.id}</Text>
+    <View style={styles.container}>
+      <View style={styles.mainWrapper}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top', 'left', 'right']}>
+          <StatusBar barStyle="light-content" />
+          <View style={styles.header}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Image source={require('./assets/logo.png')} style={{ width: 32, height: 32, borderRadius: 6 }} resizeMode="contain" />
+              <View>
+                <Text style={styles.logo}>MOKSHA JEWELS VJA</Text>
+                <View style={styles.roleBadgeContainer}>
+                  <Text style={styles.roleBadge}>{(role || 'STAFF').toUpperCase()} MODE</Text>
+                  <Text style={styles.userEmail}>{user?.id}</Text>
+                </View>
+              </View>
             </View>
           </View>
-        </View>
-      </View>
-      
-      <View style={styles.content}>
-        {renderContent()}
-      </View>
+          
+          <View style={styles.content}>
+            {renderContent()}
+          </View>
 
-      <View style={styles.tabBar}>
-        <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
-        <NavItem name="inventory" icon={Package} label="Items" />
-        <NavItem name="scan" icon={Scan} label="Scan" />
-        {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" />}
-        {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" />}
-        {role !== 'admin' && <NavItem name="history" icon={History} label="History" />}
+          <View style={styles.tabBar}>
+            <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
+            <NavItem name="inventory" icon={Package} label="Items" />
+            <NavItem name="scan" icon={Scan} label="Scan" />
+            {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" />}
+            {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" />}
+            {role !== 'admin' && <NavItem name="history" icon={History} label="History" />}
+          </View>
+        </SafeAreaView>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   if (loading) {
