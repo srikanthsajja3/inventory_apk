@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   fullImage: {
-    width: screenWidth,
-    height: screenHeight,
+    width: Platform.OS === 'web' ? Math.min(screenWidth, 800) : screenWidth,
+    height: Platform.OS === 'web' ? Math.min(screenHeight, 800) : screenHeight,
   },
   navButton: {
     position: 'absolute',

@@ -898,7 +898,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       ) : (
         <FlatList 
           key={viewMode}
-          numColumns={viewMode === 'grid' ? (SCREEN_WIDTH > 1000 ? 6 : SCREEN_WIDTH > 600 ? 4 : 3) : 1}
+          numColumns={viewMode === 'grid' ? (SCREEN_WIDTH > 1400 ? 8 : SCREEN_WIDTH > 1000 ? 6 : SCREEN_WIDTH > 600 ? 4 : 3) : 1}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
           data={displayData}
           extraData={[selectedIds, selectionMode, viewMode]}

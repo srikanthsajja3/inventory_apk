@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput, Modal, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem  } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem, Edit2  } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
 import StoneEntryModal from '../components/StoneEntryModal';
+import ItemFolderModal from '../components/ItemFolderModal';
 import OptimizedImage from '../components/OptimizedImage';
 
 import { Theme } from '../theme';
@@ -290,6 +291,7 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
   const [loading, setLoading] = useState(false);
   const [scannedData, setScannedData] = useState<string>('');
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [manualSku, setManualSku] = useState('');
   
   const [showSellModal, setShowSellModal] = useState(false);
@@ -539,6 +541,14 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
     Alert.alert("Success", "Item updated successfully");
   };
 
+  const onEditSuccess = () => {
+    setIsEditModalVisible(false);
+    if (scannedData) {
+      searchSku(scannedData);
+    }
+    Alert.alert("Success", "Item updated successfully");
+  };
+
   const renderCameraView = () => (
     <View style={styles.cameraContainer}>
       <CameraView
@@ -712,6 +722,14 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                   </TouchableOpacity>
 
                   <TouchableOpacity 
+                    style={[styles.estimateBtn, { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border }]}
+                    onPress={() => setIsEditModalVisible(true)}
+                  >
+                    <Edit2 size={18} color={Theme.colors.primary} />
+                    <Text style={[styles.doneBtnText, { color: Theme.colors.primary }]}>Edit</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
                     style={styles.estimateBtn}
                     onPress={() => onEstimation && onEstimation(itemFound)}
                   >
@@ -764,6 +782,14 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
         onSave={onAddSuccess}
         initialSku={scannedData}
         initialData={itemFound}
+      />
+
+      <ItemFolderModal 
+        isVisible={isEditModalVisible} 
+        onClose={() => setIsEditModalVisible(false)} 
+        onSave={onEditSuccess} 
+        currentFolderId={itemFound?.category_id} 
+        initialData={itemFound} 
       />
 
       {/* Sell Modal */}

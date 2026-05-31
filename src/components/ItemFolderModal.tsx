@@ -389,17 +389,40 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      quality: 0.5,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
       base64: true,
     });
 
     if (!result.canceled) {
-      const newImages = result.assets.map(asset => ({
-        uri: asset.uri,
-        base64: asset.base64
-      }));
-      setImages([...images, ...newImages]);
+      const newImage = {
+        uri: result.assets[0].uri,
+        base64: result.assets[0].base64
+      };
+      setImages([...images, newImage]);
+    }
+  };
+
+  const editImage = async (index: number) => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      const updatedImages = [...images];
+      updatedImages[index] = {
+        uri: result.assets[0].uri,
+        base64: result.assets[0].base64
+      };
+      setImages(updatedImages);
     }
   };
 
@@ -573,7 +596,9 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
                     {images.map((img, index) => (
                       <View key={index} style={styles.imagePickerWrapper}>
-                        <Image source={{ uri: img.uri }} style={styles.previewImage} resizeMode="contain" />
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => editImage(index)}>
+                          <Image source={{ uri: img.uri }} style={styles.previewImage} resizeMode="contain" />
+                        </TouchableOpacity>
                         <TouchableOpacity 
                           style={styles.removeImageSmall} 
                           onPress={() => setImages(images.filter((_, i) => i !== index))}
