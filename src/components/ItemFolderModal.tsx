@@ -390,10 +390,56 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     }
   }, [isVisible, initialData]);
 
-  const pickImages = async () => {
+  const handleImageAction = async (index?: number) => {
+    if (Platform.OS === 'web') {
+      await openLibrary(index);
+      return;
+    }
+
+    Alert.alert(
+      'Select Image Source',
+      'Choose how you want to add an image',
+      [
+        {
+          text: 'Camera',
+          onPress: () => openCamera(index),
+        },
+        {
+          text: 'Photo Library',
+          onPress: () => openLibrary(index),
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+      ]
+    );
+  };
+
+  const openCamera = async (index?: number) => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Denied', 'Sorry, we need camera permissions to make this work!');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled) {
+      processImageResult(result, index);
+    }
+  };
+
+  const openLibrary = async (index?: number) => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Denied', 'Sorry, we need camera roll permissions to make this work!');
+      Alert.alert('Permission Denied', 'Sorry, we need photo library permissions to make this work!');
       return;
     }
 
@@ -406,33 +452,24 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     });
 
     if (!result.canceled) {
-      const newImage = {
-        uri: result.assets[0].uri,
-        base64: result.assets[0].base64
-      };
-      setImages([...images, newImage]);
+      processImageResult(result, index);
     }
   };
 
-  const editImage = async (index: number) => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') return;
+  const processImageResult = (result: ImagePicker.ImagePickerResult, index?: number) => {
+    if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-      base64: true,
-    });
-
-    if (!result.canceled) {
+    const newImage = {
+      uri: result.assets[0].uri,
+      base64: result.assets[0].base64
+    };
+    
+    if (index !== undefined) {
       const updatedImages = [...images];
-      updatedImages[index] = {
-        uri: result.assets[0].uri,
-        base64: result.assets[0].base64
-      };
+      updatedImages[index] = newImage;
       setImages(updatedImages);
+    } else {
+      setImages([...images, newImage]);
     }
   };
 
@@ -606,7 +643,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
                     {images.map((img, index) => (
                       <View key={index} style={styles.imagePickerWrapper}>
-                        <TouchableOpacity style={{ flex: 1 }} onPress={() => editImage(index)}>
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => handleImageAction(index)}>
                           <Image source={{ uri: img.uri }} style={styles.previewImage} resizeMode="contain" />
                         </TouchableOpacity>
                         <TouchableOpacity 
@@ -617,7 +654,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                         </TouchableOpacity>
                       </View>
                     ))}
-                    <TouchableOpacity style={styles.imagePickerSmall} onPress={pickImages}>
+                    <TouchableOpacity style={styles.imagePickerSmall} onPress={() => handleImageAction()}>
                       <View style={styles.imagePlaceholderSmall}>
                         <Camera size={24} color="#94a3b8" />
                         <Text style={styles.imagePlaceholderTextSmall}>Add</Text>
