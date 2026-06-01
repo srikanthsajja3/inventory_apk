@@ -17,35 +17,47 @@ const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initialIndex, title }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [currentScale, setCurrentScale] = useState(1);
   
   // Animation values for zoom and pan
   const scale = useRef(new Animated.Value(1)).current;
   const translateX = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
+  
   const lastScale = useRef(1);
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
 
-  // Prevention of browser zoom on Web
+  // Prevention of browser zoom on Web (Desktop only)
   useEffect(() => {
     if (Platform.OS === 'web' && visible) {
-      const preventDefault = (e: WheelEvent | TouchEvent) => {
-        // @ts-ignore - ctrlKey exists on WheelEvent and TouchEvent for zoom gestures
-        if (e.ctrlKey || (e.touches && e.touches.length > 1)) {
+      const handleWheel = (e: WheelEvent) => {
+        if (e.ctrlKey) {
           e.preventDefault();
+          // Implement custom zoom for trackpad pinch / Ctrl+Wheel
+          const delta = -e.deltaY;
+          const zoomStep = 0.01;
+          const newScale = Math.max(1, Math.min(5, lastScale.current + delta * zoomStep));
+          
+          lastScale.current = newScale;
+          scale.setValue(newScale);
+          setCurrentScale(newScale);
         }
       };
 
-      // Disable pinch zoom globally while modal is open
-      document.addEventListener('wheel', preventDefault, { passive: false });
-      document.addEventListener('touchmove', preventDefault, { passive: false });
-
+      document.addEventListener('wheel', handleWheel, { passive: false });
       return () => {
-        document.removeEventListener('wheel', preventDefault);
-        document.removeEventListener('touchmove', preventDefault);
+        document.removeEventListener('wheel', handleWheel);
       };
     }
   }, [visible]);
+
+  // Double click to reset on web
+  const handleDoubleClick = () => {
+    if (Platform.OS === 'web') {
+      resetZoom();
+    }
+  };
 
   useEffect(() => {
     setCurrentIndex(initialIndex);
@@ -54,11 +66,14 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
 
   const resetZoom = () => {
     scale.setValue(1);
+    translateX.setOffset(0);
     translateX.setValue(0);
+    translateY.setOffset(0);
     translateY.setValue(0);
     lastScale.current = 1;
     lastTranslateX.current = 0;
     lastTranslateY.current = 0;
+    setCurrentScale(1);
   };
 
   if (!urls || urls.length === 0) return null;
@@ -80,7 +95,15 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
   // Pinch Gesture
   const onPinchGestureEvent = Animated.event(
     [{ nativeEvent: { scale: scale } }],
-    { useNativeDriver: false }
+    { 
+      useNativeDriver: false,
+      listener: (event: any) => {
+        const s = lastScale.current * event.nativeEvent.scale;
+        if (s !== currentScale) {
+          setCurrentScale(s);
+        }
+      }
+    }
   );
 
   const onPinchHandlerStateChange = (event: any) => {
@@ -88,20 +111,27 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
       lastScale.current *= event.nativeEvent.scale;
       if (lastScale.current < 1) {
         lastScale.current = 1;
+        setCurrentScale(1);
         Animated.spring(scale, {
           toValue: 1,
           useNativeDriver: false,
         }).start();
-        Animated.spring(translateX, { toValue: 0, useNativeDriver: false }).start();
-        Animated.spring(translateY, { toValue: 0, useNativeDriver: false }).start();
+        
+        // Reset translation when zoomed out
         lastTranslateX.current = 0;
         lastTranslateY.current = 0;
+        translateX.setOffset(0);
+        translateX.setValue(0);
+        translateY.setOffset(0);
+        translateY.setValue(0);
+      } else {
+        scale.setValue(lastScale.current);
+        setCurrentScale(lastScale.current);
       }
-      scale.setValue(lastScale.current);
     }
   };
 
-  // Pan Gesture (only active when zoomed in)
+  // Pan Gesture
   const onPanGestureEvent = Animated.event(
     [
       {
@@ -132,6 +162,8 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
     format: 'origin', 
   });
 
+  const showUI = currentScale <= 1.1;
+
   return (
     <Modal
       visible={visible}
@@ -139,7 +171,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
       animationType="fade"
       onRequestClose={onClose}
     >
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <View style={styles.container}>
           {/* Minimal Close Button Overlay */}
@@ -148,12 +180,14 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
           </TouchableOpacity>
 
           {/* Counter Overlay */}
-          <View style={styles.counterOverlay}>
-            <Text style={styles.counterText}>{currentIndex + 1} / {urls.length}</Text>
-          </View>
+          {showUI && (
+            <View style={styles.counterOverlay}>
+              <Text style={styles.counterText}>{currentIndex + 1} / {urls.length}</Text>
+            </View>
+          )}
           
           <View style={styles.imageContainer}>
-            {urls.length > 1 && lastScale.current <= 1.1 && (
+            {urls.length > 1 && showUI && (
               <TouchableOpacity 
                 style={[styles.navButton, styles.leftButton, currentIndex === 0 && styles.disabledButton]} 
                 onPress={handlePrev}
@@ -166,9 +200,9 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
             <PanGestureHandler
               onGestureEvent={onPanGestureEvent}
               onHandlerStateChange={onPanHandlerStateChange}
-              enabled={lastScale.current > 1}
+              enabled={currentScale > 1}
             >
-              <Animated.View style={{ flex: 1, width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+              <Animated.View style={styles.animatedWrapper}>
                 <PinchGestureHandler
                   onGestureEvent={onPinchGestureEvent}
                   onHandlerStateChange={onPinchHandlerStateChange}
@@ -194,7 +228,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
               </Animated.View>
             </PanGestureHandler>
 
-            {urls.length > 1 && lastScale.current <= 1.1 && (
+            {urls.length > 1 && showUI && (
               <TouchableOpacity 
                 style={[styles.navButton, styles.rightButton, currentIndex === urls.length - 1 && styles.disabledButton]} 
                 onPress={handleNext}
@@ -205,7 +239,7 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
             )}
           </View>
 
-          {title && lastScale.current <= 1.1 && (
+          {title && showUI && (
             <View style={styles.titleOverlay}>
               <Text style={styles.titleText}>{title}</Text>
             </View>
@@ -219,7 +253,13 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000', // Black background for full screen image
+    backgroundColor: '#000',
+  },
+  animatedWrapper: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   animatedImageContainer: {
     width: '100%',
