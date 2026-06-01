@@ -26,6 +26,27 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
   const lastTranslateX = useRef(0);
   const lastTranslateY = useRef(0);
 
+  // Prevention of browser zoom on Web
+  useEffect(() => {
+    if (Platform.OS === 'web' && visible) {
+      const preventDefault = (e: WheelEvent | TouchEvent) => {
+        // @ts-ignore - ctrlKey exists on WheelEvent and TouchEvent for zoom gestures
+        if (e.ctrlKey || (e.touches && e.touches.length > 1)) {
+          e.preventDefault();
+        }
+      };
+
+      // Disable pinch zoom globally while modal is open
+      document.addEventListener('wheel', preventDefault, { passive: false });
+      document.addEventListener('touchmove', preventDefault, { passive: false });
+
+      return () => {
+        document.removeEventListener('wheel', preventDefault);
+        document.removeEventListener('touchmove', preventDefault);
+      };
+    }
+  }, [visible]);
+
   useEffect(() => {
     setCurrentIndex(initialIndex);
     resetZoom();
