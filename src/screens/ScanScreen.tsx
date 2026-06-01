@@ -8,6 +8,7 @@ import { useJewelryCalc } from '../hooks/useJewelryCalc';
 import StoneEntryModal from '../components/StoneEntryModal';
 import ItemFolderModal from '../components/ItemFolderModal';
 import OptimizedImage from '../components/OptimizedImage';
+import ImageModal from '../components/ImageModal';
 
 import { Theme } from '../theme';
 import { SCREEN_WIDTH } from '../utils/scaling';
@@ -299,6 +300,7 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
   const [selling, setSelling] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
 
   const toggleEmployee = (name: string) => {
     setSelectedEmployees(prev => 
@@ -643,15 +645,22 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                     {itemFound.image_urls && itemFound.image_urls.length > 0 ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
                         {itemFound.image_urls.map((url: string, index: number) => (
-                          <View key={index} style={styles.imageWrapper}>
+                          <TouchableOpacity 
+                            key={index} 
+                            style={styles.imageWrapper}
+                            onPress={() => setPreviewGallery({ urls: itemFound.image_urls, index })}
+                          >
                             <OptimizedImage url={url} width={100} height={100} />
-                          </View>
+                          </TouchableOpacity>
                         ))}
                       </ScrollView>
                     ) : itemFound.image_url ? (
-                      <View style={styles.imageContainer}>
+                      <TouchableOpacity 
+                        style={styles.imageContainer}
+                        onPress={() => setPreviewGallery({ urls: [itemFound.image_url], index: 0 })}
+                      >
                         <OptimizedImage url={itemFound.image_url} width={100} height={100} />
-                      </View>
+                      </TouchableOpacity>
                     ) : (
                       <View style={styles.imageContainer}>
                         <View style={styles.imagePlaceholder}>
@@ -860,6 +869,16 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
           </View>
         </View>
       </Modal>
+
+      {previewGallery && (
+        <ImageModal
+          visible={!!previewGallery}
+          onClose={() => setPreviewGallery(null)}
+          urls={previewGallery.urls}
+          initialIndex={previewGallery.index}
+          title={itemFound?.name}
+        />
+      )}
     </View>
   );
 }
