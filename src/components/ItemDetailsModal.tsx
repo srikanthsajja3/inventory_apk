@@ -879,6 +879,8 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               urls={previewGallery.urls}
               initialIndex={previewGallery.index}
               title={item.name}
+              netWt={item.net_wt}
+              grossWt={item.gross_wt}
             />
           )}
 

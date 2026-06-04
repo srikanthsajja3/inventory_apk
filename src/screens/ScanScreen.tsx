@@ -877,6 +877,8 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
           urls={previewGallery.urls}
           initialIndex={previewGallery.index}
           title={itemFound?.name}
+          netWt={itemFound?.net_wt}
+          grossWt={itemFound?.gross_wt}
         />
       )}
     </View>

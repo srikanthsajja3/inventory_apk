@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler, useWindowDimensions } from 'react-native';
-import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera } from 'lucide-react-native';
+import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera, MoreVertical } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '../../supabase';
@@ -446,10 +446,50 @@ const styles = StyleSheet.create({
     marginTop: Theme.spacing.md,
     color: Theme.colors.text.secondary,
     fontSize: Theme.typography.size.xs,
-  }
+  },
+  optionsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  optionsContent: {
+    backgroundColor: Theme.colors.surface,
+    borderTopLeftRadius: Theme.radius.xl,
+    borderTopRightRadius: Theme.radius.xl,
+    paddingBottom: Platform.OS === 'ios' ? 40 : Theme.spacing.lg,
+  },
+  optionsHeader: {
+    padding: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    alignItems: 'center',
+  },
+  optionsHeaderTitle: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  optionsList: {
+    padding: Theme.spacing.sm,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    gap: 12,
+  },
+  optionText: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '600',
+    color: Theme.colors.text.primary,
+  },
+  deleteOption: {
+    color: Theme.colors.status.error,
+  },
 });
 
-const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
+const FolderCard = ({ item, onNavigate, onShowOptions, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.folderCardGrid : styles.folderCard, 
@@ -475,26 +515,16 @@ const FolderCard = ({ item, onNavigate, onMove, onDelete, onEdit, selectionMode,
     </View>
     {!selectionMode && viewMode === 'list' && (
       <View style={styles.rightSection}>
-        <View style={styles.controls}>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
-            <Edit2 size={14} color={Theme.colors.primary} />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onMove(item, 'folder')}>
-            <Move size={14} color={Theme.colors.text.secondary} />
-          </TouchableOpacity>
-          {role === 'admin' && (
-            <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id, item.name, 'folder')}>
-              <Trash2 size={14} color={Theme.colors.status.error} />
-            </TouchableOpacity>
-          )}
-        </View>
+        <TouchableOpacity style={styles.actionBtn} onPress={() => onShowOptions(item, 'folder')}>
+          <MoreVertical size={18} color={Theme.colors.text.secondary} />
+        </TouchableOpacity>
         <ChevronRight size={16} color={Theme.colors.text.secondary} />
       </View>
     )}
   </TouchableOpacity>
 );
 
-const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selectionMode, isSelected, onSelect, viewMode, onMoveBack, isExhibitionFolder, role }: any) => (
+const ItemCard = ({ item, onShowOptions, onPress, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.itemCardGrid : styles.itemCard, 
@@ -538,30 +568,9 @@ const ItemCard = ({ item, onShowQR, onMove, onDelete, onEdit, onPress, selection
         </View>
 
         {!selectionMode && (
-          <View style={styles.controls}>
-            {isExhibitionFolder && (
-              <TouchableOpacity
-                style={[styles.actionBtn, { backgroundColor: Theme.colors.surface }]}
-                onPress={() => onMoveBack(item)}
-              >
-                <ArrowLeft size={14} color={Theme.colors.primary} />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.actionBtn} onPress={() => onEdit(item)}>
-              <Edit2 size={14} color={Theme.colors.primary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.actionBtn} onPress={() => onMove(item, 'item')}>
-              <Move size={14} color={Theme.colors.text.secondary} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.qrBtn} onPress={() => onShowQR(item)}>
-              <QrCode size={14} color={Theme.colors.primary} />
-            </TouchableOpacity>
-            {role === 'admin' && (
-              <TouchableOpacity style={styles.deleteBtn} onPress={() => onDelete(item.id, item.name, 'item')}>
-                <Trash2 size={14} color={Theme.colors.status.error} />
-              </TouchableOpacity>
-            )}
-          </View>
+          <TouchableOpacity style={styles.actionBtn} onPress={() => onShowOptions(item, 'item')}>
+            <MoreVertical size={18} color={Theme.colors.text.secondary} />
+          </TouchableOpacity>
         )}
       </View>
     )}
@@ -586,6 +595,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [editingItem, setEditingItem] = useState<any>(null);
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [moveModalVisible, setMoveModalVisible] = useState(false);
+  const [optionsModalVisible, setOptionsModalVisible] = useState(false);
+  const [activeItemForOptions, setActiveItemForOptions] = useState<{item: any, type: 'item' | 'folder'} | null>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [isDetailsVisible, setIsDetailsVisible] = useState(false);
   const [itemsToMove, setItemsToMove] = useState<any[]>([]);
@@ -818,6 +829,11 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const openEditModal = (item: any) => { setEditingItem(item); setIsModalVisible(true); };
   const openAddModal = () => { setEditingItem(null); setIsModalVisible(true); };
 
+  const handleShowOptions = (item: any, type: 'item' | 'folder') => {
+    setActiveItemForOptions({ item, type });
+    setOptionsModalVisible(true);
+  };
+
   const handleDelete = (id: string, name: string, type: 'item' | 'folder') => {
     const message = `Are you sure you want to delete "${name}"? ${type === 'folder' ? 'This will delete all contents!' : ''}`;
     const performDelete = async () => {
@@ -913,9 +929,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
             const isFolder = (item.sku === undefined && item.barcode === undefined);
             const isSelected = selectedIds.has(item.id);
             return isFolder ? (
-              <FolderCard item={item} onNavigate={navigateToFolder} onMove={openMoveModal} onDelete={handleDelete} onEdit={openEditModal} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
+              <FolderCard item={item} onNavigate={navigateToFolder} onShowOptions={handleShowOptions} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
             ) : (
-              <ItemCard item={item} onShowQR={showQR} onMove={openMoveModal} onDelete={handleDelete} onEdit={openEditModal} onPress={showDetails} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} onMoveBack={moveBackFromExhibition} isExhibitionFolder={currentFolder?.id === 'virtual-exhibition'} role={role} />
+              <ItemCard item={item} onShowOptions={handleShowOptions} onPress={showDetails} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
             );
           }}
           keyExtractor={item => item.id}
@@ -938,6 +954,44 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       <ItemFolderModal isVisible={isModalVisible} onClose={() => setIsModalVisible(false)} onSave={fetchContents} currentFolderId={currentFolder ? currentFolder.id : null} initialData={editingItem} />
       <ItemDetailsModal isVisible={isDetailsVisible} onClose={() => setIsDetailsVisible(false)} item={selectedItem} onEdit={openEditModal} onEstimate={(item) => { setIsDetailsVisible(false); onEstimation(item); }} />
       <MoveModal isVisible={moveModalVisible} onClose={() => setMoveModalVisible(false)} onMove={fetchContents} itemsToMove={itemsToMove} />
+
+      <Modal visible={optionsModalVisible} transparent animationType="slide">
+        <TouchableOpacity style={styles.optionsModalOverlay} activeOpacity={1} onPress={() => setOptionsModalVisible(false)}>
+          <View style={styles.optionsContent}>
+            <View style={styles.optionsHeader}>
+              <Text style={styles.optionsHeaderTitle}>{activeItemForOptions?.item?.name}</Text>
+            </View>
+            <View style={styles.optionsList}>
+              {activeItemForOptions?.type === 'item' && currentFolder?.id === 'virtual-exhibition' && (
+                <TouchableOpacity style={styles.optionItem} onPress={() => { setOptionsModalVisible(false); moveBackFromExhibition(activeItemForOptions.item); }}>
+                  <ArrowLeft size={20} color={Theme.colors.primary} />
+                  <Text style={styles.optionText}>Move Back to Original</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity style={styles.optionItem} onPress={() => { setOptionsModalVisible(false); openEditModal(activeItemForOptions?.item); }}>
+                <Edit2 size={20} color={Theme.colors.primary} />
+                <Text style={styles.optionText}>Edit Details</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.optionItem} onPress={() => { setOptionsModalVisible(false); openMoveModal(activeItemForOptions?.item, activeItemForOptions?.type as any); }}>
+                <Move size={20} color={Theme.colors.text.secondary} />
+                <Text style={styles.optionText}>Move to Folder</Text>
+              </TouchableOpacity>
+              {activeItemForOptions?.type === 'item' && (
+                <TouchableOpacity style={styles.optionItem} onPress={() => { setOptionsModalVisible(false); showQR(activeItemForOptions.item); }}>
+                  <QrCode size={20} color={Theme.colors.primary} />
+                  <Text style={styles.optionText}>Show QR Code</Text>
+                </TouchableOpacity>
+              )}
+              {role === 'admin' && (
+                <TouchableOpacity style={styles.optionItem} onPress={() => { setOptionsModalVisible(false); handleDelete(activeItemForOptions?.item.id, activeItemForOptions?.item.name, activeItemForOptions?.type as any); }}>
+                  <Trash2 size={20} color={Theme.colors.status.error} />
+                  <Text style={[styles.optionText, styles.deleteOption]}>Delete Permanently</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={isScanning} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>

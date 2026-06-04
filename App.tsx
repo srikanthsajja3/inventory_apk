@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert, Image } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert, Image, Modal } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { LayoutDashboard, Package, Scan, History, Users, Settings, Lock, Eye, EyeOff, User as UserIcon, RefreshCw, ShoppingBag } from 'lucide-react-native';
 import { useRole } from './src/hooks/useRole';
@@ -289,10 +289,6 @@ export default function App() {
   );
 
   const renderContent = () => {
-    if (estimationItem) {
-      return <EstimationScreen route={{ params: { item: estimationItem } }} navigation={{ goBack: () => setEstimationItem(null) }} />;
-    }
-    
     if (showGoldRate) {
       return <GoldRateScreen onBack={() => setShowGoldRate(false)} />;
     }
@@ -373,6 +369,19 @@ export default function App() {
           </View>
         </SafeAreaView>
       </View>
+      
+      <Modal 
+        visible={!!estimationItem} 
+        animationType="slide" 
+        onRequestClose={() => setEstimationItem(null)}
+      >
+        {estimationItem && (
+          <EstimationScreen 
+            route={{ params: { item: estimationItem } }} 
+            navigation={{ goBack: () => setEstimationItem(null) }} 
+          />
+        )}
+      </Modal>
     </View>
   );
 

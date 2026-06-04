@@ -11,11 +11,13 @@ interface ImageModalProps {
   urls: string[];
   initialIndex: number;
   title?: string;
+  netWt?: string | number;
+  grossWt?: string | number;
 }
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
-const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initialIndex, title }) => {
+const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initialIndex, title, netWt, grossWt }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [currentScale, setCurrentScale] = useState(1);
   
@@ -239,9 +241,25 @@ const ImageModal: React.FC<ImageModalProps> = ({ visible, onClose, urls, initial
             )}
           </View>
 
-          {title && showUI && (
+          {title && (
             <View style={styles.titleOverlay}>
               <Text style={styles.titleText}>{title}</Text>
+              {(netWt || grossWt) && (
+                <View style={styles.weightRow}>
+                  {grossWt !== undefined && (
+                    <View style={styles.weightBadge}>
+                      <Text style={styles.weightLabel}>GROSS:</Text>
+                      <Text style={styles.weightValue}>{grossWt}g</Text>
+                    </View>
+                  )}
+                  {netWt !== undefined && (
+                    <View style={styles.weightBadge}>
+                      <Text style={styles.weightLabel}>NET:</Text>
+                      <Text style={styles.weightValue}>{netWt}g</Text>
+                    </View>
+                  )}
+                </View>
+              )}
             </View>
           )}
         </View>
@@ -333,17 +351,43 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
-    maxWidth: '80%',
+    maxWidth: '85%',
+    alignItems: 'center',
   },
   titleText: {
     fontSize: 16,
     fontWeight: '800',
     color: '#fff',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  weightRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 2,
+  },
+  weightBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 6,
+  },
+  weightLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  weightValue: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#fff',
   },
 });
 
