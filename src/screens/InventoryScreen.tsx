@@ -724,8 +724,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       if (isNumeric) {
         const weight = parseFloat(searchTerm);
-        const lowerBound = Math.max(0, weight - 5);
-        supabaseQuery = supabaseQuery.gte('gross_wt', lowerBound).lte('gross_wt', weight);
+        supabaseQuery = supabaseQuery.eq('gross_wt', weight);
       } else {
         supabaseQuery = supabaseQuery.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,label_no.ilike.%${searchTerm}%`);
       }
