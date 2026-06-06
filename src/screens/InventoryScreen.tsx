@@ -724,7 +724,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       if (isNumeric) {
         const weight = parseFloat(searchTerm);
-        supabaseQuery = supabaseQuery.eq('gross_wt', weight);
+        let upperBound = weight + 1;
+        if (searchTerm.includes('.')) {
+          const decimalStr = searchTerm.split('.')[1];
+          if (decimalStr.length > 0) {
+            upperBound = weight + Math.pow(10, -decimalStr.length);
+          }
+        }
+        supabaseQuery = supabaseQuery.gte('gross_wt', weight).lt('gross_wt', upperBound);
       } else {
         supabaseQuery = supabaseQuery.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,label_no.ilike.%${searchTerm}%`);
       }
