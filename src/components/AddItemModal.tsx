@@ -151,7 +151,6 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
   const [form, setForm] = useState({
     name: '',
     sku: '',
-    quantity: '0',
     location: '',
     description: '',
     prc_amount: ''
@@ -180,7 +179,6 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
           .insert([{
             name: form.name,
             sku: form.sku || null,
-            quantity: parseInt(form.quantity) || 0,
             location: form.location || null,
             description: form.description || null,
             category_id: currentFolderId,
@@ -189,7 +187,7 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
         if (error) throw error;
       }
 
-      setForm({ name: '', sku: '', quantity: '0', location: '', description: '', prc_amount: '' });
+      setForm({ name: '', sku: '', location: '', description: '', prc_amount: '' });
       onSave();
       onClose();
     } catch (error: any) {
@@ -245,13 +243,6 @@ export default function AddItemModal({ isVisible, onClose, onSave, currentFolder
                   icon={Hash} 
                   value={form.sku} 
                   onChangeText={(t: string) => setForm({...form, sku: t})} 
-                />
-                <InputField 
-                  label="Initial Quantity" 
-                  icon={Hash} 
-                  value={form.quantity} 
-                  onChangeText={(t: string) => setForm({...form, quantity: t})} 
-                  keyboardType="numeric"
                 />
                 <InputField 
                   label="Storage Location" 

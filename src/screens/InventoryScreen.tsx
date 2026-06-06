@@ -280,14 +280,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.radius.md,
-    padding: Theme.spacing.sm,
+    padding: 0,
     alignItems: 'flex-start',
     borderWidth: 1,
     borderColor: Theme.colors.border,
+    overflow: 'hidden',
   },
   itemIcon: {
-    width: 44,
-    height: 44,
+    width: 64,
+    height: 64,
     backgroundColor: '#FFFFFF',
     borderRadius: Theme.radius.sm,
     alignItems: 'center',
@@ -300,13 +301,11 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: Theme.radius.sm,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
-    marginBottom: Theme.spacing.xs,
-    borderWidth: 1,
-    borderColor: '#f1f5f9',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
   },
   itemThumb: {
     width: '100%',
@@ -318,6 +317,7 @@ const styles = StyleSheet.create({
   },
   infoGrid: {
     width: '100%',
+    padding: Theme.spacing.sm,
   },
   itemMeta: {
     flexDirection: 'row',
@@ -487,6 +487,47 @@ const styles = StyleSheet.create({
   deleteOption: {
     color: Theme.colors.status.error,
   },
+  searchGroupContainer: {
+    marginBottom: Theme.spacing.lg,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.lg,
+    padding: Theme.spacing.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  searchGroupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.md,
+    paddingBottom: Theme.spacing.xs,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    gap: 8,
+  },
+  searchGroupTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  searchGroupItems: {
+    gap: Theme.spacing.sm,
+  },
+  viewMoreBtn: {
+    marginTop: Theme.spacing.md,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  viewMoreText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
 });
 
 const FolderCard = ({ item, onNavigate, onShowOptions, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
@@ -545,7 +586,9 @@ const ItemCard = ({ item, onShowOptions, onPress, selectionMode, isSelected, onS
       )}
     </View>
     <View style={viewMode === 'grid' ? styles.infoGrid : styles.info}>
-      <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
+      <Text style={styles.itemName} numberOfLines={1}>
+        G: {item.gross_wt || 0}g | N: {item.net_wt || 0}g
+      </Text>
       {viewMode === 'list' ? (
         <View style={styles.itemMeta}>
           <Text style={styles.itemSku}>{item.sku || 'No SKU'}</Text>
@@ -557,21 +600,11 @@ const ItemCard = ({ item, onShowOptions, onPress, selectionMode, isSelected, onS
       )}
     </View>
     
-    {viewMode === 'grid' ? (
-      <View style={styles.qtyBadgeGrid}>
-        <Text style={styles.qtyText}>{item.quantity}</Text>
-      </View>
-    ) : (
+    {viewMode !== 'grid' && !selectionMode && (
       <View style={styles.rightSection}>
-        <View style={styles.qtyBadge}>
-          <Text style={styles.qtyText}>{item.quantity}</Text>
-        </View>
-
-        {!selectionMode && (
-          <TouchableOpacity style={styles.actionBtn} onPress={() => onShowOptions(item, 'item')}>
-            <MoreVertical size={18} color={Theme.colors.text.secondary} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.actionBtn} onPress={() => onShowOptions(item, 'item')}>
+          <MoreVertical size={18} color={Theme.colors.text.secondary} />
+        </TouchableOpacity>
       </View>
     )}
   </TouchableOpacity>
@@ -583,6 +616,10 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
+  const [allCategories, setAllCategories] = useState<any[]>([]);
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
+  const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
   const [locations, setLocations] = useState<string[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string>('All Locations');
   const [loading, setLoading] = useState(true);
@@ -613,6 +650,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const { role } = useRole();
   const { calculateEstimation } = useJewelryCalc();
 
+  const getGridItemWidth = () => {
+    const columns = containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3;
+    const totalSpacing = Theme.spacing.md * 2 + (columns - 1) * Theme.spacing.sm;
+    return (containerWidth - totalSpacing) / columns;
+  };
+
+  const gridItemWidth = getGridItemWidth();
+
   const EXHIBITION_FOLDER = { 
     id: 'virtual-exhibition', 
     name: 'Exhibition', 
@@ -631,7 +676,92 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   useEffect(() => {
     fetchLocations();
     fetchMasterRates();
+    fetchAllCategories();
   }, []);
+
+  const fetchAllCategories = async () => {
+    try {
+      const { data, error } = await supabase.from('categories').select('*');
+      if (error) throw error;
+      setAllCategories(data || []);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+    }
+  };
+
+  const getCategoryPath = (categoryId: string | null): string => {
+    if (!categoryId) return 'Root';
+    const path: string[] = [];
+    let currentId: string | null = categoryId;
+    
+    while (currentId) {
+      const cat = allCategories.find(c => c.id === currentId);
+      if (cat) {
+        path.unshift(cat.name);
+        currentId = cat.parent_id;
+      } else {
+        currentId = null;
+      }
+    }
+    
+    return path.join(' > ');
+  };
+
+  const performGlobalSearch = async (query: string) => {
+    if (!query.trim()) {
+      setGlobalSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearchingGlobal(true);
+      const isNumeric = !isNaN(parseFloat(query)) && isFinite(Number(query));
+      const searchTerm = query.trim();
+
+      let supabaseQuery = supabase
+        .from('items')
+        .select('*');
+
+      if (isNumeric) {
+        const weight = parseFloat(searchTerm);
+        const lowerBound = Math.max(0, weight - 5);
+        supabaseQuery = supabaseQuery.gte('gross_wt', lowerBound).lte('gross_wt', weight);
+      } else {
+        supabaseQuery = supabaseQuery.or(`name.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,label_no.ilike.%${searchTerm}%`);
+      }
+
+      const { data, error } = await supabaseQuery.limit(50);
+      
+      if (error) throw error;
+
+      // Group results by category path
+      const grouped: Record<string, any[]> = {};
+      (data || []).forEach(item => {
+        const path = getCategoryPath(item.category_id);
+        if (!grouped[path]) grouped[path] = [];
+        grouped[path].push(item);
+      });
+
+      const resultList = Object.keys(grouped).map(path => ({
+        path,
+        items: grouped[path]
+      }));
+
+      setGlobalSearchResults(resultList);
+    } catch (error) {
+      console.error('Global Search Error:', error);
+    } finally {
+      setIsSearchingGlobal(false);
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (search) performGlobalSearch(search);
+      else setGlobalSearchResults([]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const fetchMasterRates = async () => {
     try {
@@ -713,15 +843,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const getSelectedItems = () => [...folders, ...items].filter(i => selectedIds.has(i.id));
 
   const calculateStats = () => {
-    if (!items || items.length === 0) return { folders: folders.length, items: 0, totalQty: 0, totalValue: 0 };
-    const totalItems = items.reduce((acc, item) => acc + (parseInt(item.quantity) || 0), 0);
+    if (!items || items.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
     const totalValue = items.reduce((acc, item) => {
-      const qty = parseFloat(String(item.quantity)) || 0;
-      if (qty <= 0) return acc;
       const itemTotal = calculateEstimation(item, masterRates);
-      return acc + (itemTotal * qty);
+      return acc + itemTotal;
     }, 0);
-    return { folders: folders.length, items: items.length, totalQty: totalItems, totalValue: totalValue };
+    return { folders: folders.length, items: items.length, totalValue: totalValue };
   };
 
   const stats = calculateStats();
@@ -738,8 +865,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
           : supabase.from('categories').select('*').is('parent_id', null).order('name'),
         parentId
-          ? supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('category_id', parentId).order('name')
-          : supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').is('category_id', null).order('name')
+          ? supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('category_id', parentId).order('name')
+          : supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').is('category_id', null).order('name')
       ]);
 
       const timerHours = settingsRes.data?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
@@ -747,7 +874,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const now = Date.now();
 
       if (currentFolder?.id === 'virtual-exhibition') {
-        const { data: exItems, error: exError } = await supabase.from('items').select('id, name, sku, quantity, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('in_exhibition', true);
+        const { data: exItems, error: exError } = await supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('in_exhibition', true);
         if (exError) throw exError;
         
         const activeItems: any[] = [];
@@ -896,7 +1023,6 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Folders</Text><Text style={styles.summaryValue}>{stats.folders}</Text></View>
         <View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Items</Text><Text style={styles.summaryValue}>{stats.items}</Text></View>
-        <View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Quantity</Text><Text style={styles.summaryValue}>{stats.totalQty} units</Text></View>
         <View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Value</Text><Text style={styles.summaryValue}>₹{stats.totalValue.toLocaleString()}</Text></View>
       </View>
 
@@ -916,14 +1042,66 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         </View>
       )}
 
-      {loading ? (
+      {loading || (search && isSearchingGlobal) ? (
         <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>
+      ) : search ? (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {globalSearchResults.length > 0 ? (
+            globalSearchResults.map((group, idx) => {
+              const isExpanded = expandedPaths.has(group.path);
+              const displayItems = isExpanded ? group.items : group.items.slice(0, 3);
+              
+              return (
+                <View key={group.path + idx} style={styles.searchGroupContainer}>
+                  <View style={styles.searchGroupHeader}>
+                    <Folder size={14} color={Theme.colors.primary} fill={Theme.colors.surface} />
+                    <Text style={styles.searchGroupTitle}>{group.path}</Text>
+                  </View>
+                  <View style={[styles.searchGroupItems, viewMode === 'grid' && { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.sm }]}>
+                    {displayItems.map((item: any) => (
+                      <View key={item.id} style={viewMode === 'grid' ? { width: gridItemWidth } : null}>
+                        <ItemCard 
+                          item={item} 
+                          onShowOptions={handleShowOptions} 
+                          onPress={showDetails} 
+                          selectionMode={selectionMode} 
+                          isSelected={selectedIds.has(item.id)} 
+                          onSelect={toggleSelect} 
+                          viewMode={viewMode} 
+                          role={role} 
+                        />
+                      </View>
+                    ))}
+                  </View>
+                  
+                  {group.items.length > 3 && !isExpanded && (
+                    <TouchableOpacity 
+                      style={styles.viewMoreBtn} 
+                      onPress={() => {
+                        const newExpanded = new Set(expandedPaths);
+                        newExpanded.add(group.path);
+                        setExpandedPaths(newExpanded);
+                      }}
+                    >
+                      <Text style={styles.viewMoreText}>View {group.items.length - 3} More items</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          ) : (
+            <View style={styles.emptyContainer}>
+              <Search size={48} color="#e2e8f0" />
+              <Text style={styles.emptyText}>No matching items found</Text>
+            </View>
+          )}
+        </ScrollView>
       ) : (
         <FlatList 
           key={viewMode}
           numColumns={viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
-          data={displayData}
+          data={[...folders, ...filteredItemsList]}
           extraData={[selectedIds, selectionMode, viewMode]}
           renderItem={({ item }) => {
             const isFolder = (item.sku === undefined && item.barcode === undefined);

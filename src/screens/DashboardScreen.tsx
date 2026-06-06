@@ -653,7 +653,7 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
 };
 
 export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEstimation, onNavigate }: { onUpdateGoldRate?: () => void, onManageStones?: () => void, onEstimation?: (item: any) => void, onNavigate?: (tab: string) => void }) {
-  const [stats, setStats] = useState({ total: 0, lowStock: 0, salesToday: 0, inventoryValue: 0 });
+  const [stats, setStats] = useState({ total: 0, salesToday: 0, inventoryValue: 0 });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [staffStats, setStaffStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -707,7 +707,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
         supabase.from('master_rates').select('*'),
         supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString()),
         supabase.from('sales').select('sale_amount, prc_amount, sold_by').gte('sold_at', performanceCutoff.toISOString()),
-        supabase.from('transactions').select('*, items(id, name, sku, quantity, purity, image_url, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount)').order('created_at', { ascending: false }).limit(5)
+        supabase.from('transactions').select('*, items(id, name, sku, purity, image_url, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount)').order('created_at', { ascending: false }).limit(5)
       ]);
 
       if (settingsRes.error) throw settingsRes.error;
@@ -737,11 +737,9 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
 
       // Get total count and low stock threshold items quickly
       const { count: totalItems } = await supabase.from('items').select('*', { count: 'exact', head: true });
-      const threshold = rateMap.low_stock_threshold || 5;
-      const { count: lowStockCount } = await supabase.from('items').select('*', { count: 'exact', head: true }).lt('quantity', threshold);
 
       // Update blocking state
-      const updatedStats = { ...stats, total: totalItems || 0, lowStock: lowStockCount || 0, salesToday };
+      const updatedStats = { ...stats, total: totalItems || 0, salesToday };
       setStats(updatedStats);
       setStaffStats(sortedStaff);
       setRecentActivity(activity);
@@ -750,13 +748,11 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
 
       // PHASE 2: Heavy Background Fetch (Non-blocking)
       setCalculatingValue(true);
-      const { data: allItems } = await supabase.from('items').select('name, quantity, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges');
+      const { data: allItems } = await supabase.from('items').select('name, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges');
       
       const totalInventoryValue = (allItems || []).reduce((acc, item) => {
-        const qty = parseFloat(String(item.quantity)) || 0;
-        if (qty <= 0) return acc;
         const itemTotal = calculateEstimation(item, rateMap);
-        return acc + (itemTotal * qty);
+        return acc + itemTotal;
       }, 0);
 
       const finalStats = { ...updatedStats, inventoryValue: totalInventoryValue };

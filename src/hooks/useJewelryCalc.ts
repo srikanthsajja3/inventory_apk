@@ -13,7 +13,6 @@ export interface JewelryItem {
   labour_rate?: number | string | null;
   other_charges?: number | string | null;
   stones_in_detail?: string | null;
-  quantity?: number | string | null;
 }
 
 export interface MasterRates {

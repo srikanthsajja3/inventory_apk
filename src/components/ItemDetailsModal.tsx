@@ -510,13 +510,6 @@ const HistoryItem = ({ log }: any) => {
         <Text style={[styles.detailValue, { fontSize: 13 }]} numberOfLines={1}>{log.reason}</Text>
         <Text style={[styles.detailLabel, { fontSize: 10, marginTop: 2 }]}>{date} • {time}</Text>
       </View>
-      {!isScan && (
-        <View style={[styles.qtyBadge, { marginTop: 0, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: iconColor + '15', borderColor: iconColor + '30' }]}>
-          <Text style={[styles.qtyText, { color: iconColor, fontSize: 13 }]}>
-            {isPositive ? '+' : ''}{log.quantity_changed}
-          </Text>
-        </View>
-      )}
     </View>
   );
 };
@@ -680,10 +673,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   };
 
   const handleSell = async () => {
-    if (!item || (item.quantity || 0) <= 0) {
-      Alert.alert('Error', 'This item is out of stock and cannot be sold.');
-      return;
-    }
+    if (!item) return;
 
     const cleanAmount = saleAmount.replace(/,/g, '');
     const amount = parseFloat(cleanAmount);
@@ -719,14 +709,6 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
         }]);
 
       if (saleError) throw saleError;
-
-      const newQty = Math.max(0, (item.quantity || 1) - 1);
-      const { error: itemError } = await supabase
-        .from('items')
-        .update({ quantity: newQty })
-        .eq('id', item.id);
-
-      if (itemError) throw itemError;
 
       await supabase.from('transactions').insert([{
         item_id: item.id,
@@ -793,9 +775,6 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               <View style={styles.primaryInfo}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemSku}>{item.sku || 'No SKU'}</Text>
-                <View style={styles.qtyBadge}>
-                  <Text style={styles.qtyText}>{item.quantity} in stock</Text>
-                </View>
               </View>
             </View>
 
@@ -889,14 +868,12 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               <TouchableOpacity 
                 style={[
                   styles.footerButton, 
-                  { backgroundColor: Theme.colors.status.success },
-                  (item.quantity <= 0) && { opacity: 0.5 }
+                  { backgroundColor: Theme.colors.status.success }
                 ]} 
                 onPress={() => setShowSellModal(true)}
-                disabled={item.quantity <= 0}
               >
                 <ShoppingBag size={20} color={Theme.colors.text.black} />
-                <Text style={styles.buttonText}>{item.quantity <= 0 ? 'Out of Stock' : 'Sell'}</Text>
+                <Text style={styles.buttonText}>Sell</Text>
               </TouchableOpacity>
 
               <TouchableOpacity 

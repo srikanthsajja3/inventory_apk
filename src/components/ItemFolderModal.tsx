@@ -266,7 +266,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
   const [form, setForm] = useState({
     name: '',
     sku: '',
-    quantity: '0',
     location: '',
     description: '',
     label_no: '',
@@ -299,7 +298,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     prc_amount: '0'
   });
 
-  const isEdit = !!initialData;
+  const isEdit = !!initialData && !!initialData.id;
 
   useEffect(() => {
     if (isVisible) {
@@ -308,7 +307,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         setForm({
           name: initialData.name || '',
           sku: initialData.sku || '',
-          quantity: String(initialData.quantity || 0),
           location: initialData.location || '',
           description: initialData.description || '',
           label_no: initialData.label_no || '',
@@ -352,7 +350,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         setForm({
           name: '',
           sku: '',
-          quantity: '0',
           location: '',
           description: '',
           label_no: '',
@@ -540,7 +537,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         const payload: any = {
           name: form.name,
           sku: form.sku || null,
-          quantity: parseInt(form.quantity) || 0,
           location: form.location || null,
           description: form.description || null,
           image_url: uploadedUrls[0] || null,
@@ -720,11 +716,10 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                   </View>
                   <View style={{ flex: 1, marginLeft: 8 }}>
                     <InputField 
-                      label="Stock Qty" 
-                      icon={Package} 
-                      value={form.quantity} 
-                      onChangeText={(t: string) => setForm({...form, quantity: t})} 
-                      keyboardType="numeric"
+                      label="Purity" 
+                      icon={Tag} 
+                      value={form.purity} 
+                      onChangeText={(t: string) => setForm({...form, purity: t})} 
                     />
                   </View>
                 </Row>

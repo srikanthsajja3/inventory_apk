@@ -293,6 +293,7 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
   const [scannedData, setScannedData] = useState<string>('');
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isNewItemModalVisible, setIsNewItemModalVisible] = useState(false);
   const [manualSku, setManualSku] = useState('');
   
   const [showSellModal, setShowSellModal] = useState(false);
@@ -332,8 +333,8 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
   };
 
   const handleSell = async () => {
-    if (!itemFound || (itemFound.quantity || 0) <= 0) {
-      Alert.alert('Error', 'This item is out of stock and cannot be sold.');
+    if (!itemFound) {
+      Alert.alert('Error', 'No item found to sell.');
       return;
     }
 
@@ -767,7 +768,7 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
               <View style={styles.notFoundActions}>
                 <TouchableOpacity 
                   style={styles.addBtn} 
-                  onPress={() => setIsAddModalVisible(true)}
+                  onPress={() => setIsNewItemModalVisible(true)}
                 >
                   <PlusCircle size={20} color="white" />
                   <Text style={styles.addBtnText}>Add as New Item</Text>
@@ -799,6 +800,18 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
         onSave={onEditSuccess} 
         currentFolderId={itemFound?.category_id} 
         initialData={itemFound} 
+      />
+
+      <ItemFolderModal 
+        isVisible={isNewItemModalVisible} 
+        onClose={() => setIsNewItemModalVisible(false)} 
+        onSave={() => {
+          setIsNewItemModalVisible(false);
+          setScanned(false);
+          setScannedData('');
+        }} 
+        currentFolderId={null} 
+        initialData={{ sku: scannedData }} 
       />
 
       {/* Sell Modal */}

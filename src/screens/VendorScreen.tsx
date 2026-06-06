@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Platform } from 'react-native';
-import { Users, Package, ShoppingCart, Weight, ChevronRight, ArrowLeft, Search } from 'lucide-react-native';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView, Platform, TextInput } from 'react-native';
+import { Users, Package, ShoppingCart, Weight, ChevronRight, ArrowLeft, Search, X } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
 
@@ -250,7 +250,25 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     fontWeight: '600',
-  }
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 4,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: Theme.colors.text.primary,
+    paddingVertical: 8,
+    marginLeft: 10,
+  },
 });
 
 interface VendorStats {
@@ -270,6 +288,7 @@ export default function VendorScreen() {
   const [totals, setTotals] = useState({ gold: 0, diamond: 0, carats: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState('');
   const [selectedVendor, setSelectedVendor] = useState<string | null>(null);
   const [vendorItems, setVendorItems] = useState<any[]>([]);
   const [vendorSales, setVendorSales] = useState<any[]>([]);
@@ -287,7 +306,7 @@ export default function VendorScreen() {
       // 1. Fetch all items to group by vendor
       const { data: items, error: itemsError } = await supabase
         .from('items')
-        .select('supplier_name, quantity, net_wt, dai_wt, id, name, sku');
+        .select('supplier_name, net_wt, dai_wt, id, name, sku');
       
       if (itemsError) throw itemsError;
 
@@ -342,7 +361,7 @@ export default function VendorScreen() {
           };
         }
         
-        const qty = (item.quantity || 0);
+        const qty = 1;
         const netWt = (parseFloat(item.net_wt as any) || 0);
         const daiWt = (parseFloat(item.dai_wt as any) || 0);
         
@@ -428,6 +447,10 @@ export default function VendorScreen() {
     fetchVendorStats();
   };
 
+  const filteredVendors = vendors.filter(v => 
+    v.name.toLowerCase().includes(search.toLowerCase())
+  );
+
   const renderVendorCard = ({ item }: { item: VendorStats }) => (
     <TouchableOpacity 
       style={styles.card} 
@@ -470,9 +493,6 @@ export default function VendorScreen() {
       <View style={styles.itemStats}>
         <Text style={styles.itemWt}>G: {item.net_wt}g</Text>
         {parseFloat(item.dai_wt) > 0 && <Text style={[styles.itemWt, { color: Theme.colors.status.success }]}>D: {item.dai_wt}ct</Text>}
-        <View style={styles.qtyBadge}>
-          <Text style={styles.qtyText}>{item.quantity}</Text>
-        </View>
       </View>
     </View>
   );
@@ -486,9 +506,6 @@ export default function VendorScreen() {
       </View>
       <View style={styles.itemStats}>
         <Text style={[styles.itemWt, { color: Theme.colors.status.success }]}>Sold</Text>
-        <View style={[styles.qtyBadge, { backgroundColor: `${Theme.colors.status.success}22` }]}>
-          <Text style={[styles.qtyText, { color: Theme.colors.status.success }]}>{item.quantity_changed}</Text>
-        </View>
       </View>
     </View>
   );
@@ -567,11 +584,27 @@ export default function VendorScreen() {
         </View>
       )}
 
+      <View style={styles.searchBar}>
+        <Search size={20} color={Theme.colors.text.secondary} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search vendors by name..."
+          placeholderTextColor={Theme.colors.text.muted}
+          value={search}
+          onChangeText={setSearch}
+        />
+        {search.length > 0 && (
+          <TouchableOpacity onPress={() => setSearch('')}>
+            <X size={18} color={Theme.colors.text.secondary} />
+          </TouchableOpacity>
+        )}
+      </View>
+
       {loading ? (
         <ActivityIndicator style={{ marginTop: 50 }} color={Theme.colors.primary} />
       ) : (
         <FlatList
-          data={vendors}
+          data={filteredVendors}
           renderItem={renderVendorCard}
           keyExtractor={item => item.name}
           contentContainerStyle={styles.list}
@@ -581,7 +614,7 @@ export default function VendorScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Users size={48} color={Theme.colors.border} />
-              <Text style={styles.emptyText}>No vendor data available</Text>
+              <Text style={styles.emptyText}>{search ? 'No vendors matching your search' : 'No vendor data available'}</Text>
             </View>
           }
         />
