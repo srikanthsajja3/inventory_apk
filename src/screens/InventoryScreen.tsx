@@ -871,8 +871,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
           : supabase.from('categories').select('*').is('parent_id', null).order('name'),
         parentId
-          ? supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('category_id', parentId).order('name')
-          : supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').is('category_id', null).order('name')
+          ? supabase.from('items').select('*').eq('category_id', parentId).order('name')
+          : supabase.from('items').select('*').is('category_id', null).order('name')
       ]);
 
       const timerHours = settingsRes.data?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
@@ -880,7 +880,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const now = Date.now();
 
       if (currentFolder?.id === 'virtual-exhibition') {
-        const { data: exItems, error: exError } = await supabase.from('items').select('id, name, sku, purity, image_url, in_exhibition, exhibition_added_at, category_id, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount').eq('in_exhibition', true);
+        const { data: exItems, error: exError } = await supabase.from('items').select('*').eq('in_exhibition', true);
         if (exError) throw exError;
         
         const activeItems: any[] = [];

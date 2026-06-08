@@ -479,19 +479,29 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         continue;
       }
 
-      if (!asset.base64) {
-        uploadedUrls.push(asset.uri);
-        continue;
-      }
-
       try {
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
         const filePath = `items/${fileName}`;
 
+        let fileData;
+        let contentType = 'image/jpeg';
+
+        if (Platform.OS === 'web') {
+          const res = await fetch(asset.uri);
+          fileData = await res.blob();
+          contentType = fileData.type || 'image/jpeg';
+        } else if (asset.base64) {
+          fileData = decode(asset.base64);
+        } else {
+          const res = await fetch(asset.uri);
+          fileData = await res.blob();
+          contentType = fileData.type || 'image/jpeg';
+        }
+
         const { error } = await supabase.storage
           .from('item-images')
-          .upload(filePath, decode(asset.base64), {
-            contentType: 'image/jpeg'
+          .upload(filePath, fileData, {
+            contentType: contentType
           });
 
         if (error) throw error;
@@ -572,12 +582,14 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         };
 
         if (isEdit) {
+          console.log("Updating item with payload:", payload);
           const { error } = await supabase
             .from('items')
             .update(payload)
             .eq('id', initialData.id);
           if (error) throw error;
         } else {
+          console.log("Inserting new item with payload:", { ...payload, category_id: currentFolderId });
           const { error } = await supabase
             .from('items')
             .insert([{ ...payload, category_id: currentFolderId }]);
@@ -588,7 +600,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
       onSave();
       onClose();
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      console.error('Supabase save error:', JSON.stringify(error, null, 2));
+      Alert.alert('Error', error.message || 'Unknown error occurred while saving.');
     } finally {
       setLoading(false);
     }
