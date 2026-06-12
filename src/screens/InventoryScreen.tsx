@@ -688,6 +688,24 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     fetchLocations();
     fetchMasterRates();
     fetchAllCategories();
+    
+    // Initial load from URL
+    if (Platform.OS === 'web') {
+      const params = new URLSearchParams(window.location.search);
+      const folderId = params.get('folderId');
+      if (folderId) {
+        if (folderId === 'virtual-exhibition') {
+          setCurrentFolder(EXHIBITION_FOLDER);
+        } else {
+          // Fetch folder details
+          const fetchFolder = async () => {
+            const { data } = await supabase.from('categories').select('*').eq('id', folderId).single();
+            if (data) setCurrentFolder(data);
+          };
+          fetchFolder();
+        }
+      }
+    }
   }, []);
 
   const fetchAllCategories = async () => {
@@ -815,6 +833,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const handlePopState = (event: PopStateEvent) => {
         if (event.state && event.state.type === 'folder') {
           setCurrentFolder(event.state.folder || null);
+        } else if (!event.state) {
+           const params = new URLSearchParams(window.location.search);
+           if (!params.get('folderId')) setCurrentFolder(null);
         }
       };
       window.addEventListener('popstate', handlePopState);
@@ -842,6 +863,19 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     fetchContents();
     setSelectionMode(false);
     setSelectedIds(new Set());
+    
+    // Sync URL on folder change
+    if (Platform.OS === 'web') {
+      const url = new URL(window.location.href);
+      if (currentFolder) {
+        url.searchParams.set('folderId', currentFolder.id);
+      } else {
+        url.searchParams.delete('folderId');
+      }
+      if (window.location.search !== url.search) {
+        window.history.replaceState(window.history.state, '', url.search);
+      }
+    }
   }, [currentFolder]);
 
   const toggleSelectionMode = () => {
@@ -955,7 +989,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const navigateToFolder = (folder: any) => {
     setHistory([...history, currentFolder]);
     setCurrentFolder(folder);
-    if (Platform.OS === 'web') window.history.pushState({ type: 'folder', folderId: folder.id, folder, tab: 'inventory' }, '');
+    if (Platform.OS === 'web') {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', 'inventory');
+      url.searchParams.set('folderId', folder.id);
+      window.history.pushState({ type: 'folder', folderId: folder.id, folder, tab: 'inventory' }, '', url.search);
+    }
   };
 
   const navigateBack = () => {
@@ -963,6 +1002,10 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     const prevFolder = newHistory.pop();
     setHistory(newHistory);
     setCurrentFolder(prevFolder || null);
+    
+    if (Platform.OS === 'web' && window.history.state?.type === 'folder') {
+        window.history.back();
+    }
   };
 
   const showQR = (item: any) => { setSelectedItem(item); setQrModalVisible(true); };
@@ -1022,6 +1065,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const displayData = React.useMemo(() => {
     return search ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItemsList] : [...folders, ...filteredItemsList];
   }, [folders, search, filteredItemsList]);
+
+  const numColumns = viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1;
 
   const renderItem = React.useCallback(({ item }: any) => {
     const isFolder = (item.sku === undefined && item.barcode === undefined);
@@ -1127,8 +1172,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         </ScrollView>
       ) : (
         <FlatList 
-          key={viewMode}
-          numColumns={viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1}
+          key={`${viewMode}-${numColumns}`}
+          numColumns={numColumns}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
           data={[...folders, ...filteredItemsList]}
           extraData={[selectedIds, selectionMode, viewMode]}
@@ -1136,15 +1181,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           maxToRenderPerBatch={10}
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
-          renderItem={({ item }) => {
-            const isFolder = (item.sku === undefined && item.barcode === undefined);
-            const isSelected = selectedIds.has(item.id);
-            return isFolder ? (
-              <FolderCard item={item} onNavigate={navigateToFolder} onShowOptions={handleShowOptions} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
-            ) : (
-              <ItemCard item={item} onShowOptions={handleShowOptions} onPress={showDetails} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
-            );
-          }}
+          renderItem={renderItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.emptyContainer}><Folder size={48} color="#e2e8f0" /><Text style={styles.emptyText}>This folder is empty</Text></View>}

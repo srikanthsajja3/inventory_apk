@@ -201,7 +201,10 @@ export default function App() {
             setActiveTab('dashboard');
           }
         } else {
-          setActiveTab('dashboard');
+          const params = new URLSearchParams(window.location.search);
+          const tab = params.get('tab');
+          if (tab) setActiveTab(tab);
+          else setActiveTab('dashboard');
         }
       };
       window.addEventListener('popstate', handlePopState);
@@ -214,7 +217,10 @@ export default function App() {
     setEstimationItem(null);
     setShowGoldRate(false);
     if (Platform.OS === 'web') {
-      window.history.pushState({ tab }, '', `?tab=${tab}`);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      url.searchParams.delete('folderId'); // Clear folderId when changing tabs
+      window.history.pushState({ tab }, '', url.search);
     }
   };
 
@@ -306,7 +312,7 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardScreen 
-          onNavigate={(tab: string) => setActiveTab(tab)} 
+          onNavigate={(tab: string) => changeTab(tab)} 
           onEstimation={(item: any) => setEstimationItem(item)}
           onUpdateGoldRate={() => setShowGoldRate(true)}
           onManageStones={() => setShowStoneMaster(true)}
@@ -320,10 +326,10 @@ export default function App() {
       case 'vendor':
         return <VendorScreen />;
       case 'sales':
-        return <SalesScreen onBack={() => setActiveTab('dashboard')} />;
+        return <SalesScreen onBack={() => changeTab('dashboard')} />;
       default:
         return <DashboardScreen 
-          onNavigate={(tab: string) => setActiveTab(tab)} 
+          onNavigate={(tab: string) => changeTab(tab)} 
           onEstimation={(item: any) => setEstimationItem(item)} 
           onUpdateGoldRate={() => setShowGoldRate(true)} 
           onManageStones={() => setShowStoneMaster(true)} 
