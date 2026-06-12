@@ -7,8 +7,11 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build": "npx expo export",
+    "build": "npx expo export --platform web",
     "serve": "npx serve dist"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {
     "@react-native-community/datetimepicker": "8.4.4",
