@@ -582,14 +582,12 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         };
 
         if (isEdit) {
-          console.log("Updating item with payload:", payload);
           const { error } = await supabase
             .from('items')
             .update(payload)
             .eq('id', initialData.id);
           if (error) throw error;
         } else {
-          console.log("Inserting new item with payload:", { ...payload, category_id: currentFolderId });
           const { error } = await supabase
             .from('items')
             .insert([{ ...payload, category_id: currentFolderId }]);
