@@ -13,7 +13,7 @@ export function useRole() {
     try {
       setLoading(true);
       let savedUserJson = null;
-      
+
       if (Platform.OS === 'web') {
         savedUserJson = localStorage.getItem('mock_user');
       } else {
@@ -31,7 +31,7 @@ export function useRole() {
     } catch (err) {
       console.error('[useRole] refreshRole error:', err);
     } finally {
-      setTimeout(() => setLoading(false), 500);
+      setLoading(false);
     }
   }, []);
 
