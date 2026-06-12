@@ -1023,6 +1023,16 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     return search ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItemsList] : [...folders, ...filteredItemsList];
   }, [folders, search, filteredItemsList]);
 
+  const renderItem = React.useCallback(({ item }: any) => {
+    const isFolder = (item.sku === undefined && item.barcode === undefined);
+    const isSelected = selectedIds.has(item.id);
+    return isFolder ? (
+      <FolderCard item={item} onNavigate={navigateToFolder} onShowOptions={handleShowOptions} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
+    ) : (
+      <ItemCard item={item} onShowOptions={handleShowOptions} onPress={showDetails} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
+    );
+  }, [selectedIds, selectionMode, viewMode, role, navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
