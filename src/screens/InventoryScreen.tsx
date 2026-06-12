@@ -1068,6 +1068,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     );
   }, [selectedIds, selectionMode, viewMode, role, navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
 
+  const combinedData = React.useMemo(() => [...folders, ...filteredItemsList], [folders, filteredItemsList]);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -1167,14 +1169,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           key={`${viewMode}-${numColumns}`}
           numColumns={numColumns}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : undefined}
-          data={[...folders, ...filteredItemsList]}
+          data={combinedData}
           extraData={[selectedIds, selectionMode, viewMode]}
-          initialNumToRender={10}
+          initialNumToRender={8}
           maxToRenderPerBatch={10}
-          windowSize={5}
-          removeClippedSubviews={Platform.OS === 'android'}
+          windowSize={Platform.OS === 'web' ? 3 : 5}
+          removeClippedSubviews={true}
           renderItem={renderItem}
-          keyExtractor={item => item?.id || Math.random().toString()}
+          keyExtractor={item => item?.id?.toString() || Math.random().toString()}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.emptyContainer}><Folder size={48} color="#e2e8f0" /><Text style={styles.emptyText}>This folder is empty</Text></View>}
         />

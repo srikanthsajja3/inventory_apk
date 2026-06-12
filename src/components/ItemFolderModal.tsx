@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Image } from 'react-native';
 import { X, Save, Package, Hash, Tag, MapPin, FolderPlus, Edit3, Image as ImageIcon, Camera, Scale, IndianRupee, FileText, Ruler, Info } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../../supabase';
 import { decode } from 'base64-arraybuffer';
 import { Theme } from '../theme';
@@ -480,6 +481,13 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
       }
 
       try {
+        // Compress and resize image before upload
+        const manipulatedImage = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 800 } }], // Resize to 800px width (maintaining aspect ratio)
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
         const filePath = `items/${fileName}`;
 
@@ -487,21 +495,22 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         let contentType = 'image/jpeg';
 
         if (Platform.OS === 'web') {
-          const res = await fetch(asset.uri);
+          const res = await fetch(manipulatedImage.uri);
           fileData = await res.blob();
           contentType = fileData.type || 'image/jpeg';
-        } else if (asset.base64) {
-          fileData = decode(asset.base64);
         } else {
-          const res = await fetch(asset.uri);
+          // For native platforms, we might need base64 if fetch(uri) is unreliable
+          const res = await fetch(manipulatedImage.uri);
           fileData = await res.blob();
-          contentType = fileData.type || 'image/jpeg';
+          contentType = 'image/jpeg';
         }
 
         const { error } = await supabase.storage
           .from('item-images')
           .upload(filePath, fileData, {
-            contentType: contentType
+            contentType: contentType,
+            cacheControl: '3600',
+            upsert: false
           });
 
         if (error) throw error;
