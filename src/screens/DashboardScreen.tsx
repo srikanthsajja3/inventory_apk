@@ -750,10 +750,31 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
       setCalculatingValue(true);
       const { data: allItems } = await supabase.from('items').select('name, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges');
       
-      const totalInventoryValue = (allItems || []).reduce((acc, item) => {
-        const itemTotal = calculateEstimation(item, rateMap);
-        return acc + itemTotal;
-      }, 0);
+      // Use asynchronous chunking to prevent UI thread freezing during heavy calculation
+      const calculateInChunks = async (itemsList: any[], rates: any): Promise<number> => {
+        return new Promise((resolve) => {
+          let total = 0;
+          let index = 0;
+          const chunkSize = 25; // Process 25 items per cycle to keep 60fps
+
+          const processChunk = () => {
+            const end = Math.min(index + chunkSize, itemsList.length);
+            for (; index < end; index++) {
+              total += calculateEstimation(itemsList[index], rates);
+            }
+
+            if (index < itemsList.length) {
+              setTimeout(processChunk, 1); // Yield to JS event loop
+            } else {
+              resolve(total);
+            }
+          };
+
+          processChunk();
+        });
+      };
+
+      const totalInventoryValue = await calculateInChunks(allItems || [], rateMap);
 
       const finalStats = { ...updatedStats, inventoryValue: totalInventoryValue };
       setStats(finalStats);
