@@ -1,4 +1,8 @@
 import { registerRootComponent } from 'expo';
 import App from './App';
 
-registerRootComponent(App);
+try {
+  registerRootComponent(App);
+} catch (error) {
+  console.error('Failed to register root component:', error);
+}
