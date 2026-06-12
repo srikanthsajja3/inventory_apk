@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const FolderCard = ({ item, onNavigate, onShowOptions, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
+const FolderCard = React.memo(({ item, onNavigate, onShowOptions, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.folderCardGrid : styles.folderCard, 
@@ -563,9 +563,14 @@ const FolderCard = ({ item, onNavigate, onShowOptions, selectionMode, isSelected
       </View>
     )}
   </TouchableOpacity>
-);
+), (prevProps, nextProps) => {
+  return prevProps.item.id === nextProps.item.id &&
+         prevProps.isSelected === nextProps.isSelected &&
+         prevProps.selectionMode === nextProps.selectionMode &&
+         prevProps.viewMode === nextProps.viewMode;
+});
 
-const ItemCard = ({ item, onShowOptions, onPress, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
+const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.itemCardGrid : styles.itemCard, 
@@ -608,7 +613,13 @@ const ItemCard = ({ item, onShowOptions, onPress, selectionMode, isSelected, onS
       </View>
     )}
   </TouchableOpacity>
-);
+), (prevProps, nextProps) => {
+  return prevProps.item.id === nextProps.item.id &&
+         prevProps.item.quantity === nextProps.item.quantity &&
+         prevProps.isSelected === nextProps.isSelected &&
+         prevProps.selectionMode === nextProps.selectionMode &&
+         prevProps.viewMode === nextProps.viewMode;
+});
 
 export default function InventoryScreen({ onEstimation }: { onEstimation: (item: any) => void }) {
   const { width: windowWidth } = useWindowDimensions();
@@ -848,16 +859,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
   const getSelectedItems = () => [...folders, ...items].filter(i => selectedIds.has(i.id));
 
-  const calculateStats = () => {
+  const stats = React.useMemo(() => {
     if (!items || items.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
     const totalValue = items.reduce((acc, item) => {
       const itemTotal = calculateEstimation(item, masterRates);
       return acc + itemTotal;
     }, 0);
     return { folders: folders.length, items: items.length, totalValue: totalValue };
-  };
-
-  const stats = calculateStats();
+  }, [items, folders.length, masterRates, calculateEstimation]);
 
   const fetchContents = async () => {
     try {
@@ -1002,13 +1011,17 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     else Alert.alert('Bulk Delete Confirmation', message, [{ text: 'Cancel', style: 'cancel' }, { text: 'Delete All', style: 'destructive', onPress: performBulkDelete }]);
   };
 
-  const filteredItemsList = items.filter(item => {
-    const matchesSearch = search === '' || item.name?.toLowerCase().includes(search.toLowerCase()) || item.sku?.toLowerCase().includes(search.toLowerCase()) || item.label_no?.toLowerCase().includes(search.toLowerCase());
-    const matchesLocation = selectedLocation === 'All Locations' || item.location === selectedLocation;
-    return matchesSearch && matchesLocation;
-  });
+  const filteredItemsList = React.useMemo(() => {
+    return items.filter(item => {
+      const matchesSearch = search === '' || item.name?.toLowerCase().includes(search.toLowerCase()) || item.sku?.toLowerCase().includes(search.toLowerCase()) || item.label_no?.toLowerCase().includes(search.toLowerCase());
+      const matchesLocation = selectedLocation === 'All Locations' || item.location === selectedLocation;
+      return matchesSearch && matchesLocation;
+    });
+  }, [items, search, selectedLocation]);
 
-  const displayData = search ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItemsList] : [...folders, ...filteredItemsList];
+  const displayData = React.useMemo(() => {
+    return search ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItemsList] : [...folders, ...filteredItemsList];
+  }, [folders, search, filteredItemsList]);
 
   return (
     <View style={styles.container}>
