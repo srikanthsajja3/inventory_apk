@@ -7,6 +7,10 @@ import { Database } from './src/types/supabase';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Supabase credentials missing! Check your environment variables.');
+}
+
 const customStorage: any = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') {
