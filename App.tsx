@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert, Image, Modal } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { LayoutDashboard, Package, Scan, History, Users, Settings, Lock, Eye, EyeOff, User as UserIcon, RefreshCw, ShoppingBag } from 'lucide-react-native';
@@ -15,167 +15,19 @@ import GoldRateScreen from './src/screens/GoldRateScreen';
 import StoneMasterScreen from './src/screens/StoneMasterScreen';
 import EstimationScreen from './src/screens/EstimationScreen';
 import SalesScreen from './src/screens/SalesScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-  },
-  mainWrapper: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-    ...Platform.select({
-      web: {
-        width: '100%',
-        alignSelf: 'stretch',
-      }
-    })
-  },
-  header: {
-    paddingHorizontal: Theme.spacing.md,
-    paddingVertical: Theme.spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.background,
-  },
-  logo: {
-    fontSize: Theme.typography.size.lg,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    letterSpacing: -0.5,
-  },
-  roleBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    gap: 8,
-  },
-  roleBadge: {
-    fontSize: Theme.typography.size.xs,
-    fontWeight: '800',
-    color: Theme.colors.primary,
-    letterSpacing: 0.5,
-    opacity: 0.8,
-  },
-  userEmail: {
-    fontSize: Theme.typography.size.xs,
-    color: Theme.colors.text.secondary,
-    fontWeight: '500',
-  },
-  content: {
-    flex: 1,
-  },
-  tabBar: {
-    flexDirection: 'row',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
-    paddingTop: Theme.spacing.sm,
-    paddingBottom: Platform.OS === 'ios' ? 25 : Theme.spacing.sm,
-    backgroundColor: Theme.colors.background,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 4,
-  },
-  navLabel: {
-    fontSize: Theme.typography.size.xs,
-    fontWeight: '500',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Theme.colors.background,
-  },
-  // Login Styles
-  loginContainer: {
-    flex: 1,
-    backgroundColor: Theme.colors.background,
-    justifyContent: 'center',
-    padding: Theme.spacing.lg,
-  },
-  loginContent: {
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-  },
-  loginLogo: {
-    width: 80,
-    height: 80,
-    borderRadius: Theme.radius.md,
-    backgroundColor: Theme.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
-    marginBottom: Theme.spacing.md,
-  },
-  loginTitle: {
-    fontSize: Theme.typography.size.xl,
-    fontWeight: '900',
-    color: Theme.colors.primary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  loginSubtitle: {
-    fontSize: Theme.typography.size.md,
-    color: Theme.colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: Theme.spacing.xl,
-    fontWeight: '500',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Theme.colors.surface,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-    borderRadius: Theme.radius.md,
-    marginBottom: Theme.spacing.md,
-    paddingHorizontal: Theme.spacing.md,
-  },
-  inputIcon: {
-    marginRight: Theme.spacing.sm,
-  },
-  input: {
-    flex: 1,
-    paddingVertical: Theme.spacing.md,
-    fontSize: Theme.typography.size.md,
-    color: Theme.colors.text.primary,
-    fontWeight: '600',
-  },
-  eyeIcon: {
-    padding: 10,
-  },
-  loginBtn: {
-    borderRadius: Theme.radius.md,
-    paddingVertical: Theme.spacing.md,
-    alignItems: 'center',
-    marginTop: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: Theme.colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: `0 4px 8px ${Theme.colors.primary}33`,
-      }
-    })
-  },
-  loginBtnText: {
-    color: Theme.colors.text.black,
-    fontSize: Theme.typography.size.md,
-    fontWeight: '700',
-  },
-});
+const NavItem = React.memo(({ name, icon: Icon, label, isActive, onPress }: any) => (
+  <TouchableOpacity 
+    style={styles.navItem} 
+    onPress={() => onPress(name)}
+  >
+    <Icon size={24} color={isActive ? Theme.colors.primary : Theme.colors.text.secondary} />
+    <Text style={[styles.navLabel, { color: isActive ? Theme.colors.primary : Theme.colors.text.secondary }]}>
+      {label}
+    </Text>
+  </TouchableOpacity>
+));
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -193,36 +45,41 @@ export default function App() {
     if (Platform.OS === 'web') {
       const handlePopState = (event: PopStateEvent) => {
         if (event.state) {
-          if (event.state.tab) {
+          if (event.state.tab && event.state.tab !== activeTab) {
             setActiveTab(event.state.tab);
           } else if (event.state.type === 'folder') {
             setActiveTab('inventory');
-          } else {
-            setActiveTab('dashboard');
           }
         } else {
           const params = new URLSearchParams(window.location.search);
           const tab = params.get('tab');
-          if (tab) setActiveTab(tab);
-          else setActiveTab('dashboard');
+          if (tab && tab !== activeTab) setActiveTab(tab);
+          else if (!tab) setActiveTab('dashboard');
         }
       };
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
-  }, []);
+  }, [activeTab]);
 
-  const changeTab = (tab: string) => {
+  const changeTab = useCallback((tab: string) => {
+    if (tab === activeTab) return;
+    
     setActiveTab(tab);
     setEstimationItem(null);
     setShowGoldRate(false);
+    setShowStoneMaster(false);
+    
     if (Platform.OS === 'web') {
       const url = new URL(window.location.href);
-      url.searchParams.set('tab', tab);
-      url.searchParams.delete('folderId'); // Clear folderId when changing tabs
-      window.history.pushState({ tab }, '', url.search);
+      const currentTab = url.searchParams.get('tab');
+      if (currentTab !== tab) {
+        url.searchParams.set('tab', tab);
+        url.searchParams.delete('folderId'); // Clear folderId when changing tabs
+        window.history.pushState({ tab }, '', url.search);
+      }
     }
-  };
+  }, [activeTab]);
 
   const handleLogin = async () => {
     if (!username || !password) {
@@ -300,6 +157,11 @@ export default function App() {
     </View>
   );
 
+  const handleEstimation = useCallback((item: any) => setEstimationItem(item), []);
+  const handleUpdateGoldRate = useCallback(() => setShowGoldRate(true), []);
+  const handleManageStones = useCallback(() => setShowStoneMaster(true), []);
+  const handleSalesBack = useCallback(() => changeTab('dashboard'), [changeTab]);
+
   const renderContent = () => {
     if (showGoldRate) {
       return <GoldRateScreen onBack={() => setShowGoldRate(false)} />;
@@ -312,42 +174,30 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard':
         return <DashboardScreen 
-          onNavigate={(tab: string) => changeTab(tab)} 
-          onEstimation={(item: any) => setEstimationItem(item)}
-          onUpdateGoldRate={() => setShowGoldRate(true)}
-          onManageStones={() => setShowStoneMaster(true)}
+          onNavigate={changeTab} 
+          onEstimation={handleEstimation}
+          onUpdateGoldRate={handleUpdateGoldRate}
+          onManageStones={handleManageStones}
         />;
       case 'inventory':
-        return <InventoryScreen onEstimation={(item: any) => setEstimationItem(item)} />;
+        return <InventoryScreen onEstimation={handleEstimation} />;
       case 'scan':
-        return <ScanScreen onEstimation={(item: any) => setEstimationItem(item)} />;
+        return <ScanScreen onEstimation={handleEstimation} />;
       case 'history':
         return <HistoryScreen />;
       case 'vendor':
         return <VendorScreen />;
       case 'sales':
-        return <SalesScreen onBack={() => changeTab('dashboard')} />;
+        return <SalesScreen onBack={handleSalesBack} />;
       default:
         return <DashboardScreen 
-          onNavigate={(tab: string) => changeTab(tab)} 
-          onEstimation={(item: any) => setEstimationItem(item)} 
-          onUpdateGoldRate={() => setShowGoldRate(true)} 
-          onManageStones={() => setShowStoneMaster(true)} 
+          onNavigate={changeTab} 
+          onEstimation={handleEstimation} 
+          onUpdateGoldRate={handleUpdateGoldRate} 
+          onManageStones={handleManageStones} 
         />;
     }
   };
-
-  const NavItem = ({ name, icon: Icon, label }: any) => (
-    <TouchableOpacity 
-      style={styles.navItem} 
-      onPress={() => changeTab(name)}
-    >
-      <Icon size={24} color={activeTab === name ? Theme.colors.primary : Theme.colors.text.secondary} />
-      <Text style={[styles.navLabel, { color: activeTab === name ? Theme.colors.primary : Theme.colors.text.secondary }]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
 
   const renderApp = () => (
     <View style={styles.container}>
@@ -372,12 +222,12 @@ export default function App() {
           </View>
 
           <View style={styles.tabBar}>
-            <NavItem name="dashboard" icon={LayoutDashboard} label="Home" />
-            <NavItem name="inventory" icon={Package} label="Items" />
-            <NavItem name="scan" icon={Scan} label="Scan" />
-            {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" />}
-            {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" />}
-            {role !== 'admin' && <NavItem name="history" icon={History} label="History" />}
+            <NavItem name="dashboard" icon={LayoutDashboard} label="Home" isActive={activeTab === 'dashboard'} onPress={changeTab} />
+            <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />
+            <NavItem name="scan" icon={Scan} label="Scan" isActive={activeTab === 'scan'} onPress={changeTab} />
+            {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" isActive={activeTab === 'sales'} onPress={changeTab} />}
+            {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" isActive={activeTab === 'vendor'} onPress={changeTab} />}
+            {role !== 'admin' && <NavItem name="history" icon={History} label="History" isActive={activeTab === 'history'} onPress={changeTab} />}
           </View>
         </SafeAreaView>
       </View>
@@ -407,7 +257,9 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      {user ? renderApp() : renderLogin()}
+      <ErrorBoundary>
+        {user ? renderApp() : renderLogin()}
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

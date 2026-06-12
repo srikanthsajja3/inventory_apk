@@ -621,6 +621,14 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
          prevProps.viewMode === nextProps.viewMode;
 });
 
+const EXHIBITION_FOLDER = { 
+  id: 'virtual-exhibition', 
+  name: 'Exhibition', 
+  isVirtual: true,
+  created_at: new Date(0).toISOString(), // Stable date
+  parent_id: null as string | null
+};
+
 export default function InventoryScreen({ onEstimation }: { onEstimation: (item: any) => void }) {
   const { width: windowWidth } = useWindowDimensions();
   const containerWidth = windowWidth;
@@ -661,54 +669,20 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const { role } = useRole();
   const { calculateEstimation } = useJewelryCalc();
 
-  const getGridItemWidth = () => {
+  const gridItemWidth = React.useMemo(() => {
     const columns = containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3;
     const totalSpacing = Theme.spacing.md * 2 + (columns - 1) * Theme.spacing.sm;
     return (containerWidth - totalSpacing) / columns;
-  };
+  }, [containerWidth]);
 
-  const gridItemWidth = getGridItemWidth();
-
-  const EXHIBITION_FOLDER = { 
-    id: 'virtual-exhibition', 
-    name: 'Exhibition', 
-    isVirtual: true,
-    created_at: new Date().toISOString(),
-    parent_id: null as string | null
-  };
-
-  const handleBarcodeScanned = ({ data }: any) => {
+  const handleBarcodeScanned = React.useCallback(({ data }: any) => {
     if (data) {
       setCameraActive(false);
       addToExhibition(data);
     }
-  };
-
-  useEffect(() => {
-    fetchLocations();
-    fetchMasterRates();
-    fetchAllCategories();
-    
-    // Initial load from URL
-    if (Platform.OS === 'web') {
-      const params = new URLSearchParams(window.location.search);
-      const folderId = params.get('folderId');
-      if (folderId) {
-        if (folderId === 'virtual-exhibition') {
-          setCurrentFolder(EXHIBITION_FOLDER);
-        } else {
-          // Fetch folder details
-          const fetchFolder = async () => {
-            const { data } = await supabase.from('categories').select('*').eq('id', folderId).single();
-            if (data) setCurrentFolder(data);
-          };
-          fetchFolder();
-        }
-      }
-    }
   }, []);
 
-  const fetchAllCategories = async () => {
+  const fetchAllCategories = React.useCallback(async () => {
     try {
       const { data, error } = await supabase.from('categories').select('*');
       if (error) throw error;
@@ -716,9 +690,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
+  }, []);
 
-  const getCategoryPath = (categoryId: string | null): string => {
+  const getCategoryPath = React.useCallback((categoryId: string | null): string => {
     if (!categoryId) return 'Root';
     const path: string[] = [];
     let currentId: string | null = categoryId;
@@ -734,9 +708,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     }
     
     return path.join(' > ');
-  };
+  }, [allCategories]);
 
-  const performGlobalSearch = async (query: string) => {
+  const performGlobalSearch = React.useCallback(async (query: string) => {
     if (!query.trim()) {
       setGlobalSearchResults([]);
       return;
@@ -788,7 +762,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } finally {
       setIsSearchingGlobal(false);
     }
-  };
+  }, [getCategoryPath]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -796,9 +770,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       else setGlobalSearchResults([]);
     }, 500);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, performGlobalSearch]);
 
-  const fetchMasterRates = async () => {
+  const fetchMasterRates = React.useCallback(async () => {
     try {
       const { data, error } = await supabase.from('master_rates').select('*');
       if (error) throw error;
@@ -810,9 +784,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } catch (error) {
       console.error('Error fetching master rates:', error);
     }
-  };
+  }, []);
 
-  const fetchLocations = async () => {
+  const fetchLocations = React.useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from('items')
@@ -826,88 +800,13 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
-  };
-
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      const handlePopState = (event: PopStateEvent) => {
-        if (event.state && event.state.type === 'folder') {
-          setCurrentFolder(event.state.folder || null);
-        } else if (!event.state) {
-           const params = new URLSearchParams(window.location.search);
-           if (!params.get('folderId')) setCurrentFolder(null);
-        }
-      };
-      window.addEventListener('popstate', handlePopState);
-      return () => window.removeEventListener('popstate', handlePopState);
-    }
   }, []);
 
-  useEffect(() => {
-    const onBackPress = () => {
-      if (selectionMode) {
-        toggleSelectionMode();
-        return true;
-      }
-      if (currentFolder) {
-        navigateBack();
-        return true;
-      }
-      return false;
-    };
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
-    return () => backHandler.remove();
-  }, [currentFolder, selectionMode]);
-
-  useEffect(() => {
-    fetchContents();
-    setSelectionMode(false);
-    setSelectedIds(new Set());
-    
-    // Sync URL on folder change
-    if (Platform.OS === 'web') {
-      const url = new URL(window.location.href);
-      if (currentFolder) {
-        url.searchParams.set('folderId', currentFolder.id);
-      } else {
-        url.searchParams.delete('folderId');
-      }
-      if (window.location.search !== url.search) {
-        window.history.replaceState(window.history.state, '', url.search);
-      }
-    }
-  }, [currentFolder]);
-
-  const toggleSelectionMode = () => {
-    if (selectionMode) setSelectedIds(new Set());
-    setSelectionMode(!selectionMode);
-  };
-
-  const toggleSelect = (item: any) => {
-    const newSelected = new Set(selectedIds);
-    if (newSelected.has(item.id)) newSelected.delete(item.id);
-    else newSelected.add(item.id);
-    setSelectedIds(newSelected);
-    if (newSelected.size === 0) setSelectionMode(false);
-  };
-
-  const getSelectedItems = () => [...folders, ...items].filter(i => selectedIds.has(i.id));
-
-  const stats = React.useMemo(() => {
-    if (!items || items.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
-    const totalValue = items.reduce((acc, item) => {
-      const itemTotal = calculateEstimation(item, masterRates);
-      return acc + itemTotal;
-    }, 0);
-    return { folders: folders.length, items: items.length, totalValue: totalValue };
-  }, [items, folders.length, masterRates, calculateEstimation]);
-
-  const fetchContents = async () => {
+  const fetchContents = React.useCallback(async () => {
     try {
       setLoading(true);
       const parentId = currentFolder ? currentFolder.id : null;
       
-      // 1. Fetch settings and contents in parallel
       const [settingsRes, catRes, itemRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
         parentId 
@@ -917,6 +816,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           ? supabase.from('items').select('*').eq('category_id', parentId).order('name')
           : supabase.from('items').select('*').is('category_id', null).order('name')
       ]);
+
+      if (catRes.error) throw catRes.error;
+      if (itemRes.error) throw itemRes.error;
 
       const timerHours = settingsRes.data?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
       const timerMs = timerHours * 60 * 60 * 1000;
@@ -936,12 +838,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         if (expiredIds.length > 0) await supabase.from('items').update({ in_exhibition: false, exhibition_added_at: null }).in('id', expiredIds);
         setFolders([]);
         setItems(activeItems);
-        setLoading(false);
         return;
       }
-
-      if (catRes.error) throw catRes.error;
-      if (itemRes.error) throw itemRes.error;
 
       const combinedFolders = catRes.data || [];
       if (!parentId) combinedFolders.unshift(EXHIBITION_FOLDER);
@@ -960,7 +858,113 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } finally { 
       setLoading(false); 
     }
-  };
+  }, [currentFolder]);
+
+  useEffect(() => {
+    fetchLocations();
+    fetchMasterRates();
+    fetchAllCategories();
+    
+    if (Platform.OS === 'web') {
+      const params = new URLSearchParams(window.location.search);
+      const folderId = params.get('folderId');
+      if (folderId) {
+        if (folderId === 'virtual-exhibition') {
+          setCurrentFolder(EXHIBITION_FOLDER);
+        } else {
+          const fetchFolder = async () => {
+            const { data } = await supabase.from('categories').select('*').eq('id', folderId).single();
+            if (data) setCurrentFolder(data);
+          };
+          fetchFolder();
+        }
+      }
+    }
+  }, [fetchLocations, fetchMasterRates, fetchAllCategories]);
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handlePopState = (event: PopStateEvent) => {
+        if (event.state && event.state.type === 'folder') {
+          setCurrentFolder(event.state.folder || null);
+        } else if (!event.state) {
+           const params = new URLSearchParams(window.location.search);
+           if (!params.get('folderId')) setCurrentFolder(null);
+        }
+      };
+      window.addEventListener('popstate', handlePopState);
+      return () => window.removeEventListener('popstate', handlePopState);
+    }
+  }, []);
+
+  const navigateBack = React.useCallback(() => {
+    const newHistory = [...history];
+    const prevFolder = newHistory.pop();
+    setHistory(newHistory);
+    setCurrentFolder(prevFolder || null);
+    
+    if (Platform.OS === 'web' && window.history.state?.type === 'folder') {
+        window.history.back();
+    }
+  }, [history]);
+
+  useEffect(() => {
+    const onBackPress = () => {
+      if (selectionMode) {
+        toggleSelectionMode();
+        return true;
+      }
+      if (currentFolder) {
+        navigateBack();
+        return true;
+      }
+      return false;
+    };
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => backHandler.remove();
+  }, [currentFolder, selectionMode, navigateBack]);
+
+  useEffect(() => {
+    fetchContents();
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+    
+    if (Platform.OS === 'web') {
+      const url = new URL(window.location.href);
+      if (currentFolder) {
+        url.searchParams.set('folderId', currentFolder.id);
+      } else {
+        url.searchParams.delete('folderId');
+      }
+      if (window.location.search !== url.search) {
+        window.history.replaceState(window.history.state, '', url.search);
+      }
+    }
+  }, [currentFolder, fetchContents]);
+
+  const toggleSelectionMode = React.useCallback(() => {
+    if (selectionMode) setSelectedIds(new Set());
+    setSelectionMode(prev => !prev);
+  }, [selectionMode]);
+
+  const toggleSelect = React.useCallback((item: any) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(item.id)) next.delete(item.id);
+      else next.add(item.id);
+      return next;
+    });
+  }, []);
+
+  const getSelectedItems = () => [...folders, ...items].filter(i => selectedIds.has(i.id));
+
+  const stats = React.useMemo(() => {
+    if (!items || items.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
+    const totalValue = items.reduce((acc, item) => {
+      return acc + calculateEstimation(item, masterRates);
+    }, 0);
+    return { folders: folders.length, items: items.length, totalValue: totalValue };
+  }, [items, folders.length, masterRates, calculateEstimation]);
 
   const addToExhibition = async (sku: string) => {
     try {
@@ -986,8 +990,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     } catch (error: any) { Alert.alert('Error', error.message); } finally { setLoading(false); }
   };
 
-  const navigateToFolder = (folder: any) => {
-    setHistory([...history, currentFolder]);
+  const navigateToFolder = React.useCallback((folder: any) => {
+    setHistory(prev => [...prev, currentFolder]);
     setCurrentFolder(folder);
     if (Platform.OS === 'web') {
       const url = new URL(window.location.href);
@@ -995,29 +999,18 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       url.searchParams.set('folderId', folder.id);
       window.history.pushState({ type: 'folder', folderId: folder.id, folder, tab: 'inventory' }, '', url.search);
     }
-  };
+  }, [currentFolder]);
 
-  const navigateBack = () => {
-    const newHistory = [...history];
-    const prevFolder = newHistory.pop();
-    setHistory(newHistory);
-    setCurrentFolder(prevFolder || null);
-    
-    if (Platform.OS === 'web' && window.history.state?.type === 'folder') {
-        window.history.back();
-    }
-  };
+  const showQR = React.useCallback((item: any) => { setSelectedItem(item); setQrModalVisible(true); }, []);
+  const showDetails = React.useCallback((item: any) => { setSelectedItem(item); setIsDetailsVisible(true); }, []);
+  const openMoveModal = React.useCallback((item: any, type: 'item' | 'folder') => { setItemsToMove([{ id: item.id, name: item.name, type }]); setMoveModalVisible(true); }, []);
+  const openEditModal = React.useCallback((item: any) => { setEditingItem(item); setIsModalVisible(true); }, []);
+  const openAddModal = React.useCallback(() => { setEditingItem(null); setIsModalVisible(true); }, []);
 
-  const showQR = (item: any) => { setSelectedItem(item); setQrModalVisible(true); };
-  const showDetails = (item: any) => { setSelectedItem(item); setIsDetailsVisible(true); };
-  const openMoveModal = (item: any, type: 'item' | 'folder') => { setItemsToMove([{ id: item.id, name: item.name, type }]); setMoveModalVisible(true); };
-  const openEditModal = (item: any) => { setEditingItem(item); setIsModalVisible(true); };
-  const openAddModal = () => { setEditingItem(null); setIsModalVisible(true); };
-
-  const handleShowOptions = (item: any, type: 'item' | 'folder') => {
+  const handleShowOptions = React.useCallback((item: any, type: 'item' | 'folder') => {
     setActiveItemForOptions({ item, type });
     setOptionsModalVisible(true);
-  };
+  }, []);
 
   const handleDelete = (id: string, name: string, type: 'item' | 'folder') => {
     const message = `Are you sure you want to delete "${name}"? ${type === 'folder' ? 'This will delete all contents!' : ''}`;
@@ -1062,13 +1055,10 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     });
   }, [items, search, selectedLocation]);
 
-  const displayData = React.useMemo(() => {
-    return search ? [...folders.filter(f => f.name.toLowerCase().includes(search.toLowerCase())), ...filteredItemsList] : [...folders, ...filteredItemsList];
-  }, [folders, search, filteredItemsList]);
-
   const numColumns = viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1;
 
   const renderItem = React.useCallback(({ item }: any) => {
+    if (!item) return null;
     const isFolder = (item.sku === undefined && item.barcode === undefined);
     const isSelected = selectedIds.has(item.id);
     return isFolder ? (
@@ -1133,7 +1123,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
                   </View>
                   <View style={[styles.searchGroupItems, viewMode === 'grid' && { flexDirection: 'row', flexWrap: 'wrap', gap: Theme.spacing.sm }]}>
                     {displayItems.map((item: any) => (
-                      <View key={item.id} style={viewMode === 'grid' ? { width: gridItemWidth } : null}>
+                      <View key={item.id} style={viewMode === 'grid' ? { width: gridItemWidth } : undefined}>
                         <ItemCard 
                           item={item} 
                           onShowOptions={handleShowOptions} 
@@ -1152,9 +1142,11 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
                     <TouchableOpacity 
                       style={styles.viewMoreBtn} 
                       onPress={() => {
-                        const newExpanded = new Set(expandedPaths);
-                        newExpanded.add(group.path);
-                        setExpandedPaths(newExpanded);
+                        setExpandedPaths(prev => {
+                          const next = new Set(prev);
+                          next.add(group.path);
+                          return next;
+                        });
                       }}
                     >
                       <Text style={styles.viewMoreText}>View {group.items.length - 3} More items</Text>
@@ -1174,7 +1166,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         <FlatList 
           key={`${viewMode}-${numColumns}`}
           numColumns={numColumns}
-          columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
+          columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : undefined}
           data={[...folders, ...filteredItemsList]}
           extraData={[selectedIds, selectionMode, viewMode]}
           initialNumToRender={10}
@@ -1182,7 +1174,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item?.id || Math.random().toString()}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.emptyContainer}><Folder size={48} color="#e2e8f0" /><Text style={styles.emptyText}>This folder is empty</Text></View>}
         />
