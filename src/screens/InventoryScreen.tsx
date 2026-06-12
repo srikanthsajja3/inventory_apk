@@ -946,7 +946,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const navigateToFolder = (folder: any) => {
     setHistory([...history, currentFolder]);
     setCurrentFolder(folder);
-    if (Platform.OS === 'web') window.history.pushState({ type: 'folder', folderId: folder.id, folder }, '');
+    if (Platform.OS === 'web') window.history.pushState({ type: 'folder', folderId: folder.id, folder, tab: 'inventory' }, '');
   };
 
   const navigateBack = () => {
@@ -1109,6 +1109,10 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : null}
           data={[...folders, ...filteredItemsList]}
           extraData={[selectedIds, selectionMode, viewMode]}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={({ item }) => {
             const isFolder = (item.sku === undefined && item.barcode === undefined);
             const isSelected = selectedIds.has(item.id);

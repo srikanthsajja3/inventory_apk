@@ -192,8 +192,14 @@ export default function App() {
     // Web specific history handling
     if (Platform.OS === 'web') {
       const handlePopState = (event: PopStateEvent) => {
-        if (event.state && event.state.tab) {
-          setActiveTab(event.state.tab);
+        if (event.state) {
+          if (event.state.tab) {
+            setActiveTab(event.state.tab);
+          } else if (event.state.type === 'folder') {
+            setActiveTab('inventory');
+          } else {
+            setActiveTab('dashboard');
+          }
         } else {
           setActiveTab('dashboard');
         }

@@ -47,9 +47,11 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
           setError(true);
           setLoading(false);
         }}
-        // @ts-ignore
+        // @ts-ignore - React Native Web supports these HTML attributes
         loading="lazy"
+        decoding="async"
         resizeMode={resizeMode}
+        resizeMethod="resize"
       />
       {loading && !error && (
         <View style={styles.loader}>
