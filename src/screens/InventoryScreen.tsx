@@ -570,7 +570,7 @@ const FolderCard = React.memo(({ item, onNavigate, onShowOptions, selectionMode,
          prevProps.viewMode === nextProps.viewMode;
 });
 
-const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSelected, onSelect, viewMode, role }: any) => (
+const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSelected, onSelect, viewMode, role, shouldLoad }: any) => (
   <TouchableOpacity 
     style={[
       viewMode === 'grid' ? styles.itemCardGrid : styles.itemCard, 
@@ -584,8 +584,13 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
       </View>
     )}
     <View style={viewMode === 'grid' ? styles.itemIconGrid : styles.itemIcon}>
-      {item.image_url ? (
-        <OptimizedImage url={item.image_url} width={viewMode === 'grid' ? 120 : 44} height={viewMode === 'grid' ? 120 : 44} />
+      {(item.image_url || item.thumbnail_url) ? (
+        <OptimizedImage 
+          url={item.image_url || item.thumbnail_url} 
+          width={viewMode === 'grid' ? 120 : 44} 
+          height={viewMode === 'grid' ? 120 : 44} 
+          shouldLoad={shouldLoad}
+        />
       ) : (
         <Package size={viewMode === 'grid' ? 24 : 20} color={Theme.colors.text.secondary} />
       )}
@@ -615,10 +620,13 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
   </TouchableOpacity>
 ), (prevProps, nextProps) => {
   return prevProps.item.id === nextProps.item.id &&
+         prevProps.item.thumbnail_url === nextProps.item.thumbnail_url &&
+         prevProps.item.image_url === nextProps.item.image_url &&
          prevProps.item.quantity === nextProps.item.quantity &&
          prevProps.isSelected === nextProps.isSelected &&
          prevProps.selectionMode === nextProps.selectionMode &&
-         prevProps.viewMode === nextProps.viewMode;
+         prevProps.viewMode === nextProps.viewMode &&
+         prevProps.shouldLoad === nextProps.shouldLoad;
 });
 
 const EXHIBITION_FOLDER = { 
@@ -635,6 +643,11 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
   const [items, setItems] = useState<any[]>([]);
   const [folders, setFolders] = useState<any[]>([]);
+  const [statsItems, setStatsItems] = useState<any[]>([]);
+  const [itemsPage, setItemsPage] = useState(0);
+  const [hasMoreItems, setHasMoreItems] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 30;
   const [allCategories, setAllCategories] = useState<any[]>([]);
   const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
@@ -647,6 +660,85 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [history, setHistory] = useState<any[]>([]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   
+  const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
+  const isScrolling = React.useRef(false);
+  const viewableIds = React.useRef(new Set<string>());
+  const lastProcessedIds = React.useRef<string>('');
+  const scrollTimer = React.useRef<any>(null);
+  const sequentialTimer = React.useRef<any>(null);
+  const isFetching = React.useRef(false);
+
+  const viewabilityConfig = React.useRef({
+    itemVisiblePercentThreshold: 50,
+    minimumViewTime: 100,
+  }).current;
+
+  const startSequentialLoad = React.useCallback((idsToLoad: string[]) => {
+    // Only proceed if the set of IDs has actually changed
+    const idsString = idsToLoad.sort().join(',');
+    if (idsString === lastProcessedIds.current) return;
+    lastProcessedIds.current = idsString;
+
+    if (sequentialTimer.current) clearInterval(sequentialTimer.current);
+    
+    // Filter out items that are already processed or currently active
+    // We use a functional check inside the interval for activeIds
+    const pendingIds = idsToLoad; 
+    if (pendingIds.length === 0) return;
+
+    let index = 0;
+    sequentialTimer.current = setInterval(() => {
+      if (index >= pendingIds.length) {
+        clearInterval(sequentialTimer.current);
+        sequentialTimer.current = null;
+        return;
+      }
+
+      const nextId = pendingIds[index];
+      setActiveIds(prev => {
+        if (prev.has(nextId)) return prev;
+        const next = new Set(prev);
+        next.add(nextId);
+        return next;
+      });
+      index++;
+    }, 100); // Faster 100ms delay
+  }, []);
+
+  const handleScrollEnd = React.useCallback(() => {
+    isScrolling.current = false;
+    startSequentialLoad(Array.from(viewableIds.current));
+  }, [startSequentialLoad]);
+
+  const handleScrollBegin = React.useCallback(() => {
+    isScrolling.current = true;
+    if (sequentialTimer.current) {
+      clearInterval(sequentialTimer.current);
+      sequentialTimer.current = null;
+    }
+    lastProcessedIds.current = ''; // Reset to allow re-triggering when scroll stops
+  }, []);
+
+  const handleWebScroll = React.useCallback(() => {
+    if (Platform.OS === 'web') {
+      isScrolling.current = true;
+      if (sequentialTimer.current) {
+        clearInterval(sequentialTimer.current);
+        sequentialTimer.current = null;
+      }
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+      scrollTimer.current = setTimeout(handleScrollEnd, 150);
+    }
+  }, [handleScrollEnd]);
+
+  const onViewableItemsChanged = React.useRef(({ viewableItems }: any) => {
+    const ids = viewableItems.map((vi: any) => vi.item.id);
+    viewableIds.current = new Set(ids);
+    if (!isScrolling.current) {
+      startSequentialLoad(ids);
+    }
+  }).current;
+
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [qrModalVisible, setQrModalVisible] = useState(false);
@@ -803,41 +895,68 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   }, []);
 
   const fetchContents = React.useCallback(async () => {
+    if (isFetching.current) return;
     try {
+      isFetching.current = true;
       setLoading(true);
+      setItemsPage(0);
+      setHasMoreItems(true);
       const parentId = currentFolder ? currentFolder.id : null;
+      const isVirtual = parentId === 'virtual-exhibition';
       
-      const [settingsRes, catRes, itemRes] = await Promise.all([
+      const [settingsRes, catRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
-        parentId 
-          ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
-          : supabase.from('categories').select('*').is('parent_id', null).order('name'),
-        parentId
-          ? supabase.from('items').select('*').eq('category_id', parentId).order('name')
-          : supabase.from('items').select('*').is('category_id', null).order('name')
+        isVirtual
+          ? Promise.resolve({ data: [], error: null })
+          : parentId 
+            ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
+            : supabase.from('categories').select('*').is('parent_id', null).order('name')
       ]);
 
       if (catRes.error) throw catRes.error;
-      if (itemRes.error) throw itemRes.error;
 
       const timerHours = settingsRes.data?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
       const timerMs = timerHours * 60 * 60 * 1000;
       const now = Date.now();
 
       if (currentFolder?.id === 'virtual-exhibition') {
-        const { data: exItems, error: exError } = await supabase.from('items').select('*').eq('in_exhibition', true);
-        if (exError) throw exError;
-        
-        const activeItems: any[] = [];
+        let exStatsQuery = supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id').eq('in_exhibition', true);
+        let exItemsQuery = supabase.from('items').select('*').eq('in_exhibition', true);
+
+        if (selectedLocation !== 'All Locations') {
+          exStatsQuery = exStatsQuery.eq('location', selectedLocation);
+          exItemsQuery = exItemsQuery.eq('location', selectedLocation);
+        }
+
+        const [statsRes, itemsRes] = await Promise.all([
+          exStatsQuery,
+          exItemsQuery.order('name', { ascending: true }).range(0, PAGE_SIZE - 1)
+        ]);
+
+        if (statsRes.error) throw statsRes.error;
+        if (itemsRes.error) throw itemsRes.error;
+
+        const activeStatsItems: any[] = [];
         const expiredIds: string[] = [];
-        (exItems || []).forEach(item => {
+        (statsRes.data || []).forEach(item => {
           const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
-          if (now - addedAt < timerMs) activeItems.push(item);
+          if (now - addedAt < timerMs) activeStatsItems.push(item);
           else expiredIds.push(item.id);
         });
-        if (expiredIds.length > 0) await supabase.from('items').update({ in_exhibition: false, exhibition_added_at: null }).in('id', expiredIds);
+
+        if (expiredIds.length > 0) {
+          await supabase.from('items').update({ in_exhibition: false, exhibition_added_at: null }).in('id', expiredIds);
+        }
+
+        const activeItems = (itemsRes.data || []).filter(item => {
+          const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
+          return now - addedAt < timerMs;
+        });
+
         setFolders([]);
+        setStatsItems(activeStatsItems);
         setItems(activeItems);
+        setHasMoreItems((itemsRes.data || []).length === PAGE_SIZE);
         return;
       }
 
@@ -845,20 +964,141 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       if (!parentId) combinedFolders.unshift(EXHIBITION_FOLDER);
       setFolders(combinedFolders);
 
-      const filteredItems = (itemRes.data || []).filter(item => {
+      // Fetch all items (minimal columns) in normal folder for stats computation
+      let statsQuery = parentId
+        ? supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
+            .eq('category_id', parentId)
+        : supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
+            .is('category_id', null);
+
+      // Fetch first page of items (all columns) in normal folder for rendering
+      let itemsQuery = parentId
+        ? supabase.from('items').select('*').eq('category_id', parentId)
+        : supabase.from('items').select('*').is('category_id', null);
+
+      if (selectedLocation !== 'All Locations') {
+        statsQuery = statsQuery.eq('location', selectedLocation);
+        itemsQuery = itemsQuery.eq('location', selectedLocation);
+      }
+
+      const [statsRes, itemsRes] = await Promise.all([
+        statsQuery,
+        itemsQuery.order('name', { ascending: true }).range(0, PAGE_SIZE - 1)
+      ]);
+
+      if (statsRes.error) throw statsRes.error;
+      if (itemsRes.error) throw itemsRes.error;
+
+      // Filter stats items
+      const filteredStatsItems = (statsRes.data || []).filter(item => {
         if (item.in_exhibition) {
           const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
           return now - addedAt >= timerMs;
         }
         return true;
       });
-      setItems(filteredItems);
+
+      // Filter page items
+      const filteredPageItems = (itemsRes.data || []).filter(item => {
+        if (item.in_exhibition) {
+          const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
+          return now - addedAt >= timerMs;
+        }
+        return true;
+      });
+
+      setStatsItems(filteredStatsItems);
+      setItems(filteredPageItems);
+      setHasMoreItems((itemsRes.data || []).length === PAGE_SIZE);
     } catch (error: any) { 
-      console.error('Fetch Error:', error.message); 
+      console.error('Fetch Error:', error.message || error); 
     } finally { 
       setLoading(false); 
+      isFetching.current = false;
     }
-  }, [currentFolder]);
+  }, [currentFolder, selectedLocation]);
+
+  const fetchMoreItems = React.useCallback(async () => {
+    if (loading || loadingMore || !hasMoreItems) return;
+
+    try {
+      setLoadingMore(true);
+      const nextPage = itemsPage + 1;
+      const parentId = currentFolder ? currentFolder.id : null;
+      const from = nextPage * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Fetch settings for exhibition timer
+      const { data: settingsRes } = await supabase.from('master_rates').select('*');
+      const timerHours = settingsRes?.find(s => s.key === 'exhibition_timer_hours')?.value || 24;
+      const timerMs = timerHours * 60 * 60 * 1000;
+      const now = Date.now();
+
+      let itemsData: any[] = [];
+      let error: any = null;
+
+      if (currentFolder?.id === 'virtual-exhibition') {
+        let exItemsQuery = supabase.from('items').select('*').eq('in_exhibition', true);
+        if (selectedLocation !== 'All Locations') {
+          exItemsQuery = exItemsQuery.eq('location', selectedLocation);
+        }
+        const res = await exItemsQuery
+          .order('name', { ascending: true })
+          .range(from, to);
+        itemsData = res.data || [];
+        error = res.error;
+      } else {
+        let itemsQuery = parentId
+          ? supabase.from('items').select('*').eq('category_id', parentId)
+          : supabase.from('items').select('*').is('category_id', null);
+
+        if (selectedLocation !== 'All Locations') {
+          itemsQuery = itemsQuery.eq('location', selectedLocation);
+        }
+
+        const res = await itemsQuery
+          .order('name', { ascending: true })
+          .range(from, to);
+        itemsData = res.data || [];
+        error = res.error;
+      }
+
+      if (error) throw error;
+
+      let processedItems = itemsData;
+      if (currentFolder?.id === 'virtual-exhibition') {
+        const activeItems: any[] = [];
+        const expiredIds: string[] = [];
+        itemsData.forEach(item => {
+          const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
+          if (now - addedAt < timerMs) activeItems.push(item);
+          else expiredIds.push(item.id);
+        });
+        if (expiredIds.length > 0) {
+          await supabase.from('items').update({ in_exhibition: false, exhibition_added_at: null }).in('id', expiredIds);
+        }
+        processedItems = activeItems;
+      } else {
+        processedItems = itemsData.filter(item => {
+          if (item.in_exhibition) {
+            const addedAt = item.exhibition_added_at ? new Date(item.exhibition_added_at).getTime() : 0;
+            return now - addedAt >= timerMs;
+          }
+          return true;
+        });
+      }
+
+      if (processedItems.length > 0) {
+        setItems(prev => [...prev, ...processedItems]);
+        setItemsPage(nextPage);
+      }
+      setHasMoreItems(itemsData.length === PAGE_SIZE);
+    } catch (error: any) {
+      console.error('Fetch More Error:', error.message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [currentFolder, selectedLocation, itemsPage, loading, loadingMore, hasMoreItems]);
 
   useEffect(() => {
     fetchLocations();
@@ -959,12 +1199,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const getSelectedItems = () => [...folders, ...items].filter(i => selectedIds.has(i.id));
 
   const stats = React.useMemo(() => {
-    if (!items || items.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
-    const totalValue = items.reduce((acc, item) => {
+    if (!statsItems || statsItems.length === 0) return { folders: folders.length, items: 0, totalValue: 0 };
+    const totalValue = statsItems.reduce((acc, item) => {
       return acc + calculateEstimation(item, masterRates);
     }, 0);
-    return { folders: folders.length, items: items.length, totalValue: totalValue };
-  }, [items, folders.length, masterRates, calculateEstimation]);
+    return { folders: folders.length, items: statsItems.length, totalValue: totalValue };
+  }, [statsItems, folders.length, masterRates, calculateEstimation]);
 
   const addToExhibition = async (sku: string) => {
     try {
@@ -1064,9 +1304,19 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     return isFolder ? (
       <FolderCard item={item} onNavigate={navigateToFolder} onShowOptions={handleShowOptions} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
     ) : (
-      <ItemCard item={item} onShowOptions={handleShowOptions} onPress={showDetails} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
+      <ItemCard 
+        item={item} 
+        onShowOptions={handleShowOptions} 
+        onPress={showDetails} 
+        selectionMode={selectionMode} 
+        isSelected={isSelected} 
+        onSelect={toggleSelect} 
+        viewMode={viewMode} 
+        role={role} 
+        shouldLoad={activeIds.has(item.id)}
+      />
     );
-  }, [selectedIds, selectionMode, viewMode, role, navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
+  }, [selectedIds, selectionMode, viewMode, role, activeIds, navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
 
   const combinedData = React.useMemo(() => [...folders, ...filteredItemsList], [folders, filteredItemsList]);
 
@@ -1111,7 +1361,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       {loading || (search && isSearchingGlobal) ? (
         <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>
       ) : search ? (
-        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.list} 
+          showsVerticalScrollIndicator={false}
+          onScroll={handleWebScroll}
+          scrollEventThrottle={16}
+        >
           {globalSearchResults.length > 0 ? (
             globalSearchResults.map((group, idx) => {
               const isExpanded = expandedPaths.has(group.path);
@@ -1135,6 +1390,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
                           onSelect={toggleSelect} 
                           viewMode={viewMode} 
                           role={role} 
+                          shouldLoad={true} // Global search is small enough to load immediately
                         />
                       </View>
                     ))}
@@ -1170,15 +1426,31 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           numColumns={numColumns}
           columnWrapperStyle={viewMode === 'grid' ? styles.columnWrapper : undefined}
           data={combinedData}
-          extraData={[selectedIds, selectionMode, viewMode]}
-          initialNumToRender={8}
-          maxToRenderPerBatch={10}
-          windowSize={Platform.OS === 'web' ? 3 : 5}
-          removeClippedSubviews={true}
+          extraData={[selectedIds, selectionMode, viewMode, activeIds]}
+          initialNumToRender={6}
+          maxToRenderPerBatch={20}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
           keyExtractor={item => item?.id?.toString() || Math.random().toString()}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.emptyContainer}><Folder size={48} color="#e2e8f0" /><Text style={styles.emptyText}>This folder is empty</Text></View>}
+          onEndReached={fetchMoreItems}
+          onEndReachedThreshold={0.4}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          onScrollBeginDrag={handleScrollBegin}
+          onMomentumScrollEnd={handleScrollEnd}
+          onScrollEndDrag={handleScrollEnd}
+          onScroll={handleWebScroll}
+          scrollEventThrottle={16}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ paddingVertical: Theme.spacing.md, alignItems: 'center' }}>
+                <ActivityIndicator color={Theme.colors.primary} />
+              </View>
+            ) : null
+          }
         />
       )}
 

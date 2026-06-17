@@ -747,15 +747,17 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               <View style={styles.imageSection}>
                 {item.image_urls && item.image_urls.length > 0 ? (
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
-                    {item.image_urls.map((url: string, index: number) => (
-                      <TouchableOpacity 
-                        key={index} 
-                        style={styles.imageWrapper} 
-                        onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
-                      >
-                        <OptimizedImage url={url} width={100} height={100} />
-                      </TouchableOpacity>
-                    ))}
+                    {item.image_urls.map((url: string, index: number) => {
+                      return (
+                        <TouchableOpacity 
+                          key={index} 
+                          style={styles.imageWrapper} 
+                          onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
+                        >
+                          <OptimizedImage url={url} width={100} height={100} />
+                        </TouchableOpacity>
+                      );
+                    })}
                   </ScrollView>
                 ) : item.image_url ? (
                   <TouchableOpacity 

@@ -645,15 +645,17 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                   <View style={styles.imageSection}>
                     {itemFound.image_urls && itemFound.image_urls.length > 0 ? (
                       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
-                        {itemFound.image_urls.map((url: string, index: number) => (
-                          <TouchableOpacity 
-                            key={index} 
-                            style={styles.imageWrapper}
-                            onPress={() => setPreviewGallery({ urls: itemFound.image_urls, index })}
-                          >
-                            <OptimizedImage url={url} width={100} height={100} />
-                          </TouchableOpacity>
-                        ))}
+                        {itemFound.image_urls.map((url: string, index: number) => {
+                          return (
+                            <TouchableOpacity 
+                              key={index} 
+                              style={styles.imageWrapper}
+                              onPress={() => setPreviewGallery({ urls: itemFound.image_urls, index })}
+                            >
+                              <OptimizedImage url={url} width={100} height={100} />
+                            </TouchableOpacity>
+                          );
+                        })}
                       </ScrollView>
                     ) : itemFound.image_url ? (
                       <TouchableOpacity 

@@ -471,61 +471,87 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     }
   };
 
-  const uploadImages = async (imageAssets: any[]): Promise<string[]> => {
+  const uploadImages = async (imageAssets: any[]): Promise<{ urls: string[], thumbnails: string[] }> => {
     const uploadedUrls: string[] = [];
+    const thumbnailUrls: string[] = [];
 
     for (const asset of imageAssets) {
       if (asset.uri.includes('supabase.co')) {
         uploadedUrls.push(asset.uri);
+        // Attempt to find existing thumbnail if editing
+        const existingIdx = initialData?.image_urls?.indexOf(asset.uri);
+        if (existingIdx !== -1 && initialData?.thumbnail_urls?.[existingIdx]) {
+          thumbnailUrls.push(initialData.thumbnail_urls[existingIdx]);
+        } else {
+          thumbnailUrls.push(asset.uri); // Fallback to original if no thumbnail exists
+        }
         continue;
       }
 
       try {
-        // Compress and resize image before upload
+        // 1. Prepare Original (Compressed)
         const manipulatedImage = await ImageManipulator.manipulateAsync(
           asset.uri,
-          [{ resize: { width: 800 } }], // Resize to 800px width (maintaining aspect ratio)
+          [{ resize: { width: 1024 } }], 
           { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-        const filePath = `items/${fileName}`;
+        // 2. Prepare Thumbnail (Small)
+        const thumbnailImage = await ImageManipulator.manipulateAsync(
+          asset.uri,
+          [{ resize: { width: 200 } }], 
+          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+        );
 
-        let fileData;
-        let contentType = 'image/jpeg';
+        const timestamp = Date.now();
+        const randomStr = Math.random().toString(36).substring(7);
+        const fileName = `${timestamp}_${randomStr}.jpg`;
+        const thumbFileName = `thumb_${timestamp}_${randomStr}.jpg`;
 
-        if (Platform.OS === 'web') {
-          const res = await fetch(manipulatedImage.uri);
-          fileData = await res.blob();
-          contentType = fileData.type || 'image/jpeg';
-        } else {
-          // For native platforms, we might need base64 if fetch(uri) is unreliable
-          const res = await fetch(manipulatedImage.uri);
-          fileData = await res.blob();
-          contentType = 'image/jpeg';
-        }
+        const uploadFile = async (uri: string, name: string, bucket: string) => {
+          const filePath = `items/${name}`;
+          let fileData;
+          let contentType = 'image/jpeg';
 
-        const { error } = await supabase.storage
-          .from('item-images')
-          .upload(filePath, fileData, {
-            contentType: contentType,
-            cacheControl: '3600',
-            upsert: false
-          });
+          if (Platform.OS === 'web') {
+            const res = await fetch(uri);
+            fileData = await res.blob();
+            contentType = fileData.type || 'image/jpeg';
+          } else {
+            const res = await fetch(uri);
+            fileData = await res.blob();
+          }
 
-        if (error) throw error;
+          const { error } = await supabase.storage
+            .from(bucket)
+            .upload(filePath, fileData, {
+              contentType: contentType,
+              cacheControl: '3600',
+              upsert: false
+            });
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('item-images')
-          .getPublicUrl(filePath);
+          if (error) throw error;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucket)
+            .getPublicUrl(filePath);
+
+          return publicUrl;
+        };
+
+        const [publicUrl, thumbUrl] = await Promise.all([
+          uploadFile(manipulatedImage.uri, fileName, 'item-images'),
+          uploadFile(thumbnailImage.uri, thumbFileName, 'item-thumbnails')
+        ]);
 
         uploadedUrls.push(publicUrl);
+        thumbnailUrls.push(thumbUrl);
       } catch (error) {
         console.error('Upload error:', error);
       }
     }
 
-    return uploadedUrls;
+    return { urls: uploadedUrls, thumbnails: thumbnailUrls };
   };
 
   const handleSave = async () => {
@@ -537,7 +563,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     try {
       setLoading(true);
       
-      const uploadedUrls = await uploadImages(images);
+      const { urls, thumbnails } = await uploadImages(images);
 
       if (type === 'folder') {
         if (isEdit) {
@@ -558,8 +584,10 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           sku: form.sku || null,
           location: form.location || null,
           description: form.description || null,
-          image_url: uploadedUrls[0] || null,
-          image_urls: uploadedUrls,
+          image_url: urls[0] || null,
+          image_urls: urls,
+          thumbnail_url: thumbnails[0] || null,
+          thumbnail_urls: thumbnails,
           label_no: form.label_no || null,
           pcs: parseInt(form.pcs) || 0,
           purity: form.purity || null,

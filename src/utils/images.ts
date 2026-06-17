@@ -15,10 +15,3 @@ export function getOptimizedImageUrl(
   // Returning the original URL ensures images load correctly.
   return url;
 }
-
-/**
- * Returns a fallback placeholder image URL.
- */
-export function getPlaceholderUrl() {
-  return 'https://via.placeholder.com/400?text=No+Image';
-}
