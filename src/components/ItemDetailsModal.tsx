@@ -989,28 +989,24 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                     <Text style={styles.adminLabel}>Net Wt</Text>
                     <Text style={styles.adminValue}>{item.net_wt ? `${item.net_wt}g` : '0g'}</Text>
                   </View>
-                  <View style={styles.adminGridItem}>
-                    <Text style={styles.adminLabel}>Label No</Text>
-                    <Text style={styles.adminValue}>{item.label_no || 'N/A'}</Text>
-                  </View>
                 </View>
 
                 {/* Stones Summary inside Admin Block */}
                 <View style={styles.adminStonesSection}>
                   <Text style={styles.adminStonesTitle}>Stones Overview</Text>
                   {parsedStones.length > 0 ? (
-                    parsedStones.map((stone: any, idx: number) => (
-                      <View key={idx} style={styles.adminStoneRow}>
-                        <Text style={styles.adminStoneText}>
-                          • {stone.name || 'Stone'}: {stone.weight ? `${stone.weight}g` : '0g'} ({stone.pcs || 0} pcs)
-                        </Text>
-                        {stone.rate && (
-                          <Text style={styles.adminStoneRate}>
-                            Rate: ₹{parseFloat(String(stone.rate)).toLocaleString('en-IN')}
+                    parsedStones.map((stone: any, idx: number) => {
+                      const rawName = stone.name || 'Stone';
+                      const nameUpper = rawName.toUpperCase();
+                      const displayName = (nameUpper.includes('VVS') || nameUpper.includes('EF') || nameUpper.includes('RD') || nameUpper === 'DIAMOND') ? 'Diamond' : rawName;
+                      return (
+                        <View key={idx} style={{ marginBottom: 4 }}>
+                          <Text style={styles.adminStoneText}>
+                            • {displayName}: {stone.weight ? `${stone.weight}ct` : '0ct'}
                           </Text>
-                        )}
-                      </View>
-                    ))
+                        </View>
+                      );
+                    })
                   ) : (
                     <Text style={styles.adminStoneTextMuted}>No stones details available</Text>
                   )}
