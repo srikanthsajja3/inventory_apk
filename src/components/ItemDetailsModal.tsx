@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput, useWindowDimensions } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem, ArrowDownLeft, ArrowUpRight, Shield } from 'lucide-react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem, ArrowDownLeft, ArrowUpRight, Shield, ChevronDown } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
@@ -658,6 +658,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: Theme.colors.border,
   },
+  historyToggleButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.xs,
+  },
+  historyToggleText: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
 });
 
 const HistoryItem = ({ log }: any) => {
@@ -785,6 +802,10 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
   const { role, user } = useRole();
+  const [showHistory, setShowHistory] = useState(false);
+  const [showIdent, setShowIdent] = useState(false);
+  const [showScan, setShowScan] = useState(false);
+  const [showRef, setShowRef] = useState(false);
 
   useEffect(() => {
     if (isVisible && item) {
@@ -1012,55 +1033,113 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                   )}
                 </View>
 
-                {/* Sensitive Admin Costs Section (only show if role is admin) */}
-                {role === 'admin' && (
+                {/* Sensitive Admin Costs Section (only show if role is admin and values exist) */}
+                {role === 'admin' && (item.labour_rate || item.labour_amt || item.dia_purchase_amt || item.stone_purchase_amt) && (
                   <View style={styles.adminSensitiveSection}>
                     <Text style={styles.adminStonesTitle}>Purchase & Labour Details</Text>
                     <View style={styles.adminGrid}>
-                      <View style={styles.adminGridItemSmall}>
-                        <Text style={styles.adminLabel}>Labour Rate</Text>
-                        <Text style={styles.adminValueSmall}>{item.labour_rate ? `₹${item.labour_rate}` : 'N/A'}</Text>
-                      </View>
-                      <View style={styles.adminGridItemSmall}>
-                        <Text style={styles.adminLabel}>Labour Amt</Text>
-                        <Text style={styles.adminValueSmall}>{item.labour_amt ? `₹${item.labour_amt}` : 'N/A'}</Text>
-                      </View>
-                      <View style={styles.adminGridItemSmall}>
-                        <Text style={styles.adminLabel}>Dia Purchase</Text>
-                        <Text style={styles.adminValueSmall}>{item.dia_purchase_amt ? `₹${item.dia_purchase_amt}` : 'N/A'}</Text>
-                      </View>
-                      <View style={styles.adminGridItemSmall}>
-                        <Text style={styles.adminLabel}>Stone Purchase</Text>
-                        <Text style={styles.adminValueSmall}>{item.stone_purchase_amt ? `₹${item.stone_purchase_amt}` : 'N/A'}</Text>
-                      </View>
+                      {item.labour_rate && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Labour Rate</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.labour_rate}</Text>
+                        </View>
+                      )}
+                      {item.labour_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Labour Amt</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.labour_amt}</Text>
+                        </View>
+                      )}
+                      {item.dia_purchase_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Dia Purchase</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.dia_purchase_amt}</Text>
+                        </View>
+                      )}
+                      {item.stone_purchase_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Stone Purchase</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.stone_purchase_amt}</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 )}
               </View>
 
-              {/* Other details in simple blocks */}
-              <SectionHeader title="Identification Details" />
-              <View style={styles.grid}>
-                <DetailRow label="HUID" value={item.huid} icon={FileText} />
-                <DetailRow label="Size" value={item.size} icon={Ruler} />
-                <DetailRow label="Pcs" value={item.pcs} icon={Package} />
-                <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}%` : null} icon={Scale} />
-              </View>
+              {/* Identification Details Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowIdent(!showIdent)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Package size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Identification Details</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showIdent ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
 
-              <SectionHeader title="Scan Tracking" />
-              <View style={styles.grid}>
-                <DetailRow label="Last Scanned By" value={item.last_scanned_by} icon={User} />
-                <DetailRow label="Last Scanned At" value={item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : null} icon={Clock} />
-              </View>
+              {showIdent && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="HUID" value={item.huid} icon={FileText} />
+                  <DetailRow label="Size" value={item.size} icon={Ruler} />
+                  <DetailRow label="Pcs" value={item.pcs} icon={Package} />
+                  <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}%` : null} icon={Scale} />
+                </View>
+              )}
 
-              <SectionHeader title="Reference" />
-              <View style={styles.grid}>
-                <DetailRow label="Doc No" value={item.doc_no} icon={FileText} />
-                <DetailRow label="Doc Date" value={item.doc_date} icon={Calendar} />
-                <DetailRow label="Labeling Date" value={item.labeling_date} icon={Calendar} />
-                <DetailRow label="Quality" value={item.quality} icon={Tag} />
-                <DetailRow label="Location" value={item.location} icon={MapPin} />
-              </View>
+              {/* Scan Tracking Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowScan(!showScan)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <User size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Scan Tracking</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showScan ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showScan && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="Last Scanned By" value={item.last_scanned_by} icon={User} />
+                  <DetailRow label="Last Scanned At" value={item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : null} icon={Clock} />
+                </View>
+              )}
+
+              {/* Reference Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowRef(!showRef)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <FileText size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Reference</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showRef ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showRef && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="Doc No" value={item.doc_no} icon={FileText} />
+                  <DetailRow label="Doc Date" value={item.doc_date} icon={Calendar} />
+                  <DetailRow label="Labeling Date" value={item.labeling_date} icon={Calendar} />
+                  <DetailRow label="Quality" value={item.quality} icon={Tag} />
+                  <DetailRow label="Location" value={item.location} icon={MapPin} />
+                </View>
+              )}
 
               {item.description && (
                 <>
@@ -1069,19 +1148,37 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                 </>
               )}
 
-              <SectionHeader title="Activity History" />
-              {loadingLogs ? (
-                <ActivityIndicator color={Theme.colors.primary} style={{ marginVertical: 20 }} />
-              ) : logs.length > 0 ? (
-                <View style={styles.historyContainer}>
-                  {logs.slice(0, 5).map((log) => (
-                    <HistoryItem key={log.id} log={log} />
-                  ))}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowHistory(!showHistory)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <History size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Activity History</Text>
                 </View>
-              ) : (
-                <View style={styles.emptyHistory}>
-                  <Clock size={20} color={Theme.colors.border} />
-                  <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showHistory ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showHistory && (
+                <View style={{ marginTop: 12 }}>
+                  {loadingLogs ? (
+                    <ActivityIndicator color={Theme.colors.primary} style={{ marginVertical: 20 }} />
+                  ) : logs.length > 0 ? (
+                    <View style={styles.historyContainer}>
+                      {logs.map((log) => (
+                        <HistoryItem key={log.id} log={log} />
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyHistory}>
+                      <Clock size={20} color={Theme.colors.border} />
+                      <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
+                    </View>
+                  )}
                 </View>
               )}
 
