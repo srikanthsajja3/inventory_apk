@@ -97,21 +97,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: Theme.radius.xl,
-    borderTopRightRadius: Theme.radius.xl,
-    height: '90%',
+    height: '100%',
     width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
     flexDirection: 'column',
     overflow: 'hidden',
     ...Platform.select({
       web: {
-        maxWidth: 600,
-        height: '85%',
-        borderRadius: Theme.radius.xl,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+        maxWidth: '100%',
+        height: '100%',
       }
     })
   },
@@ -497,7 +490,7 @@ const styles = StyleSheet.create({
   },
   closeButtonFloating: {
     position: 'absolute',
-    top: 16,
+    top: Platform.OS === 'ios' ? 44 : 16,
     right: 16,
     backgroundColor: 'rgba(0,0,0,0.6)',
     borderRadius: 20,
@@ -782,7 +775,7 @@ interface ItemDetailsModalProps {
 
 export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onEstimate }: ItemDetailsModalProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const imageWidth = Platform.OS === 'web' ? Math.min(windowWidth, 600) : windowWidth;
+  const imageWidth = windowWidth;
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
