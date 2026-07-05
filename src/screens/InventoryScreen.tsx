@@ -590,6 +590,7 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
           width={viewMode === 'grid' ? 120 : 44} 
           height={viewMode === 'grid' ? 120 : 44} 
           shouldLoad={shouldLoad}
+          resizeMode={viewMode === 'grid' ? 'cover' : 'contain'}
         />
       ) : (
         <Package size={viewMode === 'grid' ? 24 : 20} color={Theme.colors.text.secondary} />
@@ -658,7 +659,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [search, setSearch] = useState('');
   const [currentFolder, setCurrentFolder] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const isScrolling = React.useRef(false);
@@ -960,7 +961,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         return;
       }
 
-      const combinedFolders = catRes.data || [];
+      const combinedFolders: any[] = [...(catRes.data || [])];
       if (!parentId) combinedFolders.unshift(EXHIBITION_FOLDER);
       setFolders(combinedFolders);
 
