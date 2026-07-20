@@ -295,7 +295,7 @@ const styles = StyleSheet.create({
 
 const renameStone = (name: string) => {
   const n = name.toUpperCase().trim();
-  if (n.includes('VVS') || n.includes('EF') || n.includes('RD') || n === 'DIAMOND') return 'Diamond (VVS-EF-RD)';
+  if (n.includes('VVS') || n.includes('EF') || n.includes('RD') || n === 'DIAMOND') return 'Diamond';
   if (n.includes('SHAPE')) return 'Shape Diamonds';
   return name;
 };
@@ -335,7 +335,7 @@ const getDynamicRate = (name: string, weight: number, pcs: number, master: any[]
   return matches[0].rate;
 };
 
-const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightChange, onPcsChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
+const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
   const headerFontSize = isTablet ? 12 : 9;
   const rowHeight = isHeader ? (isTablet ? 45 : 30) : (subLabel ? (isTablet ? 90 : 65) : (isTablet ? 60 : 40));
@@ -345,10 +345,9 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
   if (isHeader) {
     return (
       <View style={[styles.ssRow, { backgroundColor: Theme.colors.muted, height: rowHeight }]}>
-        <View style={[styles.ssCell, { flex: 1.8 }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize }]}>PARTICULARS</Text></View>
-        <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>CT/WT</Text></View>
-        <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>PCS</Text></View>
-        <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text></View>
+        <View style={[styles.ssCell, { flex: 2.0 }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize }]}>PARTICULARS</Text></View>
+        <View style={[styles.ssCell, { flex: 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>CT/WT</Text></View>
+        <View style={[styles.ssCell, { flex: 1.3, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text></View>
         <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'right' }]}>AMOUNT (₹)</Text></View>
       </View>
     );
@@ -356,7 +355,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
 
   return (
     <View style={[styles.ssRow, { backgroundColor: rowBg, height: rowHeight }]}>
-      <View style={[styles.ssCell, { flex: 1.8, overflow: 'hidden' }]}>
+      <View style={[styles.ssCell, { flex: 2.0, overflow: 'hidden' }]}>
         <Text style={[styles.ssLabel, { color: textColor, fontSize: fontSize, fontWeight: '800' }]} numberOfLines={1}>{label}</Text>
         {subLabel && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
@@ -378,7 +377,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 0.8, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+      <View style={[styles.ssCell, { flex: 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
@@ -394,23 +393,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, pcs, rate, amount, onWeightCh
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 0.6, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
-        {editable && onPcsChange ? (
-          <TextInput 
-            style={[styles.ssInput, { fontSize: fontSize, width: '100%', color: Theme.colors.primary, fontWeight: '800', textAlign: 'center' }]} 
-            value={String(pcs || '')} 
-            onChangeText={onPcsChange} 
-            keyboardType="numeric" 
-            placeholder="P"
-            placeholderTextColor={Theme.colors.text.muted}
-            selectTextOnFocus
-          />
-        ) : (
-          <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{pcs || '-'}</Text>
-        )}
-      </View>
-
-      <View style={[styles.ssCell, { flex: 1.1, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+      <View style={[styles.ssCell, { flex: 1.3, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable && onRateChange ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
@@ -471,7 +454,7 @@ export default function EstimationScreen({ route, navigation }: any) {
         stones = JSON.parse(item.stones_in_detail);
       } else {
         stones = [
-          { id: 'd1', label: 'Diamond (VVS-EF-RD)', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String(currentRateMap.diamond_rd_rate || '65000'), category: 'Diamond' },
+          { id: 'd1', label: 'Diamond', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String(currentRateMap.diamond_rd_rate || '65000'), category: 'Diamond' },
           { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: String(currentRateMap.stone_rate || '3500'), category: 'Stone' },
           { id: 'b1', label: 'Beads', weight: '0', pcs: '0', rate: String(currentRateMap.default_beads_rate || '850'), category: 'Beads' }
         ];
@@ -1101,28 +1084,6 @@ Billed By: ${soldBy}
   const isLoss = profitAmt < 0;
   
   const handleWastageChange = (v: string) => {
-    const newWastage = num(v);
-    const wastageFloor = num(rateMap.admin_wastage_limit || 18);
-    if (role === 'admin') {
-      if (newWastage < wastageFloor) {
-        setCalcData({...calcData, wastage_pct: String(wastageFloor)});
-        return;
-      }
-      const testBillingWt = netWtFromDb * (1 + (newWastage / 100));
-      const testGoldVal = testBillingWt * goldRate;
-      let testLabor = netWtFromDb * num(calcData.making_gold_rate);
-      if (isDProduct) {
-        if (netWtFromDb <= t1Limit && netWtFromDb > 0) testLabor = t1Labor;
-        else if (netWtFromDb < t2Limit && netWtFromDb > t1Limit) testLabor = t2Labor;
-      }
-      const testSubTotal = testGoldVal + stonesTotal + testLabor + certCharges;
-      const testTotalINR = testSubTotal * (1 + (num(calcData.tax_pct) / 100));
-      const testProfit = testTotalINR - purchaseAmount;
-      if (testProfit < 0 && newWastage < num(calcData.wastage_pct)) {
-        Alert.alert('Limit Reached', 'Further decrease in wastage will result in a loss.');
-        return;
-      }
-    }
     setCalcData({...calcData, wastage_pct: v});
   };
 
@@ -1179,16 +1140,11 @@ Billed By: ${soldBy}
               key={s.id} 
               label={s.label} 
               weight={s.weight} 
-              pcs={s.pcs}
               rate={s.rate} 
               amount={formatNum(num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate))} 
               onWeightChange={(v: any) => {
                 const newRate = getDynamicRate(s.label, num(v), num(s.pcs), stoneMaster, calcData.name);
                 setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
-              }} 
-              onPcsChange={(v: any) => {
-                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster, calcData.name);
-                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
               }} 
               onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v, isManualRate: true} : ds))} 
               bg={idx % 2 === 0 ? Theme.colors.surface : Theme.colors.background} 

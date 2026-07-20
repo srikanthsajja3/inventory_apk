@@ -6,6 +6,8 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../../supabase';
 import { decode } from 'base64-arraybuffer';
 import { Theme } from '../theme';
+import ImageCropModal from './ImageCropModal';
+import { deleteImageFromStorage } from '../utils/images';
 
 const styles = StyleSheet.create({
   modalOverlay: {
@@ -264,6 +266,9 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
   const [type, setType] = useState<'item' | 'folder'>('item');
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<any[]>([]); 
+  const [isCropVisible, setIsCropVisible] = useState(false);
+  const [cropImageUri, setCropImageUri] = useState('');
+  const [cropIndex, setCropIndex] = useState<number | null>(null); 
   const [form, setForm] = useState({
     name: '',
     sku: '',
@@ -389,22 +394,91 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
   }, [isVisible, initialData]);
 
   const handleImageAction = async (index?: number) => {
+    if (index === undefined) {
+      if (Platform.OS === 'web') {
+        await openLibrary();
+        return;
+      }
+
+      Alert.alert(
+        'Select Image Source',
+        'Choose how you want to add an image',
+        [
+          {
+            text: 'Camera',
+            onPress: () => openCamera(),
+          },
+          {
+            text: 'Photo Library',
+            onPress: () => openLibrary(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+      return;
+    }
+
+    const rotateImage = async (idx: number) => {
+      try {
+        const result = await ImageManipulator.manipulateAsync(
+          images[idx].uri,
+          [{ rotate: 90 }],
+          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        const updatedImages = [...images];
+        updatedImages[idx] = { uri: result.uri };
+        setImages(updatedImages);
+      } catch (err: any) {
+        Alert.alert('Error', 'Failed to rotate image: ' + err.message);
+      }
+    };
+
     if (Platform.OS === 'web') {
-      await openLibrary(index);
+      setCropImageUri(images[index].uri);
+      setCropIndex(index);
+      setIsCropVisible(true);
       return;
     }
 
     Alert.alert(
-      'Select Image Source',
-      'Choose how you want to add an image',
+      'Image Options',
+      'Choose an action for this image',
       [
         {
-          text: 'Camera',
-          onPress: () => openCamera(index),
+          text: 'Crop Image',
+          onPress: () => {
+            setCropImageUri(images[index].uri);
+            setCropIndex(index);
+            setIsCropVisible(true);
+          },
         },
         {
-          text: 'Photo Library',
-          onPress: () => openLibrary(index),
+          text: 'Rotate 90°',
+          onPress: () => rotateImage(index),
+        },
+        {
+          text: 'Replace Image',
+          onPress: () => {
+            Alert.alert(
+              'Select Image Source',
+              'Choose how you want to replace this image',
+              [
+                { text: 'Camera', onPress: () => openCamera(index) },
+                { text: 'Photo Library', onPress: () => openLibrary(index) },
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+          },
+        },
+        {
+          text: 'Delete Image',
+          onPress: () => {
+            setImages(images.filter((_, i) => i !== index));
+          },
+          style: 'destructive',
         },
         {
           text: 'Cancel',
@@ -634,6 +708,20 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
             .insert([{ ...payload, category_id: currentFolderId }]);
           if (error) throw error;
         }
+      }
+
+      // Clean up orphaned images from Supabase Storage
+      if (isEdit && type === 'item') {
+        const initialUrls = initialData.image_urls || (initialData.image_url ? [initialData.image_url] : []);
+        const initialThumbs = initialData.thumbnail_urls || (initialData.thumbnail_url ? [initialData.thumbnail_url] : []);
+
+        const urlsToDelete = initialUrls.filter((url: string) => !urls.includes(url));
+        const thumbsToDelete = initialThumbs.filter((url: string) => !thumbnails.includes(url));
+
+        Promise.all([
+          ...urlsToDelete.map((url: string) => deleteImageFromStorage(url, 'item-images')),
+          ...thumbsToDelete.map((url: string) => deleteImageFromStorage(url, 'item-thumbnails'))
+        ]).catch(err => console.error('Error during storage cleanup:', err));
       }
 
       onSave();
@@ -1051,6 +1139,26 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      <ImageCropModal
+        isVisible={isCropVisible}
+        imageUri={cropImageUri}
+        onClose={() => {
+          setIsCropVisible(false);
+          setCropImageUri('');
+          setCropIndex(null);
+        }}
+        onCropCompleted={(croppedUri) => {
+          if (cropIndex !== null) {
+            const updatedImages = [...images];
+            updatedImages[cropIndex] = { uri: croppedUri };
+            setImages(updatedImages);
+          }
+          setIsCropVisible(false);
+          setCropImageUri('');
+          setCropIndex(null);
+        }}
+      />
     </Modal>
   );
 }

@@ -12,6 +12,7 @@ import OptimizedImage from '../components/OptimizedImage';
 import { Theme } from '../theme';
 import { SCREEN_WIDTH } from '../utils/scaling';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
+import { deleteImagesInBulk } from '../utils/images';
 
 const styles = StyleSheet.create({
   container: {
@@ -590,6 +591,7 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
           width={viewMode === 'grid' ? 120 : 44} 
           height={viewMode === 'grid' ? 120 : 44} 
           shouldLoad={shouldLoad}
+          resizeMode={viewMode === 'grid' ? 'cover' : 'contain'}
         />
       ) : (
         <Package size={viewMode === 'grid' ? 24 : 20} color={Theme.colors.text.secondary} />
@@ -658,7 +660,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [search, setSearch] = useState('');
   const [currentFolder, setCurrentFolder] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
   const activeIdsRef = React.useRef(new Set<string>());
@@ -978,7 +980,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         return;
       }
 
-      const combinedFolders = catRes.data || [];
+      const combinedFolders: any[] = [...(catRes.data || [])];
       if (!parentId) combinedFolders.unshift(EXHIBITION_FOLDER);
       setFolders(combinedFolders);
 
@@ -1277,9 +1279,23 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     const message = `Are you sure you want to delete "${name}"? ${type === 'folder' ? 'This will delete all contents!' : ''}`;
     const performDelete = async () => {
       try {
+        // Collect image details before deleting from DB
+        const itemToDelete = items.find(i => i.id === id);
+        let imageList: string[] = [];
+        let thumbList: string[] = [];
+        if (type === 'item' && itemToDelete) {
+          imageList = itemToDelete.image_urls || (itemToDelete.image_url ? [itemToDelete.image_url] : []);
+          thumbList = itemToDelete.thumbnail_urls || (itemToDelete.thumbnail_url ? [itemToDelete.thumbnail_url] : []);
+        }
+
         const table = type === 'folder' ? 'categories' : 'items';
         const { error } = await supabase.from(table).delete().eq('id', id);
         if (error) throw error;
+
+        // Clean up from storage
+        if (imageList.length > 0) deleteImagesInBulk(imageList, 'item-images').catch(err => console.error(err));
+        if (thumbList.length > 0) deleteImagesInBulk(thumbList, 'item-thumbnails').catch(err => console.error(err));
+
         fetchContents();
       } catch (error: any) { Alert.alert('Error', error.message); }
     };
@@ -1298,8 +1314,25 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         setLoading(true);
         const folderIds = selectedItems.filter(i => i.sku === undefined && i.barcode === undefined).map(i => i.id);
         const itemIds = selectedItems.filter(i => i.sku !== undefined || i.barcode !== undefined).map(i => i.id);
+        
+        // Collect images for all deleted items
+        const itemsToDelete = selectedItems.filter(i => i.sku !== undefined || i.barcode !== undefined);
+        const allImages: string[] = [];
+        const allThumbs: string[] = [];
+        itemsToDelete.forEach(item => {
+          const imageList = item.image_urls || (item.image_url ? [item.image_url] : []);
+          const thumbList = item.thumbnail_urls || (item.thumbnail_url ? [item.thumbnail_url] : []);
+          allImages.push(...imageList);
+          allThumbs.push(...thumbList);
+        });
+
         if (itemIds.length > 0) await supabase.from('items').delete().in('id', itemIds);
         if (folderIds.length > 0) await supabase.from('categories').delete().in('id', folderIds);
+
+        // Clean up from storage
+        if (allImages.length > 0) deleteImagesInBulk(allImages, 'item-images').catch(err => console.error(err));
+        if (allThumbs.length > 0) deleteImagesInBulk(allThumbs, 'item-thumbnails').catch(err => console.error(err));
+
         toggleSelectionMode();
         fetchContents();
       } catch (error: any) { Alert.alert('Bulk Delete Error', error.message); } finally { setLoading(false); }

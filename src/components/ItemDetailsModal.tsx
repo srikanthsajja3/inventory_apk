@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput } from 'react-native';
-import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem, ArrowDownLeft, ArrowUpRight } from 'lucide-react-native';
+import { StyleSheet, View, Text, Modal, TouchableOpacity, ScrollView, Image, Platform, ActivityIndicator, Alert, TextInput, useWindowDimensions } from 'react-native';
+import { X, Package, Hash, Tag, MapPin, Calendar, Scale, Ruler, FileText, IndianRupee, User, Clock, History, Calculator, Edit2, ShoppingBag, Gem, ArrowDownLeft, ArrowUpRight, Shield, ChevronDown } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
@@ -97,19 +97,14 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: Theme.colors.background,
-    borderTopLeftRadius: Theme.radius.xl,
-    borderTopRightRadius: Theme.radius.xl,
-    height: '90%',
+    height: '100%',
     width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: Theme.colors.border,
+    flexDirection: 'column',
+    overflow: 'hidden',
     ...Platform.select({
       web: {
-        maxWidth: 600,
-        height: '85%',
-        borderRadius: Theme.radius.xl,
-        borderWidth: 1,
-        borderColor: Theme.colors.border,
+        maxWidth: '100%',
+        height: '100%',
       }
     })
   },
@@ -487,6 +482,199 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: Theme.colors.text.primary,
   },
+  heroImageContainer: {
+    width: '100%',
+    height: 300,
+    position: 'relative',
+    backgroundColor: Theme.colors.muted,
+  },
+  closeButtonFloating: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 44 : 16,
+    right: 16,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    borderRadius: 20,
+    padding: 8,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  heroImageScroll: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImageTouch: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
+  heroImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: Theme.colors.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsContainer: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  detailsScrollView: {
+    flex: 1,
+    padding: Theme.spacing.md,
+  },
+  productHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: Theme.spacing.md,
+    marginTop: Theme.spacing.xs,
+  },
+  productName: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: Theme.colors.text.primary,
+    flex: 1,
+  },
+  skuBadge: {
+    backgroundColor: Theme.colors.primary + '15',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+    marginLeft: Theme.spacing.sm,
+  },
+  skuText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.primary,
+  },
+  adminBlock: {
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.radius.md,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+    borderWidth: 1.5,
+    borderColor: Theme.colors.primary + '30',
+  },
+  adminBlockHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: Theme.spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingBottom: 8,
+  },
+  adminBlockTitle: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '800',
+    color: Theme.colors.primary,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  adminGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: Theme.spacing.sm,
+  },
+  adminGridItem: {
+    width: '48%',
+    backgroundColor: Theme.colors.muted,
+    padding: Theme.spacing.sm,
+    borderRadius: Theme.radius.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  adminGridItemSmall: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: Theme.colors.muted,
+    padding: Theme.spacing.sm - 2,
+    borderRadius: Theme.radius.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  adminLabel: {
+    fontSize: 9,
+    color: Theme.colors.text.muted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  adminValue: {
+    fontSize: Theme.typography.size.md,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  adminValueSmall: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  adminStonesSection: {
+    marginTop: Theme.spacing.sm,
+    paddingTop: Theme.spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  adminStonesTitle: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: Theme.colors.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  adminStoneRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  adminStoneText: {
+    fontSize: 12,
+    color: Theme.colors.text.primary,
+    fontWeight: '600',
+  },
+  adminStoneRate: {
+    fontSize: 11,
+    color: Theme.colors.primary,
+    fontWeight: '700',
+  },
+  adminStoneTextMuted: {
+    fontSize: 11,
+    color: Theme.colors.text.muted,
+    fontStyle: 'italic',
+  },
+  adminSensitiveSection: {
+    marginTop: Theme.spacing.md,
+    paddingTop: Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  historyToggleButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    padding: Theme.spacing.md,
+    borderRadius: Theme.radius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginTop: Theme.spacing.md,
+    marginBottom: Theme.spacing.xs,
+  },
+  historyToggleText: {
+    fontSize: Theme.typography.size.sm,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
 });
 
 const HistoryItem = ({ log }: any) => {
@@ -581,13 +769,12 @@ const EstimationBadge = ({ item }: { item: any }) => {
 
   return (
     <View style={{ marginBottom: Theme.spacing.lg }}>
-      <SectionHeader title="Valuation" />
       <View style={[styles.detailRow, { width: '100%', borderColor: Theme.colors.primary, borderWidth: 1.5, backgroundColor: Theme.colors.primary + '10' }]}>
         <View style={[styles.iconContainer, { backgroundColor: Theme.colors.primary, width: 36, height: 36, borderRadius: 10 }]}>
           <IndianRupee size={20} color="black" />
         </View>
         <View style={styles.detailTextContainer}>
-          <Text style={[styles.detailLabel, { color: Theme.colors.primary, fontWeight: '800' }]}>APPROX. ESTIMATE (18KT)</Text>
+          <Text style={[styles.detailLabel, { color: Theme.colors.primary, fontWeight: '800' }]}>ESTIMATE (18KT)</Text>
           <Text style={[styles.detailValue, { fontSize: 20, color: Theme.colors.text.primary, fontWeight: '900' }]}>₹{total.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</Text>
         </View>
       </View>
@@ -604,6 +791,8 @@ interface ItemDetailsModalProps {
 }
 
 export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onEstimate }: ItemDetailsModalProps) {
+  const { width: windowWidth } = useWindowDimensions();
+  const imageWidth = windowWidth;
   const [logs, setLogs] = useState<any[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
@@ -614,6 +803,10 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI/Bank' | 'Card' | 'Gold Exchange'>('Cash');
   const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
   const { role, user } = useRole();
+  const [showHistory, setShowHistory] = useState(false);
+  const [showIdent, setShowIdent] = useState(false);
+  const [showScan, setShowScan] = useState(false);
+  const [showRef, setShowRef] = useState(false);
 
   useEffect(() => {
     if (isVisible && item) {
@@ -751,129 +944,307 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
     }
   };
 
+  let parsedStones: any[] = [];
+  if (item && item.stones_in_detail) {
+    try {
+      const parsed = JSON.parse(item.stones_in_detail);
+      if (Array.isArray(parsed)) {
+        parsedStones = parsed;
+      }
+    } catch (e) {
+      console.warn('Failed to parse stones:', e);
+    }
+  }
+
   if (!item) return null;
 
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
-          <View style={styles.header}>
-            <Text style={styles.modalTitle}>Item Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <X size={24} color={Theme.colors.text.secondary} />
+          
+          {/* 40% Image Section */}
+          <View style={styles.heroImageContainer}>
+            {/* Close Button floating over image */}
+            <TouchableOpacity onPress={onClose} style={styles.closeButtonFloating}>
+              <X size={20} color="#FFFFFF" />
             </TouchableOpacity>
+
+            {item.image_urls && item.image_urls.length > 0 ? (
+              <ScrollView horizontal pagingEnabled showsHorizontalScrollIndicator={true} style={styles.heroImageScroll}>
+                {item.image_urls.map((url: string, index: number) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={[styles.heroImageTouch, { width: imageWidth }]} 
+                    onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
+                  >
+                    <OptimizedImage url={url} width={400} height={400} resizeMode="cover" style={styles.heroImage} />
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            ) : item.image_url ? (
+              <TouchableOpacity 
+                style={[styles.heroImageTouch, { width: imageWidth }]} 
+                onPress={() => setPreviewGallery({ urls: [item.image_url], index: 0 })}
+              >
+                <OptimizedImage url={item.image_url} width={400} height={400} resizeMode="cover" style={styles.heroImage} />
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.heroImagePlaceholder}>
+                <Package size={64} color={Theme.colors.border} />
+              </View>
+            )}
           </View>
 
-          <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
-            <View style={styles.topInfo}>
-              <View style={styles.imageSection}>
-                {item.image_urls && item.image_urls.length > 0 ? (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.multiImageContainer}>
-                    {item.image_urls.map((url: string, index: number) => {
+          {/* 60% Details Section */}
+          <View style={styles.detailsContainer}>
+            <ScrollView style={styles.detailsScrollView} showsVerticalScrollIndicator={false}>
+              
+              {/* Product Header: Name and SKU */}
+              <View style={styles.productHeader}>
+                <Text style={styles.productName}>{item.name}</Text>
+                {item.sku && (
+                  <View style={styles.skuBadge}>
+                    <Text style={styles.skuText}>{item.sku}</Text>
+                  </View>
+                )}
+              </View>
+
+
+
+              {/* Admin/Core Specifications Block */}
+              <View style={styles.adminBlock}>
+                <View style={styles.adminBlockHeader}>
+                  <Shield size={16} color={Theme.colors.primary} />
+                  <Text style={styles.adminBlockTitle}>Admin Specifications</Text>
+                </View>
+                
+                <View style={styles.adminGrid}>
+                  <View style={styles.adminGridItem}>
+                    <Text style={styles.adminLabel}>Purity</Text>
+                    <Text style={styles.adminValue}>{item.purity || 'N/A'}</Text>
+                  </View>
+                  <View style={styles.adminGridItem}>
+                    <Text style={styles.adminLabel}>Gross Wt</Text>
+                    <Text style={styles.adminValue}>{item.gross_wt ? `${item.gross_wt}g` : '0g'}</Text>
+                  </View>
+                  <View style={styles.adminGridItem}>
+                    <Text style={styles.adminLabel}>Net Wt</Text>
+                    <Text style={styles.adminValue}>{item.net_wt ? `${item.net_wt}g` : '0g'}</Text>
+                  </View>
+                </View>
+
+                {/* Stones Summary inside Admin Block */}
+                <View style={styles.adminStonesSection}>
+                  <Text style={styles.adminStonesTitle}>Stones Overview</Text>
+                  {parsedStones.length > 0 ? (
+                    parsedStones.map((stone: any, idx: number) => {
+                      const rawName = stone.name || 'Stone';
+                      const nameUpper = rawName.toUpperCase();
+                      const displayName = (nameUpper.includes('VVS') || nameUpper.includes('EF') || nameUpper.includes('RD') || nameUpper === 'DIAMOND') ? 'Diamond' : rawName;
                       return (
-                        <TouchableOpacity 
-                          key={index} 
-                          style={styles.imageWrapper} 
-                          onPress={() => setPreviewGallery({ urls: item.image_urls, index })}
-                        >
-                          <OptimizedImage url={url} width={100} height={100} />
-                        </TouchableOpacity>
+                        <View key={idx} style={{ marginBottom: 4 }}>
+                          <Text style={styles.adminStoneText}>
+                            • {displayName}: {stone.weight ? `${stone.weight}ct` : '0ct'}
+                          </Text>
+                        </View>
                       );
-                    })}
-                  </ScrollView>
-                ) : item.image_url ? (
-                  <TouchableOpacity 
-                    style={styles.imageContainer} 
-                    onPress={() => setPreviewGallery({ urls: [item.image_url], index: 0 })}
-                  >
-                    <OptimizedImage url={item.image_url} width={100} height={100} />
-                  </TouchableOpacity>
-                ) : (
-                  <View style={styles.imageContainer}>
-                    <View style={styles.imagePlaceholder}>
-                      <Package size={48} color={Theme.colors.border} />
+                    })
+                  ) : (
+                    <Text style={styles.adminStoneTextMuted}>No stones details available</Text>
+                  )}
+                </View>
+
+                {/* Sensitive Admin Costs Section (only show if role is admin and values exist) */}
+                {role === 'admin' && (item.labour_rate || item.labour_amt || item.dia_purchase_amt || item.stone_purchase_amt) && (
+                  <View style={styles.adminSensitiveSection}>
+                    <Text style={styles.adminStonesTitle}>Purchase & Labour Details</Text>
+                    <View style={styles.adminGrid}>
+                      {item.labour_rate && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Labour Rate</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.labour_rate}</Text>
+                        </View>
+                      )}
+                      {item.labour_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Labour Amt</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.labour_amt}</Text>
+                        </View>
+                      )}
+                      {item.dia_purchase_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Dia Purchase</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.dia_purchase_amt}</Text>
+                        </View>
+                      )}
+                      {item.stone_purchase_amt && (
+                        <View style={styles.adminGridItemSmall}>
+                          <Text style={styles.adminLabel}>Stone Purchase</Text>
+                          <Text style={styles.adminValueSmall}>₹{item.stone_purchase_amt}</Text>
+                        </View>
+                      )}
                     </View>
                   </View>
                 )}
               </View>
-              <View style={styles.primaryInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                <Text style={styles.itemSku}>{item.sku || 'No SKU'}</Text>
+
+              {/* Identification Details Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowIdent(!showIdent)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Package size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Identification Details</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showIdent ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showIdent && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="HUID" value={item.huid} icon={FileText} />
+                  <DetailRow label="Size" value={item.size} icon={Ruler} />
+                  <DetailRow label="Pcs" value={item.pcs} icon={Package} />
+                  <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}%` : null} icon={Scale} />
+                </View>
+              )}
+
+              {/* Scan Tracking Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowScan(!showScan)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <User size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Scan Tracking</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showScan ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showScan && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="Last Scanned By" value={item.last_scanned_by} icon={User} />
+                  <DetailRow label="Last Scanned At" value={item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : null} icon={Clock} />
+                </View>
+              )}
+
+              {/* Reference Collapsible */}
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowRef(!showRef)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <FileText size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Reference</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showRef ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showRef && (
+                <View style={[styles.grid, { marginTop: 8, marginBottom: 12 }]}>
+                  <DetailRow label="Doc No" value={item.doc_no} icon={FileText} />
+                  <DetailRow label="Doc Date" value={item.doc_date} icon={Calendar} />
+                  <DetailRow label="Labeling Date" value={item.labeling_date} icon={Calendar} />
+                  <DetailRow label="Quality" value={item.quality} icon={Tag} />
+                  <DetailRow label="Location" value={item.location} icon={MapPin} />
+                </View>
+              )}
+
+              {item.description && (
+                <>
+                  <SectionHeader title="Description" />
+                  <Text style={styles.descriptionText}>{item.description}</Text>
+                </>
+              )}
+
+              <TouchableOpacity 
+                style={styles.historyToggleButton} 
+                onPress={() => setShowHistory(!showHistory)}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <History size={16} color={Theme.colors.primary} />
+                  <Text style={styles.historyToggleText}>Activity History</Text>
+                </View>
+                <ChevronDown 
+                  size={16} 
+                  color={Theme.colors.text.secondary} 
+                  style={{ transform: [{ rotate: showHistory ? '180deg' : '0deg' }] }}
+                />
+              </TouchableOpacity>
+
+              {showHistory && (
+                <View style={{ marginTop: 12 }}>
+                  {loadingLogs ? (
+                    <ActivityIndicator color={Theme.colors.primary} style={{ marginVertical: 20 }} />
+                  ) : logs.length > 0 ? (
+                    <View style={styles.historyContainer}>
+                      {logs.map((log) => (
+                        <HistoryItem key={log.id} log={log} />
+                      ))}
+                    </View>
+                  ) : (
+                    <View style={styles.emptyHistory}>
+                      <Clock size={20} color={Theme.colors.border} />
+                      <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              <View style={{ height: 40 }} />
+            </ScrollView>
+
+            {/* Footer Buttons */}
+            <View style={styles.footer}>
+              <View style={styles.footerActions}>
+                <TouchableOpacity 
+                  style={[
+                    styles.footerButton, 
+                    { backgroundColor: Theme.colors.status.success }
+                  ]} 
+                  onPress={() => setShowSellModal(true)}
+                >
+                  <ShoppingBag size={20} color={Theme.colors.text.black} />
+                  <Text style={styles.buttonText}>Sell</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.footerButton, styles.estimateButton]} 
+                  onPress={() => {
+                    onClose();
+                    if (onEstimate) onEstimate(item);
+                  }}
+                >
+                  <Calculator size={20} color={Theme.colors.text.black} />
+                  <Text style={styles.buttonText}>Estimate</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  style={[styles.footerButton, styles.editButton, { flex: 0.5 }]} 
+                  onPress={() => {
+                    onClose();
+                    onEdit(item);
+                  }}
+                >
+                  <Edit2 size={18} color={Theme.colors.text.primary} />
+                </TouchableOpacity>
               </View>
             </View>
 
-            <SectionHeader title="Valuation" />
-            <EstimationBadge item={item} />
-
-            <SectionHeader title="Identification" />
-            <View style={styles.grid}>
-              <DetailRow label="Label No" value={item.label_no} icon={Hash} />
-              <DetailRow label="HUID" value={item.huid} icon={FileText} />
-              <DetailRow label="Purity" value={item.purity} icon={Tag} />
-              <DetailRow label="Size" value={item.size} icon={Ruler} />
-            </View>
-
-            <SectionHeader title="Weights & Pieces" />
-            <View style={styles.grid}>
-              <DetailRow label="Pcs" value={item.pcs} icon={Package} />
-              <DetailRow label="Net Wt" value={item.net_wt ? `${item.net_wt}g` : null} icon={Scale} />
-              <DetailRow label="Gross Wt" value={item.gross_wt ? `${item.gross_wt}g` : null} icon={Scale} />
-              <DetailRow label="Wastage" value={item.wastage ? `${item.wastage}%` : null} icon={Scale} />
-            </View>
-
-            <SectionHeader title="Stones & Detail" />
-            <StoneDetailsList stonesJson={item.stones_in_detail} />
-
-            <SectionHeader title="Scan Tracking" />
-            <View style={styles.grid}>
-              <DetailRow label="Last Scanned By" value={item.last_scanned_by} icon={User} />
-              <DetailRow label="Last Scanned At" value={item.last_scanned_at ? new Date(item.last_scanned_at).toLocaleString() : null} icon={Clock} />
-            </View>
-
-            <SectionHeader title="Activity History" />
-            {loadingLogs ? (
-              <ActivityIndicator color={Theme.colors.primary} style={{ marginVertical: 20 }} />
-            ) : logs.length > 0 ? (
-              <View style={styles.historyContainer}>
-                {logs.map((log) => (
-                  <HistoryItem key={log.id} log={log} />
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyHistory}>
-                <Clock size={24} color={Theme.colors.border} />
-                <Text style={styles.emptyHistoryText}>No activity recorded yet</Text>
-              </View>
-            )}
-
-            <SectionHeader title="Purchase & Labour" />
-            <View style={styles.grid}>
-              <DetailRow label="Labour Rate" value={item.labour_rate ? `₹${item.labour_rate}` : null} icon={IndianRupee} />
-              <DetailRow label="Labour Amt" value={item.labour_amt ? `₹${item.labour_amt}` : null} icon={IndianRupee} />
-              <DetailRow label="Dia Purchase" value={item.dia_purchase_amt ? `₹${item.dia_purchase_amt}` : null} icon={IndianRupee} />
-              <DetailRow label="Stone Purchase" value={item.stone_purchase_amt ? `₹${item.stone_purchase_amt}` : null} icon={IndianRupee} />
-              <DetailRow label="Purch Wastage" value={item.purch_wastage_rate ? `${item.purch_wastage_rate}%` : null} icon={Tag} />
-              <DetailRow label="Other Charges" value={item.other_charges ? `₹${item.other_charges}` : null} icon={IndianRupee} />
-            </View>
-
-            <SectionHeader title="Reference" />
-            <View style={styles.grid}>
-              <DetailRow label="Doc No" value={item.doc_no} icon={FileText} />
-              <DetailRow label="Doc Date" value={item.doc_date} icon={Calendar} />
-              <DetailRow label="Labeling Date" value={item.labeling_date} icon={Calendar} />
-              <DetailRow label="Quality" value={item.quality} icon={Tag} />
-              <DetailRow label="Location" value={item.location} icon={MapPin} />
-            </View>
-
-            {item.description && (
-              <>
-                <SectionHeader title="Description" />
-                <Text style={styles.descriptionText}>{item.description}</Text>
-              </>
-            )}
-            
-            <View style={{ height: 40 }} />
-          </ScrollView>
+          </View>
 
           {previewGallery && (
             <ImageModal
@@ -886,42 +1257,6 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
               grossWt={item.gross_wt}
             />
           )}
-
-          <View style={styles.footer}>
-            <View style={styles.footerActions}>
-              <TouchableOpacity 
-                style={[
-                  styles.footerButton, 
-                  { backgroundColor: Theme.colors.status.success }
-                ]} 
-                onPress={() => setShowSellModal(true)}
-              >
-                <ShoppingBag size={20} color={Theme.colors.text.black} />
-                <Text style={styles.buttonText}>Sell</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.footerButton, styles.estimateButton]} 
-                onPress={() => {
-                  onClose();
-                  if (onEstimate) onEstimate(item);
-                }}
-              >
-                <Calculator size={20} color={Theme.colors.text.black} />
-                <Text style={styles.buttonText}>Estimate</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity 
-                style={[styles.footerButton, styles.editButton, { flex: 0.5 }]} 
-                onPress={() => {
-                  onClose();
-                  onEdit(item);
-                }}
-              >
-                <Edit2 size={18} color={Theme.colors.text.primary} />
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
 
         {/* Sell Modal */}
