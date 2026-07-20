@@ -1,7 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList, useWindowDimensions, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign } from 'lucide-react-native';
+import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Printer, Share2, CheckCircle2, User } from 'lucide-react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
@@ -105,7 +108,189 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.size.xs,
     fontWeight: '700',
     color: Theme.colors.status.error,
-  }
+  },
+  
+  // Billing & ERP styles
+  footerContainer: {
+    padding: Theme.spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    backgroundColor: Theme.colors.background,
+  },
+  sellBtn: {
+    backgroundColor: Theme.colors.primary,
+    borderRadius: Theme.radius.md,
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sellBtnText: {
+    color: Theme.colors.text.black,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sellModalOverlay: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.8)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    padding: 20
+  },
+  sellModalContent: { 
+    backgroundColor: Theme.colors.background, 
+    borderRadius: Theme.radius.xl, 
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    overflow: 'hidden'
+  },
+  sellHeader: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    padding: Theme.spacing.md,
+    borderBottomWidth: 1, 
+    borderBottomColor: Theme.colors.border 
+  },
+  sellBody: { 
+    padding: Theme.spacing.md, 
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: Theme.colors.text.primary,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.muted,
+    borderRadius: Theme.radius.sm,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    marginBottom: 12,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: 8,
+    fontSize: Theme.typography.size.md,
+    color: Theme.colors.text.primary,
+  },
+  formLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+    marginBottom: 6,
+  },
+  staffSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Theme.colors.surface,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 6,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    gap: 4,
+  },
+  staffSelectBtnActive: {
+    backgroundColor: Theme.colors.primary,
+    borderColor: Theme.colors.primary,
+  },
+  staffSelectText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: Theme.colors.text.secondary,
+  },
+  staffSelectTextActive: {
+    color: Theme.colors.text.black,
+  },
+  saveButton: {
+    backgroundColor: Theme.colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: Theme.radius.md,
+    gap: 8,
+  },
+  saveButtonText: {
+    color: Theme.colors.text.black,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  
+  // Receipt Styles
+  receiptScroll: {
+    padding: 15,
+    backgroundColor: Theme.colors.muted,
+    margin: 15,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  receiptStoreName: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  receiptStoreSub: {
+    fontSize: 10,
+    color: Theme.colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  receiptDivider: {
+    height: 1,
+    backgroundColor: Theme.colors.border,
+    marginVertical: 8,
+  },
+  receiptRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  receiptLabel: {
+    fontSize: 11,
+    color: Theme.colors.text.secondary,
+    fontWeight: '600',
+  },
+  receiptValue: {
+    fontSize: 11,
+    color: Theme.colors.text.primary,
+    fontWeight: '700',
+  },
+  receiptHeader: {
+    fontSize: 11,
+    color: Theme.colors.primary,
+    fontWeight: '800',
+    marginVertical: 4,
+  },
+  receiptTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+  },
+  receiptTotalLabel: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: Theme.colors.primary,
+  },
+  receiptTotalValue: {
+    fontSize: 15,
+    fontWeight: '900',
+    color: Theme.colors.text.primary,
+  },
 });
 
 const renameStone = (name: string) => {
@@ -305,6 +490,18 @@ export default function EstimationScreen({ route, navigation }: any) {
   const [calcData, setCalcData] = useState(() => getInitialCalcData({}));
   const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>([]);
 
+  // Billing & Invoicing State
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [saleAmount, setSaleAmount] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI/Bank' | 'Card' | 'Gold Exchange'>('Cash');
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [selling, setSelling] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [soldInvoiceData, setSoldInvoiceData] = useState<any>(null);
+
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
@@ -359,15 +556,498 @@ export default function EstimationScreen({ route, navigation }: any) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [ratesRes, stonesRes] = await Promise.all([
+      const [ratesRes, stonesRes, employeesRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
-        supabase.from('stone_master').select('*')
+        supabase.from('stone_master').select('*'),
+        supabase.from('employees').select('name').eq('is_active', true).order('name')
       ]);
       setStoneMaster(stonesRes.data || []);
+      setEmployees(employeesRes.data || []);
       const newRateMap: any = {};
       ratesRes.data?.forEach(r => { newRateMap[r.key] = r.value; });
       setRateMap(newRateMap);
     } catch (error) { console.error(error); } finally { setLoading(false); }
+  };
+
+  const handleSell = async () => {
+    const cleanAmount = saleAmount.replace(/,/g, '');
+    const amount = parseFloat(cleanAmount);
+    if (!amount || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid sale amount');
+      return;
+    }
+    if (selectedEmployees.length === 0) {
+      Alert.alert('Error', 'Please select at least one staff member');
+      return;
+    }
+
+    try {
+      setSelling(true);
+      const staffNames = selectedEmployees.join(', ');
+      const profitLoss = amount - purchaseAmount;
+      const invoiceNo = 'MJ-' + Math.floor(100000 + Math.random() * 900000);
+      const saleDate = new Date().toISOString();
+
+      // 1. Record Sale in Supabase
+      const { error: saleError } = await (supabase as any)
+        .from('sales')
+        .insert([{
+          item_id: item.id,
+          sku: item.sku,
+          item_name: item.name,
+          prc_amount: purchaseAmount,
+          sale_amount: amount,
+          profit_loss: profitLoss,
+          payment_mode: paymentMode,
+          customer_name: customerName.trim() || 'Walk-in Customer',
+          customer_phone: customerPhone.trim() || 'N/A',
+          sold_by: staffNames,
+          sold_at: saleDate
+        }]);
+
+      if (saleError) throw saleError;
+
+      // 2. Decrement item quantity to 0
+      const { error: itemUpdateError } = await supabase
+        .from('items')
+        .update({ quantity: 0 })
+        .eq('id', item.id);
+
+      if (itemUpdateError) throw itemUpdateError;
+
+      // 3. Log stock out in transactions
+      await supabase.from('transactions').insert([{
+        item_id: item.id,
+        type: 'OUT',
+        quantity_changed: 1,
+        reason: `Billed for ₹${amount.toLocaleString()} by ${staffNames} (Inv: ${invoiceNo})`
+      }]);
+
+      // 4. Log cash inflow in accounts_ledger (Sales category)
+      await (supabase as any).from('accounts_ledger').insert([{
+        entry_date: saleDate.split('T')[0],
+        description: `Billed: ${item.name} (SKU: ${item.sku || 'N/A'}, Inv: ${invoiceNo})`,
+        type: 'INFLOW',
+        category: 'Sale',
+        payment_mode: paymentMode,
+        amount: amount,
+        gold_weight_g: 0,
+        recorded_by: staffNames
+      }]);
+
+      const invoiceRecord = {
+        invoiceNo,
+        date: saleDate,
+        customerName: customerName.trim() || 'Walk-in Customer',
+        customerPhone: customerPhone.trim() || 'N/A',
+        itemName: item.name,
+        sku: item.sku || 'N/A',
+        purity: calcData.purity,
+        grossWt: calcData.gross_wt,
+        netWt: calcData.net_wt,
+        goldRate: goldRate,
+        wastage: calcData.wastage_pct,
+        goldValue: goldValue,
+        stonesTotal: stonesTotal,
+        makingGoldAmt: makingGoldAmt,
+        certCharges: certCharges,
+        subTotal: subTotal,
+        gstPct: calcData.tax_pct,
+        gstAmt: subTotal * (num(calcData.tax_pct) / 100),
+        total: amount,
+        paymentMode: paymentMode,
+        soldBy: staffNames,
+      };
+
+      setSoldInvoiceData(invoiceRecord);
+      setShowSellModal(false);
+      setShowReceiptModal(true);
+    } catch (e: any) {
+      Alert.alert('Billing Failed', e.message);
+    } finally {
+      setSelling(false);
+    }
+  };
+
+  const shareReceipt = async () => {
+    if (!soldInvoiceData) return;
+    try {
+      const { invoiceNo, date, customerName, customerPhone, itemName, sku, purity, grossWt, netWt, goldRate, wastage, goldValue, stonesTotal, makingGoldAmt, certCharges, subTotal, gstPct, gstAmt, total, paymentMode, soldBy } = soldInvoiceData;
+      
+      const formattedDate = new Date(date).toLocaleString();
+      const text = `
+-----------------------------------------
+         MOKSHA JEWELS VJA
+-----------------------------------------
+INVOICE NO: ${invoiceNo}
+DATE: ${formattedDate}
+CUSTOMER: ${customerName}
+PHONE: ${customerPhone}
+-----------------------------------------
+ITEM PARTICULARS:
+Item: ${itemName}
+SKU: ${sku}
+Purity: ${purity}
+Gross Wt: ${grossWt}g
+Net Wt: ${netWt}g
+Gold Rate: ₹${goldRate.toLocaleString()}/g
+Wastage: ${wastage}%
+-----------------------------------------
+BILL DETAILS:
+Gold Value: ₹${Math.round(goldValue).toLocaleString()}
+Stones Total: ₹${Math.round(stonesTotal).toLocaleString()}
+Making Charges: ₹${Math.round(makingGoldAmt).toLocaleString()}
+Certification: ₹${Math.round(certCharges).toLocaleString()}
+-----------------------------------------
+Sub-Total: ₹${Math.round(subTotal).toLocaleString()}
+GST (${gstPct}%): ₹${Math.round(gstAmt).toLocaleString()}
+TOTAL AMOUNT: ₹${Math.round(total).toLocaleString()}
+-----------------------------------------
+Payment Mode: ${paymentMode}
+Billed By: ${soldBy}
+-----------------------------------------
+        Thank you for shopping!
+-----------------------------------------
+`;
+
+      if (Platform.OS === 'web') {
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Invoice_${invoiceNo}.txt`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+      } else {
+        const filename = `${FileSystem.documentDirectory}Invoice_${invoiceNo}.txt`;
+        await FileSystem.writeAsStringAsync(filename, text, { encoding: FileSystem.EncodingType.UTF8 });
+        await Sharing.shareAsync(filename);
+      }
+    } catch (e: any) {
+      Alert.alert('Share Failed', e.message);
+    }
+  };
+
+  const printInvoiceReceiptHelper = async (data: any) => {
+    if (!data) return;
+    try {
+      const { invoiceNo, date, customerName, customerPhone, items, subTotal, gstPct, gstAmt, discount, total, paymentMode, soldBy } = data;
+      const formattedDate = new Date(date).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
+      
+      const numberToWords = (n: number): string => {
+        const a = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const g = (val: number): string => {
+          if (val < 20) return a[val];
+          return b[Math.floor(val / 10)] + (val % 10 !== 0 ? ' ' + a[val % 10] : '');
+        };
+        const h = (val: number): string => {
+          if (val === 0) return '';
+          let str = '';
+          if (val >= 100) {
+            str += a[Math.floor(val / 100)] + ' Hundred ';
+            val %= 100;
+          }
+          if (val > 0) {
+            str += g(val);
+          }
+          return str.trim();
+        };
+        if (n === 0) return 'Zero';
+        let result = '';
+        const crores = Math.floor(n / 10000000);
+        n %= 10000000;
+        if (crores > 0) result += h(crores) + ' Crore ';
+        const lakhs = Math.floor(n / 100000);
+        n %= 100000;
+        if (lakhs > 0) result += h(lakhs) + ' Lakh ';
+        const thousands = Math.floor(n / 1000);
+        n %= 1000;
+        if (thousands > 0) result += h(thousands) + ' Thousand ';
+        if (n > 0) result += h(n);
+        return result.trim() + ' Rupees Only';
+      };
+
+      let itemsHtml = '';
+      let totalBeforeTax = 0;
+
+      items.forEach((item: any) => {
+        const gWt = num(item.grossWt);
+        const nWt = num(item.netWt);
+        const wastageCost = nWt * (num(item.wastage) / 100) * num(item.goldRate);
+        const itemAmt = num(item.total);
+        totalBeforeTax += itemAmt;
+
+        itemsHtml += `
+          <div class="bold" style="font-size: 13px;">${item.name} (${item.purity})</div>
+          <div class="row"><span>SKU:</span> <span>${item.sku || 'N/A'}</span></div>
+          <div class="row"><span>Gross Wt:</span> <span>${gWt.toFixed(3)} g</span></div>
+          <div class="row"><span>Net Wt:</span> <span>${nWt.toFixed(3)} g</span></div>
+          <div class="row"><span>Gold Rate:</span> <span>₹${Math.round(item.goldRate)}/g</span></div>
+          <div class="row"><span>Wastage (${item.wastage}%):</span> <span>₹${Math.round(wastageCost).toLocaleString('en-IN')}</span></div>
+          <div class="row"><span>Labor:</span> <span>₹${Math.round(item.makingCharges).toLocaleString('en-IN')}</span></div>
+          ${num(item.certCharges) > 0 ? `<div class="row"><span>Certification:</span> <span>₹${Math.round(item.certCharges).toLocaleString('en-IN')}</span></div>` : ''}
+          ${num(item.otherCharges) > 0 ? `<div class="row"><span>Other Charges:</span> <span>₹${Math.round(item.otherCharges).toLocaleString('en-IN')}</span></div>` : ''}
+          
+          ${item.stones && item.stones.length > 0 ? `
+            <div class="bold" style="margin-top: 4px; font-size: 11px;">Stones Breakdown:</div>
+            ${item.stones.map((s: any) => {
+              const sWt = num(s.weight);
+              const sPcs = num(s.pcs);
+              const sRate = num(s.rate);
+              const sAmt = sWt === 0 ? sPcs * sRate : sWt * sRate;
+              return `
+                <div class="row stone-detail">
+                  <span>- ${s.label || s.name} (${sPcs} pcs / ${sWt} ct)</span>
+                  <span>₹${Math.round(sAmt).toLocaleString('en-IN')}</span>
+                </div>
+              `;
+            }).join('')}
+          ` : ''}
+          
+          <div class="row bold" style="margin-top: 6px; font-size: 13px; border-top: 1px dotted #000; padding-top: 3px;">
+            <span>Item Total:</span>
+            <span>₹${Math.round(itemAmt).toLocaleString('en-IN')}</span>
+          </div>
+          <div class="divider"></div>
+        `;
+      });
+
+      const totalPayable = Math.round(total);
+      const cgstAmt = totalBeforeTax * (num(gstPct) / 200);
+      const sgstAmt = totalBeforeTax * (num(gstPct) / 200);
+      const netAmountTotal = totalBeforeTax + cgstAmt + sgstAmt;
+      const roundOff = totalPayable - netAmountTotal;
+      const roundOffStr = roundOff >= 0 ? `+${roundOff.toFixed(2)}` : `-${Math.abs(roundOff).toFixed(2)}`;
+      const payableWords = numberToWords(totalPayable);
+
+      const htmlContent = `
+        <html>
+          <head>
+            <title>Receipt - ${invoiceNo}</title>
+            <style>
+              * {
+                font-weight: bold !important;
+              }
+              @page {
+                margin: 0;
+              }
+              body {
+                font-family: 'Courier New', Courier, monospace;
+                width: 72mm;
+                margin: 0;
+                padding: 4mm 4mm 8mm 4mm;
+                font-size: 11px;
+                line-height: 1.25;
+                color: #000;
+                background-color: #fff;
+              }
+              .text-center { text-align: center; }
+              .text-right { text-align: right; }
+              .bold { font-weight: bold; }
+              
+              .store-name {
+                font-size: 15px;
+                font-weight: bold;
+                margin-bottom: 2px;
+              }
+              .store-info {
+                font-size: 9px;
+                margin-bottom: 8px;
+              }
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 6px 0;
+              }
+              .double-divider {
+                border-top: 2px double #000;
+                margin: 6px 0;
+              }
+              .row {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 3px;
+              }
+              .stone-detail {
+                font-size: 9.5px;
+                padding-left: 8px;
+                color: #333;
+              }
+              .total-section {
+                font-size: 13px;
+                font-weight: bold;
+              }
+              .footer-msg {
+                font-size: 9.5px;
+                text-align: center;
+                margin-top: 15px;
+              }
+              
+              @media print {
+                body {
+                  width: 72mm;
+                  padding: 2mm 2mm 6mm 2mm;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            
+            <div class="text-center">
+              <div class="store-name">MOKSHA JEWELS</div>
+              <div class="store-info">
+                PINNAMANENI POLYCLINIC ROAD,<br/>
+                SIDDHARTHA NAGAR, VIJAYAWADA
+              </div>
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="row"><strong>TYPE:</strong> <span>${invoiceNo.startsWith('EST') ? 'ESTIMATE (NO TAX)' : 'TAX INVOICE'}</span></div>
+            <div class="row"><strong>NUMBER:</strong> <span>${invoiceNo}</span></div>
+            <div class="row"><strong>DATE:</strong> <span>${formattedDate.split(',')[0]}</span></div>
+            <div class="row"><strong>TIME:</strong> <span>${formattedDate.split(',')[1] || ''}</span></div>
+            <div class="row"><strong>CUSTOMER:</strong> <span>${customerName}</span></div>
+            ${customerPhone !== 'N/A' ? `<div class="row"><strong>PHONE:</strong> <span>${customerPhone}</span></div>` : ''}
+            
+            <div class="divider"></div>
+            
+            ${itemsHtml}
+            
+            <div class="row"><span>Sub-Total:</span> <span>₹${Math.round(totalBeforeTax).toLocaleString('en-IN')}</span></div>
+            <div class="row"><span>CGST@ ${(num(gstPct)/2).toFixed(2)}%:</span> <span>₹${Math.round(cgstAmt).toLocaleString('en-IN')}</span></div>
+            <div class="row"><span>SGST@ ${(num(gstPct)/2).toFixed(2)}%:</span> <span>₹${Math.round(sgstAmt).toLocaleString('en-IN')}</span></div>
+            <div class="row"><span>Round Off:</span> <span>${roundOffStr}</span></div>
+            
+            <div class="double-divider"></div>
+            
+            <div class="row total-section">
+              <span>GRAND TOTAL:</span>
+              <span>₹${totalPayable.toLocaleString('en-IN')}</span>
+            </div>
+            
+            <div class="double-divider"></div>
+            
+            <div style="font-size: 9.5px; margin-bottom: 6px; line-height: 1.3;">
+              <strong>In Words:</strong> ${payableWords}
+            </div>
+            <div class="row" style="font-size: 9.5px;"><strong>Pay Mode:</strong> <span>${paymentMode}</span></div>
+            <div class="row" style="font-size: 9.5px;"><strong>Salesman:</strong> <span>${soldBy}</span></div>
+            
+            <div class="divider"></div>
+            
+            <div style="display: flex; justify-content: space-between; margin-top: 30px; font-size: 9.5px;">
+              <div style="border-top: 1px dashed #000; width: 100px; text-align: center; padding-top: 4px;">Customer Sign</div>
+              <div style="border-top: 1px dashed #000; width: 100px; text-align: center; padding-top: 4px;">Authorized Sign</div>
+            </div>
+            
+            <div class="footer-msg">
+              Thank you for shopping with us!<br/>
+              Moksha Jewels Gold & Diamonds LLP
+            </div>
+            
+            <script>
+              window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `;
+
+      if (Platform.OS === 'web') {
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+        }
+      } else {
+        const filename = `${FileSystem.documentDirectory}Invoice_${invoiceNo}.html`;
+        await FileSystem.writeAsStringAsync(filename, htmlContent, { encoding: FileSystem.EncodingType.UTF8 });
+        await Sharing.shareAsync(filename);
+      }
+    } catch (e: any) {
+      Alert.alert('Print Failed', e.message);
+    }
+  };
+
+  const printInvoiceReceipt = async () => {
+    if (!soldInvoiceData) return;
+    const record = {
+      ...soldInvoiceData,
+      items: [{
+        name: soldInvoiceData.itemName,
+        sku: soldInvoiceData.sku,
+        purity: soldInvoiceData.purity,
+        grossWt: soldInvoiceData.grossWt,
+        netWt: soldInvoiceData.netWt,
+        goldRate: soldInvoiceData.goldRate,
+        wastage: soldInvoiceData.wastage,
+        goldValue: soldInvoiceData.goldValue,
+        stonesTotal: soldInvoiceData.stonesTotal,
+        makingCharges: soldInvoiceData.makingGoldAmt,
+        certCharges: soldInvoiceData.certCharges,
+        otherCharges: 0,
+        discount: 0,
+        subTotal: soldInvoiceData.subTotal,
+        total: soldInvoiceData.total,
+        stones: dynamicStones.map(s => ({
+          label: s.label,
+          weight: num(s.weight),
+          pcs: num(s.pcs),
+          rate: num(s.rate),
+          category: s.category
+        }))
+      }]
+    };
+    await printInvoiceReceiptHelper(record);
+  };
+
+  const printEstimateWithoutSaving = async () => {
+    try {
+      const record = {
+        invoiceNo: 'EST-' + Math.floor(100000 + Math.random() * 900000),
+        date: new Date().toISOString(),
+        customerName: 'Estimate Customer',
+        customerPhone: 'N/A',
+        items: [{
+          name: calcData.name,
+          sku: item.sku || 'N/A',
+          purity: calcData.purity,
+          grossWt: num(calcData.gross_wt),
+          netWt: num(calcData.net_wt),
+          goldRate: goldRate,
+          wastage: num(calcData.wastage_pct),
+          goldValue: goldValue,
+          stonesTotal: stonesTotal,
+          makingCharges: makingGoldAmt,
+          certCharges: certCharges,
+          otherCharges: 0,
+          discount: 0,
+          subTotal: subTotal,
+          total: totalINR,
+          stones: dynamicStones.map(s => ({
+            label: s.label,
+            weight: num(s.weight),
+            pcs: num(s.pcs),
+            rate: num(s.rate),
+            category: s.category
+          }))
+        }],
+        subTotal: subTotal,
+        gstPct: num(calcData.tax_pct),
+        gstAmt: subTotal * (num(calcData.tax_pct) / 100),
+        discount: 0,
+        total: totalINR,
+        paymentMode: 'Estimate',
+        soldBy: 'N/A'
+      };
+
+      await printInvoiceReceiptHelper(record);
+    } catch (e: any) {
+      Alert.alert('Print Error', e.message);
+    }
   };
 
   const formatNum = (v: number) => v === 0 ? '0' : v.toLocaleString('en-IN', { maximumFractionDigits: 3, minimumFractionDigits: 0 });
@@ -574,7 +1254,7 @@ export default function EstimationScreen({ route, navigation }: any) {
                 </Text>
               </View>
             </View>
-            {isLoss && (
+        {isLoss && (
               <View style={styles.lossWarning}>
                 <TrendingDown size={14} color={Theme.colors.status.error} />
                 <Text style={styles.lossWarningText}>Currently selling at a loss</Text>
@@ -584,6 +1264,274 @@ export default function EstimationScreen({ route, navigation }: any) {
         )}
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* Sell sticky footer for admin & staff */}
+      <View style={[styles.footerContainer, { flexDirection: 'row', gap: 10 }]}>
+        <TouchableOpacity 
+          style={[styles.sellBtn, { flex: 1, backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.primary }]} 
+          onPress={printEstimateWithoutSaving}
+        >
+          <Printer size={18} color={Theme.colors.primary} />
+          <Text style={[styles.sellBtnText, { color: Theme.colors.primary }]}>Print Estimate</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.sellBtn, { flex: 1.3 }]} 
+          onPress={() => {
+            setSaleAmount(Math.round(totalINR).toString());
+            setShowSellModal(true);
+          }}
+        >
+          <ShoppingBag size={18} color="black" />
+          <Text style={styles.sellBtnText}>Invoice & Sell</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Billing Sell Modal */}
+      <Modal visible={showSellModal} transparent animationType="fade">
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.sellModalOverlay}>
+            <View style={styles.sellModalContent}>
+              <View style={styles.sellHeader}>
+                <Text style={styles.modalTitle}>Confirm ERP Billing</Text>
+                <TouchableOpacity onPress={() => setShowSellModal(false)}>
+                  <X size={24} color={Theme.colors.text.secondary} />
+                </TouchableOpacity>
+              </View>
+              
+              <ScrollView style={styles.sellBody} showsVerticalScrollIndicator={false}>
+                <Text style={[styles.formLabel, { color: Theme.colors.primary }]}>ITEM: {calcData.name}</Text>
+                
+                <Text style={styles.formLabel}>Customer Name</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="Walk-in Customer" 
+                    placeholderTextColor={Theme.colors.text.muted}
+                    value={customerName}
+                    onChangeText={setCustomerName}
+                  />
+                </View>
+
+                <Text style={styles.formLabel}>Customer Phone</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput 
+                    style={styles.input} 
+                    placeholder="N/A" 
+                    placeholderTextColor={Theme.colors.text.muted}
+                    keyboardType="numeric"
+                    value={customerPhone}
+                    onChangeText={setCustomerPhone}
+                  />
+                </View>
+
+                <Text style={styles.formLabel}>Sale Amount (₹)</Text>
+                <View style={[styles.inputWrapper, { borderWidth: 2, borderColor: Theme.colors.primary }]}>
+                  <IndianRupee size={16} color={Theme.colors.primary} style={{ marginRight: 6 }} />
+                  <TextInput 
+                    style={[styles.input, { fontSize: 18, fontWeight: '800', color: Theme.colors.text.primary }]}
+                    keyboardType="numeric"
+                    placeholder="0"
+                    placeholderTextColor={Theme.colors.text.muted}
+                    value={saleAmount}
+                    onChangeText={setSaleAmount}
+                  />
+                </View>
+
+                <Text style={styles.formLabel}>Payment Mode</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 12 }}>
+                  {['Cash', 'UPI/Bank', 'Card', 'Gold Exchange'].map((mode) => (
+                    <TouchableOpacity 
+                      key={mode} 
+                      style={[
+                        styles.staffSelectBtn, 
+                        paymentMode === mode && styles.staffSelectBtnActive,
+                        { flex: 1, justifyContent: 'center', marginRight: 0, paddingVertical: 6 }
+                      ]}
+                      onPress={() => setPaymentMode(mode as any)}
+                    >
+                      <Text style={[
+                        styles.staffSelectText,
+                        paymentMode === mode && styles.staffSelectTextActive,
+                        { fontSize: 9 }
+                      ]}>{mode}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={styles.formLabel}>Select Staff</Text>
+                <View style={{ minHeight: 45, marginBottom: 12 }}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    {employees.map((emp) => (
+                      <TouchableOpacity 
+                        key={emp.name}
+                        style={[
+                          styles.staffSelectBtn, 
+                          selectedEmployees.includes(emp.name) && styles.staffSelectBtnActive,
+                          { paddingVertical: 6 }
+                        ]}
+                        onPress={() => {
+                          setSelectedEmployees(prev => 
+                            prev.includes(emp.name) 
+                              ? prev.filter(n => n !== emp.name) 
+                              : [...prev, emp.name]
+                          );
+                        }}
+                      >
+                        <User size={12} color={selectedEmployees.includes(emp.name) ? Theme.colors.text.black : Theme.colors.text.secondary} />
+                        <Text style={[
+                          styles.staffSelectText,
+                          selectedEmployees.includes(emp.name) && styles.staffSelectTextActive,
+                        ]}>{emp.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.saveButton, (selling || selectedEmployees.length === 0) && { opacity: 0.7 }]}
+                  onPress={handleSell}
+                  disabled={selling || selectedEmployees.length === 0}
+                >
+                  {selling ? <ActivityIndicator color={Theme.colors.text.black} /> : <ShoppingBag size={18} color={Theme.colors.text.black} />}
+                  <Text style={styles.saveButtonText}>Confirm & Generate Receipt</Text>
+                </TouchableOpacity>
+                <View style={{ height: 40 }} />
+              </ScrollView>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Receipt Preview Modal */}
+      <Modal visible={showReceiptModal} transparent animationType="slide">
+        <View style={styles.sellModalOverlay}>
+          <View style={styles.sellModalContent}>
+            <View style={styles.sellHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <CheckCircle2 size={20} color={Theme.colors.status.success} />
+                <Text style={[styles.modalTitle, { color: Theme.colors.status.success }]}>Billed Successfully!</Text>
+              </View>
+              <TouchableOpacity onPress={() => { setShowReceiptModal(false); navigation.goBack(); }}>
+                <X size={24} color={Theme.colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.receiptScroll} showsVerticalScrollIndicator={false}>
+              <Text style={styles.receiptStoreName}>MOKSHA JEWELS VJA</Text>
+              <Text style={styles.receiptStoreSub}>TAX INVOICE / RECEIPT</Text>
+
+              {soldInvoiceData && (
+                <>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Invoice No:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.invoiceNo}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Date:</Text>
+                    <Text style={styles.receiptValue}>{new Date(soldInvoiceData.date).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Customer:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.customerName}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Phone:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.customerPhone}</Text>
+                  </View>
+
+                  <View style={styles.receiptDivider} />
+                  <Text style={styles.receiptHeader}>ITEM PARTICULARS</Text>
+                  
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Item Name:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.itemName}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>SKU:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.sku}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Purity:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.purity}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Gross Wt:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.grossWt}g</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Net Wt:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.netWt}g</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Gold Rate:</Text>
+                    <Text style={styles.receiptValue}>₹{soldInvoiceData.goldRate.toLocaleString()}/g</Text>
+                  </View>
+
+                  <View style={styles.receiptDivider} />
+                  <Text style={styles.receiptHeader}>BILL SUMMARY</Text>
+                  
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Gold Value (incl Wst):</Text>
+                    <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.goldValue).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Stones Total:</Text>
+                    <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.stonesTotal).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Making charges:</Text>
+                    <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.makingGoldAmt).toLocaleString()}</Text>
+                  </View>
+                  {soldInvoiceData.certCharges > 0 && (
+                    <View style={styles.receiptRow}>
+                      <Text style={styles.receiptLabel}>Certification:</Text>
+                      <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.certCharges).toLocaleString()}</Text>
+                    </View>
+                  )}
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Sub-Total:</Text>
+                    <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.subTotal).toLocaleString()}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>GST ({soldInvoiceData.gstPct}%):</Text>
+                    <Text style={styles.receiptValue}>₹{Math.round(soldInvoiceData.gstAmt).toLocaleString()}</Text>
+                  </View>
+
+                  <View style={styles.receiptTotalRow}>
+                    <Text style={styles.receiptTotalLabel}>GRAND TOTAL</Text>
+                    <Text style={styles.receiptTotalValue}>₹{Math.round(soldInvoiceData.total).toLocaleString()}</Text>
+                  </View>
+
+                  <View style={styles.receiptDivider} />
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Payment Mode:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.paymentMode}</Text>
+                  </View>
+                  <View style={styles.receiptRow}>
+                    <Text style={styles.receiptLabel}>Billed By:</Text>
+                    <Text style={styles.receiptValue}>{soldInvoiceData.soldBy}</Text>
+                  </View>
+                </>
+              )}
+              <View style={{ height: 40 }} />
+            </ScrollView>
+
+            <View style={{ padding: 15, borderTopWidth: 1, borderTopColor: Theme.colors.border, flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              <TouchableOpacity style={[styles.saveButton, { flex: 1, minWidth: 100 }]} onPress={printInvoiceReceipt}>
+                <Printer size={16} color="black" />
+                <Text style={styles.saveButtonText}>Print Invoice</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveButton, { flex: 1, minWidth: 100, backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border }]} onPress={shareReceipt}>
+                <Share2 size={16} color={Theme.colors.text.primary} />
+                <Text style={[styles.saveButtonText, { color: Theme.colors.text.primary }]}>Share Text</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveButton, { flex: 1, minWidth: 100, backgroundColor: Theme.colors.status.success }]} onPress={() => { setShowReceiptModal(false); navigation.goBack(); }}>
+                <Text style={styles.saveButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }

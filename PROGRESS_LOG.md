@@ -1,22 +1,22 @@
-# Daily Progress Report - June 12, 2026
+# Daily Progress Report - June 26, 2026
 
 ## Today's Accomplishments
 
 | S.no | Task Description | Status | Challenges/Issues | Next Steps | Steps/Remarks | Support required |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Fix `ErrorBoundary.tsx` | Completed | TypeScript error: `this.children` vs `this.props.children` | Verified | Corrected property access in class component. | None |
-| 2 | Clean up debug logs | Completed | Residual `console.log` in `ItemFolderModal.tsx` | Verified | Removed development logs to keep production code clean. | None |
-| 3 | Full Project Type Check | Completed | `tsc` memory limit exceeded for full project | Manual verification | Ran individual `tsc` checks on all screens and components to ensure stability. | None |
-| 4 | Initial Performance Tuning | Completed | iOS Web page reloads due to memory pressure | Implement two-tier loading | Implemented `expo-image-manipulator` for uploads and tuned `FlatList` virtualization. | None |
-| 5 | Research Bulk Update SQL | Completed | Need to handle many items efficiently | Assist with re-upload | Analyzed schema and prepared batch `UPDATE` SQL templates. | None |
+| 1 | Cashier & Inventory User Roles | Completed | Updating database check constraints and front-end navigation tabs | Verified | Added 'cashier' (Cash Counter) and 'inventory' roles to app_users. Configured navigation bar in App.tsx to hide Items tab from cashier, and Billing/Sign tabs from inventory users. Updated UserManagementModal to support adding and editing these roles. | None |
+| 2 | Android SecureStore and List Optimizations | Completed | Android Keystore size limits and FlatList re-render lag | Verified | Pruned recent activity cache payload to stay under 2048 bytes; optimized FlatList renderItem callback to be stable using refs, preventing full list re-renders. | None |
 
-## Plan for Tomorrow (June 13, 2026)
+# Daily Progress Report - June 25, 2026
 
-| S.no | Task Description | Status | Challenges/Issues | Remarks | Support required |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | Two-Tier Image Strategy | Completed | Ensuring list vs. detail quality difference | Implemented low-res thumbnails (200px) in list/search, high-res (1024px) in detail. | Verified |
-| 2 | List Virtualization Fix | Completed | iOS Web page reloads due to memory pressure | Refactored global search ScrollView to FlatList with flattened data. | Verified |
-| 3 | Dedicated Thumbnail Bucket | Completed | Organizing storage for efficiency | Created 'item-thumbnails' bucket and updated upload logic. | Verified |
-| 4 | Bulk Image Update | Pending | Processing large quantity of images | User to process locally; I will assist with SQL/upload script. | User local processing |
-| 5 | Memory Stress Test | Pending | iOS Safari memory constraints | Verify page stability after image optimization. | Testing on iOS device |
-| 6 | Pagination Implementation | Completed | Potential for large state objects | Implemented server-side limit/offset range pagination using .range() and onEndReached scrolling. Stats are computed from light metadata to maintain efficiency. | Verified |
+## Today's Accomplishments
+
+| S.no | Task Description | Status | Challenges/Issues | Next Steps | Steps/Remarks | Support required |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | Single-Line Billing Bar | Completed | Balancing widths and aligning dividers for side-by-side elements in a single utility input bar | Verified | Replaced the cards with a unified horizontal input bar combining SKU lookup, Customer Name, and Mobile Number. | None |
+| 2 | Unified ERP Billing Table | Completed | Formatting 18 columns horizontally and adding inline editable ornament fields | Verified | Expanded table to include 18 standard ERP columns (Gross/Net Wt, Metal Rate/Amt, Lab Rate/Amt, Stone cost, Ot. Charge, CGST/SGST/IGST, and HUID) matching unnamed.png. Double-tapping any row opens the detailed worksheet modal allowing edits to Gold weights, HUID, labor, and stones. | None |
+| 3 | Multi-Item Billing Support | Completed | Single item overwritten on successive SKU entry | Verified | Refactored BillingScreen to support a cart system enabling multi-item sales, itemized worksheets, and detailed invoice receipts. | None |
+| 4 | Memory Stress Test | Completed | iOS Safari memory constraints | Fixed OptimizedImage recycled component bug, immediately unmounted off-screen images, and filtered activeIds to visible-only set. | Verified |
+| 5 | Pagination Implementation | Completed | Potential for large state objects | Implemented server-side limit/offset range pagination using .range() and onEndReached scrolling. | Verified |
+| 6 | A4 Tax Invoice Printing | Completed | Matching column formulas, Indian numbering words converter, and CSS styles precisely to 50.PDF | Verified | Integrated a complete A4-styled tax invoice template for web printing, featuring gold crown SVG header, detailed metadata panel, 10 item columns (Description, HSN, Purity, Gross/Net/Dia/Stone weights, gold rate, VA, and Amount), and split taxes/round-off. | None |
+| 7 | Full Project Type Check | Completed | `tsc` memory limit exceeded for full project | Manual verification | Ran individual `tsc` checks on screens to ensure stability. | None |

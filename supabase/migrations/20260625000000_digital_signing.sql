@@ -1,4 +1,6 @@
--- 1. Create public.documents table for digital signing
+-- Migration to create the documents table, insert initial data, configure storage bucket, and set RLS policies
+
+-- 1. Create public.documents table
 CREATE TABLE IF NOT EXISTS public.documents (
   id uuid NOT NULL DEFAULT gen_random_uuid (),
   customer_name text NOT NULL,

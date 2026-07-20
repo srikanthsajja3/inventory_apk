@@ -608,7 +608,7 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
               onChangeText={v => setForm({...form, password: v})} 
               placeholderTextColor={Theme.colors.text.muted}
             />
-            <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
                 <TouchableOpacity 
                     style={[styles.roleBtn, form.role === 'admin' && styles.roleBtnActive]} 
                     onPress={() => setForm({...form, role: 'admin'})}
@@ -620,6 +620,20 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
                     onPress={() => setForm({...form, role: 'staff'})}
                 >
                     <Text style={[styles.roleBtnText, form.role === 'staff' && styles.roleBtnTextActive]}>Staff</Text>
+                </TouchableOpacity>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <TouchableOpacity 
+                    style={[styles.roleBtn, form.role === 'cashier' && styles.roleBtnActive]} 
+                    onPress={() => setForm({...form, role: 'cashier'})}
+                >
+                    <Text style={[styles.roleBtnText, form.role === 'cashier' && styles.roleBtnTextActive]}>Cash Counter</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                    style={[styles.roleBtn, form.role === 'inventory' && styles.roleBtnActive]} 
+                    onPress={() => setForm({...form, role: 'inventory'})}
+                >
+                    <Text style={[styles.roleBtnText, form.role === 'inventory' && styles.roleBtnTextActive]}>Inventory</Text>
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.userAddBtn} onPress={handleSave}>
                     <UserPlus size={20} color={Theme.colors.text.black} />
@@ -633,7 +647,9 @@ const UserManagementModal = ({ isVisible, onClose }: any) => {
             renderItem={({ item }) => (
               <View style={styles.userRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.userRowName}>{item.username} <Text style={styles.userRowRole}>({item.role})</Text></Text>
+                  <Text style={styles.userRowName}>
+                    {item.username} <Text style={styles.userRowRole}>({item.role === 'cashier' ? 'Cash Counter' : item.role === 'inventory' ? 'Inventory' : item.role})</Text>
+                  </Text>
                   <Text style={styles.userRowPass}>PW: {item.password}</Text>
                 </View>
                 <TouchableOpacity onPress={() => toggleStatus(item)}>
@@ -780,11 +796,19 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
       setStats(finalStats);
       setCalculatingValue(false);
 
-      // 3. Save everything to cache for next load
+      // 3. Save everything to cache for next load (prune heavy fields to stay under SecureStore size limits)
+      const prunedActivity = activity.map((act: any) => ({
+        id: act.id,
+        type: act.type,
+        quantity_changed: act.quantity_changed,
+        created_at: act.created_at,
+        items: act.items ? { name: act.items.name } : null
+      }));
+
       const cacheData = JSON.stringify({
         stats: finalStats,
         staff: sortedStaff,
-        activity: activity,
+        activity: prunedActivity,
         timestamp: Date.now()
       });
 

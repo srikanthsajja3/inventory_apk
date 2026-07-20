@@ -489,18 +489,18 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
       }
 
       try {
-        // 1. Prepare Original (Compressed)
+        // 1. Prepare Original (Compressed) and request base64
         const manipulatedImage = await ImageManipulator.manipulateAsync(
           asset.uri,
           [{ resize: { width: 1024 } }], 
-          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
 
-        // 2. Prepare Thumbnail (Small)
+        // 2. Prepare Thumbnail (Small) and request base64
         const thumbnailImage = await ImageManipulator.manipulateAsync(
           asset.uri,
           [{ resize: { width: 200 } }], 
-          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
+          { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
         );
 
         const timestamp = Date.now();
@@ -508,18 +508,21 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         const fileName = `${timestamp}_${randomStr}.jpg`;
         const thumbFileName = `thumb_${timestamp}_${randomStr}.jpg`;
 
-        const uploadFile = async (uri: string, name: string, bucket: string) => {
+        const uploadFile = async (uri: string, base64Str: string | undefined, name: string, bucket: string) => {
           const filePath = `items/${name}`;
           let fileData;
-          let contentType = 'image/jpeg';
+          const contentType = 'image/jpeg';
 
           if (Platform.OS === 'web') {
             const res = await fetch(uri);
             fileData = await res.blob();
-            contentType = fileData.type || 'image/jpeg';
           } else {
-            const res = await fetch(uri);
-            fileData = await res.blob();
+            if (base64Str) {
+              fileData = decode(base64Str);
+            } else {
+              const res = await fetch(uri);
+              fileData = await res.blob();
+            }
           }
 
           const { error } = await supabase.storage
@@ -540,14 +543,15 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
         };
 
         const [publicUrl, thumbUrl] = await Promise.all([
-          uploadFile(manipulatedImage.uri, fileName, 'item-images'),
-          uploadFile(thumbnailImage.uri, thumbFileName, 'item-thumbnails')
+          uploadFile(manipulatedImage.uri, manipulatedImage.base64, fileName, 'item-images'),
+          uploadFile(thumbnailImage.uri, thumbnailImage.base64, thumbFileName, 'item-thumbnails')
         ]);
 
         uploadedUrls.push(publicUrl);
         thumbnailUrls.push(thumbUrl);
       } catch (error) {
         console.error('Upload error:', error);
+        throw error;
       }
     }
 

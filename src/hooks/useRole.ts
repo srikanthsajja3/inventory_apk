@@ -4,7 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 export function useRole() {
-  const [role, setRoleState] = useState<'admin' | 'staff' | null>(null);
+  const [role, setRoleState] = useState<'admin' | 'staff' | 'cashier' | 'inventory' | null>(null);
   const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export function useRole() {
       if (savedUserJson) {
         const mockUser = JSON.parse(savedUserJson);
         setUser(mockUser);
-        setRoleState(mockUser.role as 'admin' | 'staff');
+        setRoleState(mockUser.role as any);
       } else {
         setUser(null);
         setRoleState(null);
@@ -75,7 +75,7 @@ export function useRole() {
       }
 
       setUser(userData);
-      setRoleState(userData.role as 'admin' | 'staff');
+      setRoleState(userData.role as any);
       return { error: null };
 
     } catch (err: any) {

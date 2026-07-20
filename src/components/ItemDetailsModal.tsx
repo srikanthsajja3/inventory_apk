@@ -611,6 +611,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [selling, setSelling] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
+  const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI/Bank' | 'Card' | 'Gold Exchange'>('Cash');
   const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
   const { role, user } = useRole();
 
@@ -695,7 +696,7 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
       const estimatedCost = calculateEstimation(item);
       const profitLoss = amount - estimatedCost;
 
-      const { error: saleError } = await supabase
+      const { error: saleError } = await (supabase as any)
         .from('sales')
         .insert([{
           item_id: item.id,
@@ -704,17 +705,38 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
           prc_amount: estimatedCost,
           sale_amount: amount,
           profit_loss: profitLoss,
+          payment_mode: paymentMode,
           sold_by: staffNames,
           sold_at: new Date().toISOString()
         }]);
 
       if (saleError) throw saleError;
 
+      // Update item quantity to 0 (sold out)
+      const { error: itemUpdateError } = await supabase
+        .from('items')
+        .update({ quantity: 0 })
+        .eq('id', item.id);
+
+      if (itemUpdateError) throw itemUpdateError;
+
       await supabase.from('transactions').insert([{
         item_id: item.id,
         type: 'OUT',
         quantity_changed: 1,
-        reason: `Sold for ₹${amount.toLocaleString()} by ${staffNames}`
+        reason: `Sold for ₹${amount.toLocaleString()} by ${staffNames} via ${paymentMode}`
+      }]);
+
+      // Record transaction in accounts ledger (INFLOW)
+      await (supabase as any).from('accounts_ledger').insert([{
+        entry_date: new Date().toISOString().split('T')[0],
+        description: `Sale of ${item.name} (SKU: ${item.sku || 'N/A'})`,
+        type: 'INFLOW',
+        category: 'Sale',
+        payment_mode: paymentMode,
+        amount: amount,
+        gold_weight_g: 0,
+        recorded_by: staffNames
       }]);
 
       Alert.alert('Success', `Item sold for ₹${amount.toLocaleString()}`);
@@ -926,7 +948,28 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                   />
                 </View>
 
-                <Text style={[styles.detailLabel, { marginTop: 15, marginBottom: 8, fontSize: 12 }]}>SELECT STAFF</Text>
+                <Text style={[styles.detailLabel, { marginTop: 15, marginBottom: 8, fontSize: 12 }]}>PAYMENT MODE</Text>
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 10 }}>
+                  {['Cash', 'UPI/Bank', 'Card', 'Gold Exchange'].map((mode) => (
+                    <TouchableOpacity 
+                      key={mode} 
+                      style={[
+                        styles.staffSelectBtn, 
+                        paymentMode === mode && styles.staffSelectBtnActive,
+                        { flex: 1, justifyContent: 'center', marginRight: 0, paddingVertical: 6 }
+                      ]}
+                      onPress={() => setPaymentMode(mode as any)}
+                    >
+                      <Text style={[
+                        styles.staffSelectText,
+                        paymentMode === mode && styles.staffSelectTextActive,
+                        { fontSize: 9 }
+                      ]}>{mode}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Text style={[styles.detailLabel, { marginTop: 10, marginBottom: 8, fontSize: 12 }]}>SELECT STAFF</Text>
                 <View style={{ minHeight: 45 }}>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     {employees.length > 0 ? (

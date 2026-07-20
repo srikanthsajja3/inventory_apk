@@ -661,6 +661,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   
   const [activeIds, setActiveIds] = useState<Set<string>>(new Set());
+  const activeIdsRef = React.useRef(new Set<string>());
   const isScrolling = React.useRef(false);
   const viewableIds = React.useRef(new Set<string>());
   const lastProcessedIds = React.useRef<string>('');
@@ -681,26 +682,42 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
     if (sequentialTimer.current) clearInterval(sequentialTimer.current);
     
-    // Filter out items that are already processed or currently active
-    // We use a functional check inside the interval for activeIds
-    const pendingIds = idsToLoad; 
+    const visibleSet = new Set(idsToLoad);
+    const currentActive = activeIdsRef.current;
+    
+    // 1. Keep currently active ones that are still visible
+    const nextActive = new Set<string>();
+    currentActive.forEach(id => {
+      if (visibleSet.has(id)) {
+        nextActive.add(id);
+      }
+    });
+    
+    // Update the state and ref immediately
+    activeIdsRef.current = nextActive;
+    setActiveIds(nextActive);
+
+    // 2. Identify pending IDs
+    const pendingIds = idsToLoad.filter(id => !nextActive.has(id));
     if (pendingIds.length === 0) return;
 
     let index = 0;
     sequentialTimer.current = setInterval(() => {
       if (index >= pendingIds.length) {
-        clearInterval(sequentialTimer.current);
-        sequentialTimer.current = null;
+        if (sequentialTimer.current) {
+          clearInterval(sequentialTimer.current);
+          sequentialTimer.current = null;
+        }
         return;
       }
 
       const nextId = pendingIds[index];
-      setActiveIds(prev => {
-        if (prev.has(nextId)) return prev;
-        const next = new Set(prev);
-        next.add(nextId);
-        return next;
-      });
+      if (!activeIdsRef.current.has(nextId)) {
+        const updated = new Set<string>(activeIdsRef.current);
+        updated.add(nextId);
+        activeIdsRef.current = updated;
+        setActiveIds(updated);
+      }
       index++;
     }, 100); // Faster 100ms delay
   }, []);
@@ -815,7 +832,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       let supabaseQuery = supabase
         .from('items')
-        .select('*');
+        .select('*')
+        .gt('quantity', 0);
 
       if (isNumeric) {
         const weight = parseFloat(searchTerm);
@@ -907,7 +925,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const [settingsRes, catRes] = await Promise.all([
         supabase.from('master_rates').select('*'),
         isVirtual
-          ? Promise.resolve({ data: [], error: null })
+          ? Promise.resolve({ data: [] as any[], error: null })
           : parentId 
             ? supabase.from('categories').select('*').eq('parent_id', parentId).order('name')
             : supabase.from('categories').select('*').is('parent_id', null).order('name')
@@ -967,14 +985,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       // Fetch all items (minimal columns) in normal folder for stats computation
       let statsQuery = parentId
         ? supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
-            .eq('category_id', parentId)
+            .eq('category_id', parentId).gt('quantity', 0)
         : supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
-            .is('category_id', null);
+            .is('category_id', null).gt('quantity', 0);
 
       // Fetch first page of items (all columns) in normal folder for rendering
       let itemsQuery = parentId
-        ? supabase.from('items').select('*').eq('category_id', parentId)
-        : supabase.from('items').select('*').is('category_id', null);
+        ? supabase.from('items').select('*').eq('category_id', parentId).gt('quantity', 0)
+        : supabase.from('items').select('*').is('category_id', null).gt('quantity', 0);
 
       if (selectedLocation !== 'All Locations') {
         statsQuery = statsQuery.eq('location', selectedLocation);
@@ -1049,8 +1067,8 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         error = res.error;
       } else {
         let itemsQuery = parentId
-          ? supabase.from('items').select('*').eq('category_id', parentId)
-          : supabase.from('items').select('*').is('category_id', null);
+          ? supabase.from('items').select('*').eq('category_id', parentId).gt('quantity', 0)
+          : supabase.from('items').select('*').is('category_id', null).gt('quantity', 0);
 
         if (selectedLocation !== 'All Locations') {
           itemsQuery = itemsQuery.eq('location', selectedLocation);
@@ -1168,6 +1186,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
     fetchContents();
     setSelectionMode(false);
     setSelectedIds(new Set());
+    setActiveIds(new Set());
+    activeIdsRef.current = new Set();
+    lastProcessedIds.current = '';
     
     if (Platform.OS === 'web') {
       const url = new URL(window.location.href);
@@ -1297,26 +1318,47 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
   const numColumns = viewMode === 'grid' ? (containerWidth > 1800 ? 12 : containerWidth > 1400 ? 10 : containerWidth > 1000 ? 8 : containerWidth > 700 ? 6 : containerWidth > 500 ? 4 : 3) : 1;
 
+  const selectedIdsRef = React.useRef(selectedIds);
+  const selectionModeRef = React.useRef(selectionMode);
+  const viewModeRef = React.useRef(viewMode);
+  const roleRef = React.useRef(role);
+
+  React.useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+    selectionModeRef.current = selectionMode;
+    viewModeRef.current = viewMode;
+    roleRef.current = role;
+  }, [selectedIds, selectionMode, viewMode, role]);
+
   const renderItem = React.useCallback(({ item }: any) => {
     if (!item) return null;
     const isFolder = (item.sku === undefined && item.barcode === undefined);
-    const isSelected = selectedIds.has(item.id);
+    const isSelected = selectedIdsRef.current.has(item.id);
     return isFolder ? (
-      <FolderCard item={item} onNavigate={navigateToFolder} onShowOptions={handleShowOptions} selectionMode={selectionMode} isSelected={isSelected} onSelect={toggleSelect} viewMode={viewMode} role={role} />
+      <FolderCard 
+        item={item} 
+        onNavigate={navigateToFolder} 
+        onShowOptions={handleShowOptions} 
+        selectionMode={selectionModeRef.current} 
+        isSelected={isSelected} 
+        onSelect={toggleSelect} 
+        viewMode={viewModeRef.current} 
+        role={roleRef.current} 
+      />
     ) : (
       <ItemCard 
         item={item} 
         onShowOptions={handleShowOptions} 
         onPress={showDetails} 
-        selectionMode={selectionMode} 
+        selectionMode={selectionModeRef.current} 
         isSelected={isSelected} 
         onSelect={toggleSelect} 
-        viewMode={viewMode} 
-        role={role} 
-        shouldLoad={activeIds.has(item.id)}
+        viewMode={viewModeRef.current} 
+        role={roleRef.current} 
+        shouldLoad={activeIdsRef.current.has(item.id)}
       />
     );
-  }, [selectedIds, selectionMode, viewMode, role, activeIds, navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
+  }, [navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
 
   const combinedData = React.useMemo(() => [...folders, ...filteredItemsList], [folders, filteredItemsList]);
 
@@ -1332,7 +1374,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           <TouchableOpacity onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} style={styles.refreshButton}>{viewMode === 'grid' ? <List size={20} color="white" /> : <LayoutGrid size={20} color="white" />}</TouchableOpacity>
           <TouchableOpacity onPress={toggleSelectionMode} style={[styles.refreshButton, selectionMode && styles.activeSelectionBtn]}><CheckSquare size={20} color={selectionMode ? Theme.colors.text.black : "white"} /></TouchableOpacity>
           <TouchableOpacity onPress={fetchContents} style={styles.refreshButton}><RefreshCcw size={20} color="white" /></TouchableOpacity>
-          {role === 'admin' && <TouchableOpacity style={styles.addButton} onPress={openAddModal}><Plus size={24} color={Theme.colors.text.black} /></TouchableOpacity>}
+          {role !== 'cashier' && <TouchableOpacity style={styles.addButton} onPress={openAddModal}><Plus size={24} color={Theme.colors.text.black} /></TouchableOpacity>}
         </View>
       </View>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, StatusBar, ActivityIndicator, BackHandler, Platform, TextInput, Alert, Image, Modal } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { LayoutDashboard, Package, Scan, History, Users, Settings, Lock, Eye, EyeOff, User as UserIcon, RefreshCw, ShoppingBag } from 'lucide-react-native';
+import { LayoutDashboard, Package, Scan, History, Users, Settings, Lock, Eye, EyeOff, User as UserIcon, RefreshCw, ShoppingBag, Wallet, Receipt, PenTool } from 'lucide-react-native';
 import { useRole } from './src/hooks/useRole';
 import { Theme } from './src/theme';
 
@@ -15,6 +15,9 @@ import GoldRateScreen from './src/screens/GoldRateScreen';
 import StoneMasterScreen from './src/screens/StoneMasterScreen';
 import EstimationScreen from './src/screens/EstimationScreen';
 import SalesScreen from './src/screens/SalesScreen';
+import AccountsScreen from './src/screens/AccountsScreen';
+import BillingScreen from './src/screens/BillingScreen';
+import DigitalSignScreen from './src/screens/DigitalSignScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
 const styles = StyleSheet.create({
@@ -350,6 +353,12 @@ export default function App() {
         return <VendorScreen />;
       case 'sales':
         return <SalesScreen onBack={handleSalesBack} />;
+      case 'accounts':
+        return <AccountsScreen onBack={() => changeTab('dashboard')} />;
+      case 'billing':
+        return <BillingScreen />;
+      case 'sign':
+        return <DigitalSignScreen />;
       default:
         return <DashboardScreen 
           onNavigate={changeTab} 
@@ -385,8 +394,11 @@ export default function App() {
           <View style={styles.tabBar}>
             <NavItem name="dashboard" icon={LayoutDashboard} label="Home" isActive={activeTab === 'dashboard'} onPress={changeTab} />
             <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />
+            {(role === 'admin' || role === 'cashier') && <NavItem name="billing" icon={Receipt} label="Billing" isActive={activeTab === 'billing'} onPress={changeTab} />}
+            {(role === 'admin' || role === 'cashier') && <NavItem name="sign" icon={PenTool} label="Sign" isActive={activeTab === 'sign'} onPress={changeTab} />}
             <NavItem name="scan" icon={Scan} label="Scan" isActive={activeTab === 'scan'} onPress={changeTab} />
             {role === 'admin' && <NavItem name="sales" icon={ShoppingBag} label="Sales" isActive={activeTab === 'sales'} onPress={changeTab} />}
+            {role === 'admin' && <NavItem name="accounts" icon={Wallet} label="Accounts" isActive={activeTab === 'accounts'} onPress={changeTab} />}
             {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" isActive={activeTab === 'vendor'} onPress={changeTab} />}
             {role !== 'admin' && <NavItem name="history" icon={History} label="History" isActive={activeTab === 'history'} onPress={changeTab} />}
           </View>

@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS public.app_users (
     username TEXT PRIMARY KEY,
     password TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'staff')),
+    role TEXT NOT NULL CHECK (role IN ('admin', 'staff', 'cashier', 'inventory')),
     email TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()

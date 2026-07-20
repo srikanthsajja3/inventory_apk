@@ -27,18 +27,16 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const [error, setError] = useState(false);
   const [loadTriggered, setLoadTriggered] = useState(shouldLoad);
 
-  // Reset states when the source URL changes
+  // Reset states when the source URL or dimensions change
   useEffect(() => {
     setLoading(true);
     setError(false);
-    if (shouldLoad) setLoadTriggered(true);
-  }, [url, width, height, quality]);
+    setLoadTriggered(shouldLoad);
+  }, [url, width, height, quality, shouldLoad]);
 
-  // Trigger load when shouldLoad becomes true
+  // Synchronize loadTriggered with shouldLoad updates (mount/unmount image)
   useEffect(() => {
-    if (shouldLoad && !loadTriggered) {
-      setLoadTriggered(true);
-    }
+    setLoadTriggered(shouldLoad);
   }, [shouldLoad]);
 
   const imageUrl = useMemo(() => {

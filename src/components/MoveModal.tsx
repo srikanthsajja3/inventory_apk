@@ -75,8 +75,7 @@ export default function MoveModal({ isVisible, onClose, onMove, itemsToMove }: M
         const table = item.type === 'folder' ? 'categories' : 'items';
         const column = item.type === 'folder' ? 'parent_id' : 'category_id';
         
-        const { error } = await supabase
-          .from(table)
+        const { error } = await (supabase.from(table) as any)
           .update({ [column]: destinationId })
           .eq('id', item.id);
         
