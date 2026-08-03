@@ -12,7 +12,7 @@ export function useRole() {
   const refreshRole = useCallback(async () => {
     try {
       setLoading(true);
-      let savedUserJson = null;
+      let savedUserJson: string | null = null;
 
       if (Platform.OS === 'web') {
         savedUserJson = localStorage.getItem('mock_user');
