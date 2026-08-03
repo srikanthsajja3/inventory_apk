@@ -1332,7 +1332,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         onSelect={toggleSelect} 
         viewMode={viewModeRef.current} 
         role={roleRef.current} 
-        shouldLoad={activeIds.has(item.id)}
+        shouldLoad={true}
       />
     );
   }, [navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
