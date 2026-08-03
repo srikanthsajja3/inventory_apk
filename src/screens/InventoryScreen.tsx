@@ -672,90 +672,34 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const isFetching = React.useRef(false);
 
   const viewabilityConfig = React.useRef({
-    itemVisiblePercentThreshold: 50,
-    minimumViewTime: 100,
+    itemVisiblePercentThreshold: 0,
+    minimumViewTime: 0,
   }).current;
 
-  const startSequentialLoad = React.useCallback((idsToLoad: string[]) => {
-    // Only proceed if the set of IDs has actually changed
-    const idsString = idsToLoad.sort().join(',');
-    if (idsString === lastProcessedIds.current) return;
-    lastProcessedIds.current = idsString;
-
-    if (sequentialTimer.current) clearInterval(sequentialTimer.current);
-    
-    const visibleSet = new Set(idsToLoad);
-    const currentActive = activeIdsRef.current;
-    
-    // 1. Keep currently active ones that are still visible
-    const nextActive = new Set<string>();
-    currentActive.forEach(id => {
-      if (visibleSet.has(id)) {
-        nextActive.add(id);
-      }
-    });
-    
-    // Update the state and ref immediately
-    activeIdsRef.current = nextActive;
-    setActiveIds(nextActive);
-
-    // 2. Identify pending IDs
-    const pendingIds = idsToLoad.filter(id => !nextActive.has(id));
-    if (pendingIds.length === 0) return;
-
-    let index = 0;
-    sequentialTimer.current = setInterval(() => {
-      if (index >= pendingIds.length) {
-        if (sequentialTimer.current) {
-          clearInterval(sequentialTimer.current);
-          sequentialTimer.current = null;
-        }
-        return;
-      }
-
-      const nextId = pendingIds[index];
-      if (!activeIdsRef.current.has(nextId)) {
-        const updated = new Set<string>(activeIdsRef.current);
-        updated.add(nextId);
-        activeIdsRef.current = updated;
-        setActiveIds(updated);
-      }
-      index++;
-    }, 100); // Faster 100ms delay
-  }, []);
-
-  const handleScrollEnd = React.useCallback(() => {
-    isScrolling.current = false;
-    startSequentialLoad(Array.from(viewableIds.current));
-  }, [startSequentialLoad]);
-
-  const handleScrollBegin = React.useCallback(() => {
-    isScrolling.current = true;
-    if (sequentialTimer.current) {
-      clearInterval(sequentialTimer.current);
-      sequentialTimer.current = null;
-    }
-    lastProcessedIds.current = ''; // Reset to allow re-triggering when scroll stops
-  }, []);
-
-  const handleWebScroll = React.useCallback(() => {
-    if (Platform.OS === 'web') {
-      isScrolling.current = true;
-      if (sequentialTimer.current) {
-        clearInterval(sequentialTimer.current);
-        sequentialTimer.current = null;
-      }
-      if (scrollTimer.current) clearTimeout(scrollTimer.current);
-      scrollTimer.current = setTimeout(handleScrollEnd, 150);
-    }
-  }, [handleScrollEnd]);
+  const MAX_RETAINED_IMAGES = 60;
 
   const onViewableItemsChanged = React.useRef(({ viewableItems }: any) => {
-    const ids = viewableItems.map((vi: any) => vi.item.id);
-    viewableIds.current = new Set(ids);
-    if (!isScrolling.current) {
-      startSequentialLoad(ids);
+    if (!viewableItems || viewableItems.length === 0) return;
+    const visibleIds = viewableItems.map((vi: any) => vi.item?.id).filter(Boolean);
+    const updated = new Set(activeIdsRef.current);
+    visibleIds.forEach((id: string) => updated.add(id));
+
+    if (updated.size > MAX_RETAINED_IMAGES) {
+      const visibleSet = new Set(visibleIds);
+      const activeArray = Array.from(updated);
+      const toRemoveCount = updated.size - MAX_RETAINED_IMAGES;
+      let removed = 0;
+      for (const id of activeArray) {
+        if (!visibleSet.has(id)) {
+          updated.delete(id);
+          removed++;
+          if (removed >= toRemoveCount) break;
+        }
+      }
     }
+
+    activeIdsRef.current = updated;
+    setActiveIds(updated);
   }).current;
 
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -1388,7 +1332,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         onSelect={toggleSelect} 
         viewMode={viewModeRef.current} 
         role={roleRef.current} 
-        shouldLoad={activeIdsRef.current.has(item.id)}
+        shouldLoad={activeIds.has(item.id)}
       />
     );
   }, [navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
@@ -1439,8 +1383,6 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         <ScrollView 
           contentContainerStyle={styles.list} 
           showsVerticalScrollIndicator={false}
-          onScroll={handleWebScroll}
-          scrollEventThrottle={16}
         >
           {globalSearchResults.length > 0 ? (
             globalSearchResults.map((group, idx) => {
@@ -1514,11 +1456,6 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           onEndReachedThreshold={0.4}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig}
-          onScrollBeginDrag={handleScrollBegin}
-          onMomentumScrollEnd={handleScrollEnd}
-          onScrollEndDrag={handleScrollEnd}
-          onScroll={handleWebScroll}
-          scrollEventThrottle={16}
           ListFooterComponent={
             loadingMore ? (
               <View style={{ paddingVertical: Theme.spacing.md, alignItems: 'center' }}>
