@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Image, StyleSheet, View, ActivityIndicator, ImageStyle, StyleProp, ImageResizeMode } from 'react-native';
 import { ImageOff } from 'lucide-react-native';
 import { getOptimizedImageUrl } from '../utils/images';
@@ -23,29 +23,26 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   resizeMode = 'contain',
   shouldLoad = true,
 }) => {
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
-  const [loadTriggered, setLoadTriggered] = useState(shouldLoad);
-
-  // Reset states when the source URL or dimensions change
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    setLoadTriggered(shouldLoad);
-  }, [url, width, height, quality, shouldLoad]);
-
-  // Synchronize loadTriggered with shouldLoad updates (mount/unmount image)
-  useEffect(() => {
-    setLoadTriggered(shouldLoad);
-  }, [shouldLoad]);
+  const prevUrlRef = useRef(url);
 
   const imageUrl = useMemo(() => {
     return getOptimizedImageUrl(url, { width, height, quality });
   }, [url, width, height, quality]);
 
-  const source = useMemo(() => ({ uri: imageUrl }), [imageUrl]);
+  // Only reset loading/error state if the URL actually changes
+  useEffect(() => {
+    if (prevUrlRef.current !== url) {
+      prevUrlRef.current = url;
+      setError(false);
+      setLoading(true);
+    }
+  }, [url]);
 
-  if (!loadTriggered) {
+  const source = useMemo(() => (imageUrl ? { uri: imageUrl } : undefined), [imageUrl]);
+
+  if (!shouldLoad || !url) {
     return <View style={[styles.container, style]} />;
   }
 
@@ -59,6 +56,9 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
         <Image
           source={source}
           style={[styles.image, style]}
+          onLoadStart={() => {
+            // Only set loading if needed
+          }}
           onLoadEnd={() => setLoading(false)}
           onError={(e) => {
             console.error(`[OptimizedImage] Failed to load: ${imageUrl}`, e.nativeEvent);
@@ -74,7 +74,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       )}
       {loading && !error && (
         <View style={styles.loader}>
-          <ActivityIndicator color={Theme.colors.primary} />
+          <ActivityIndicator color={Theme.colors.primary} size="small" />
         </View>
       )}
     </View>
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
   errorContainer: {
     flex: 1,
@@ -112,4 +112,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default OptimizedImage;
+export default React.memo(OptimizedImage);

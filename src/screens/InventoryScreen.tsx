@@ -1507,7 +1507,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
           renderItem={renderItem}
-          keyExtractor={item => item?.id?.toString() || Math.random().toString()}
+          keyExtractor={(item, index) => item?.id?.toString() || `item-${index}`}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<View style={styles.emptyContainer}><Folder size={48} color="#e2e8f0" /><Text style={styles.emptyText}>This folder is empty</Text></View>}
           onEndReached={fetchMoreItems}
