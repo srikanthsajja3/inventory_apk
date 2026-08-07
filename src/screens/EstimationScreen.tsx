@@ -8,6 +8,7 @@ import * as Sharing from 'expo-sharing';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { Theme } from '../theme';
+import { getDynamicStoneRate, calculateStoneAmount } from '../utils/diamondCalc';
 
 interface MasterRate { key: string; value: number; }
 interface StoneMaster { id: string; name: string; category: string; rate: number; }
@@ -300,40 +301,42 @@ const renameStone = (name: string) => {
   return name;
 };
 
-const getDynamicRate = (name: string, weight: number, pcs: number, master: any[], productName: string = '') => {
-  const normalizedName = name.toLowerCase().trim();
-  const w = num(weight);
-  const p = num(pcs);
-  if (w === 0 || p === 0 || !master || master.length === 0) return null;
+const calculateDynamicStoneRate = (
+  stoneLabel: string,
+  category: string,
+  weight: number | string,
+  pcs: number | string,
+  masterStones: any[],
+  rateMap: any = {},
+  productName: string = ''
+): number => {
+  const labelLower = (stoneLabel || '').toLowerCase().trim();
+  let defaultRate = num(rateMap.diamond_rd_rate || 65000);
+  if (labelLower.includes('color stone') || labelLower.includes('stone')) {
+    defaultRate = num(rateMap.stone_rate || 3500);
+  } else if (labelLower.includes('beads')) {
+    defaultRate = num(rateMap.default_beads_rate || 850);
+  }
 
-  const avgSize = w / p;
+  let calculatedRate = getDynamicStoneRate(
+    stoneLabel,
+    category || 'Diamond',
+    weight,
+    pcs,
+    masterStones,
+    defaultRate
+  );
 
-  const matches = master.filter(s => {
-    const mName = s.name.toLowerCase().trim();
-    const mCat = s.category.toLowerCase().trim();
-    const mSubCat = (s.sub_category || '').toUpperCase().trim();
+  // Apply Emerald / Ruby discount for non-diamond items
+  const normalizedProductName = (productName || '').toLowerCase().trim();
+  const discount = num(rateMap.emerald_ruby_discount || 1000);
+  if ((labelLower.includes('emerald') || labelLower.includes('ruby')) && !normalizedProductName.startsWith('d')) {
+    calculatedRate = Math.max(0, calculatedRate - discount);
+  }
 
-    const isRD = (normalizedName.includes('vvs') || normalizedName.includes('ef') || normalizedName === 'diamond') && mSubCat === 'RD';
-    const isShape = normalizedName.includes('shape') && mSubCat === 'SHAPE';
-    const isGenericMatch = mName.includes(normalizedName) || normalizedName.includes(mName) || mCat === normalizedName;
-
-    return (isRD || isShape || isGenericMatch) &&
-           avgSize >= num(s.min_wt) &&
-           avgSize <= num(s.max_wt);
-  });
-
-  if (matches.length === 0) return null;
-
-  matches.sort((a, b) => {
-    const aExact = a.name.toLowerCase().trim() === normalizedName;
-    const bExact = b.name.toLowerCase().trim() === normalizedName;
-    if (aExact && !bExact) return -1;
-    if (!aExact && bExact) return 1;
-    return (num(a.max_wt) - num(a.min_wt)) - (num(b.max_wt) - num(b.min_wt));
-  });
-
-  return matches[0].rate;
+  return calculatedRate;
 };
+
 
 const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
@@ -443,7 +446,7 @@ export default function EstimationScreen({ route, navigation }: any) {
       tax_pct: String(currentRateMap.tax_gst_pct || '3'),
       purity: item.purity || '18KT',
       name: item.name || 'Product',
-      prc_amount: num(item.prc_amount || 0),
+      prc_amount: num(item.cost_price || item.prc_amount || 0),
     };
   };
 
@@ -498,36 +501,22 @@ export default function EstimationScreen({ route, navigation }: any) {
     if ((stoneMaster.length > 0 || Object.keys(rateMap).length > 0) && dynamicStones.length > 0) {
       const updated = dynamicStones.map(s => {
         if (s.isManualRate) return s;
-        const dRate = getDynamicRate(s.label, num(s.weight), num(s.pcs), stoneMaster, calcData.name);
-        let finalRate = dRate ? String(dRate) : s.rate;
-        if (!dRate) {
-            const exactMaster = stoneMaster.find(m => m.name.toLowerCase().trim() === s.label.toLowerCase().trim());
-            if (exactMaster) finalRate = String(exactMaster.rate);
-        }
-        if (!dRate && finalRate === '0') {
-            const label = s.label.toLowerCase();
-            if (label.includes('diamond') || label.includes('vvs') || label.includes('ef')) {
-                if (rateMap.diamond_rd_rate) finalRate = String(rateMap.diamond_rd_rate);
-            }
-            if (label.includes('color stone') || label.includes('stone')) {
-                if (rateMap.stone_rate) finalRate = String(rateMap.stone_rate);
-            }
-            if (label.includes('beads')) {
-                if (rateMap.default_beads_rate) finalRate = String(rateMap.default_beads_rate);
-            }
-        }
-        const normalizedName = s.label.toLowerCase().trim();
-        const normalizedProductName = calcData.name.toLowerCase().trim();
-        const discount = num(rateMap.emerald_ruby_discount || 1000);
-        if ((normalizedName.includes('emerald') || normalizedName.includes('ruby')) && !normalizedProductName.startsWith('d')) {
-            finalRate = String(num(finalRate) - discount);
-        }
-        return { ...s, rate: finalRate };
+        const autoRate = calculateDynamicStoneRate(
+          s.label,
+          s.category,
+          s.weight,
+          s.pcs,
+          stoneMaster,
+          rateMap,
+          calcData.name
+        );
+        return { ...s, rate: String(autoRate) };
       });
       const hasChanges = updated.some((s, idx) => s.rate !== dynamicStones[idx].rate);
       if (hasChanges) { setDynamicStones(updated); }
     }
-  }, [stoneMaster, dynamicStones, rateMap, calcData.name]);
+  }, [stoneMaster, rateMap, calcData.name]);
+
 
   useEffect(() => {
     if (Object.keys(rateMap).length > 0) {
@@ -1074,7 +1063,7 @@ Billed By: ${soldBy}
 
   const billingWt = netWtFromDb * (1 + (num(calcData.wastage_pct) / 100));
   const goldValue = billingWt * goldRate;
-  const stonesTotal = dynamicStones.reduce((acc, s) => acc + (num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate)), 0);
+  const stonesTotal = dynamicStones.reduce((acc, s) => acc + calculateStoneAmount(s.weight, s.pcs, s.rate), 0);
   const certCharges = diamondCarats > 0 ? Math.max(diamondCarats * num(calcData.cert_rate), num(calcData.cert_rate)) : 0;
   const subTotal = goldValue + stonesTotal + makingGoldAmt + certCharges;
   const totalINR = subTotal * (1 + (num(calcData.tax_pct) / 100));
@@ -1141,10 +1130,10 @@ Billed By: ${soldBy}
               label={s.label} 
               weight={s.weight} 
               rate={s.rate} 
-              amount={formatNum(num(s.weight) === 0 ? num(s.pcs) * num(s.rate) : num(s.weight) * num(s.rate))} 
+              amount={formatNum(calculateStoneAmount(s.weight, s.pcs, s.rate))} 
               onWeightChange={(v: any) => {
-                const newRate = getDynamicRate(s.label, num(v), num(s.pcs), stoneMaster, calcData.name);
-                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
+                const autoRate = calculateDynamicStoneRate(s.label, s.category, v, s.pcs, stoneMaster, rateMap, calcData.name);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: ds.isManualRate ? ds.rate : String(autoRate)} : ds));
               }} 
               onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v, isManualRate: true} : ds))} 
               bg={idx % 2 === 0 ? Theme.colors.surface : Theme.colors.background} 
@@ -1192,25 +1181,27 @@ Billed By: ${soldBy}
           </View>
         </View>
 
-        {role === 'admin' && purchaseAmount > 0 && (
+        {role === 'admin' && (
           <View style={styles.adminSection}>
             <View style={styles.adminHeader}>
               <TrendingUp size={20} color={Theme.colors.status.success} />
-              <Text style={styles.adminTitle}>ADMIN INSIGHTS</Text>
+              <Text style={styles.adminTitle}>ADMIN INSIGHTS (CONFIDENTIAL)</Text>
             </View>
             <View style={styles.adminGrid}>
               <View style={styles.adminStat}>
-                <Text style={styles.adminLabel}>Purchase Cost</Text>
-                <Text style={styles.adminValue}>₹{formatNum(purchaseAmount)}</Text>
+                <Text style={styles.adminLabel}>Purchase Cost Price</Text>
+                <Text style={styles.adminValue}>{purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}</Text>
               </View>
-              <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
-                <Text style={styles.adminLabel}>Est. Profit</Text>
-                <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
-                  ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
-                </Text>
-              </View>
+              {purchaseAmount > 0 && (
+                <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+                  <Text style={styles.adminLabel}>Est. Profit</Text>
+                  <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
+                    ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
+                  </Text>
+                </View>
+              )}
             </View>
-        {isLoss && (
+            {purchaseAmount > 0 && isLoss && (
               <View style={styles.lossWarning}>
                 <TrendingDown size={14} color={Theme.colors.status.error} />
                 <Text style={styles.lossWarningText}>Currently selling at a loss</Text>

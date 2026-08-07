@@ -8,6 +8,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
+import { getDynamicStoneRate, calculateStoneAmount } from '../utils/diamondCalc';
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Theme.colors.background },
@@ -104,6 +105,7 @@ export default function BillingScreen() {
   const [editItemId, setEditItemId] = useState<string | null>(null);
   const lastPressRef = React.useRef<number>(0);
   const [rateMap, setRateMap] = useState<any>({});
+  const [masterStones, setMasterStones] = useState<any[]>([]);
   const [employees, setEmployees] = useState<any[]>([]);
   
   // Camera scanning state
@@ -131,11 +133,19 @@ export default function BillingScreen() {
 
   const fetchMasterRates = async () => {
     try {
-      const { data, error } = await supabase.from('master_rates').select('*');
-      if (error) throw error;
+      const [ratesRes, stonesRes] = await Promise.all([
+        supabase.from('master_rates').select('*'),
+        supabase.from('stone_master').select('*')
+      ]);
+
+      if (ratesRes.error) throw ratesRes.error;
       const rateMapLocal: any = {};
-      data?.forEach(r => { rateMapLocal[r.key] = r.value; });
+      ratesRes.data?.forEach(r => { rateMapLocal[r.key] = r.value; });
       setRateMap(rateMapLocal);
+
+      if (stonesRes.data) {
+        setMasterStones(stonesRes.data);
+      }
     } catch (e) {
       console.error('Error fetching master rates:', e);
     }
@@ -193,17 +203,28 @@ export default function BillingScreen() {
       try {
         if (data.stones_in_detail && data.stones_in_detail.startsWith('[')) {
           const parsed = JSON.parse(data.stones_in_detail);
-          stonesList = parsed.map((s: any) => ({
-            id: s.id || Math.random().toString(36).substring(2, 10),
-            name: s.name || s.label || 'Stone',
-            weight: num(s.weight),
-            pcs: num(s.pcs),
-            rate: num(s.rate),
-            category: s.category || 'Stone'
-          }));
+          stonesList = parsed.map((s: any) => {
+            const w = num(s.weight);
+            const p = num(s.pcs);
+            let r = num(s.rate);
+            if (r === 0) {
+              r = getDynamicStoneRate(s.name || s.label || 'Diamond', s.category || 'Diamond', w, p, masterStones, rateMap.diamond_rd_rate || 65000);
+            }
+            return {
+              id: s.id || Math.random().toString(36).substring(2, 10),
+              name: s.name || s.label || 'Stone',
+              weight: w,
+              pcs: p,
+              rate: r,
+              category: s.category || 'Stone'
+            };
+          });
         } else {
+          const daiWt = num(data.dai_wt);
+          const daiPcs = num(data.dai_pcs);
+          const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, daiPcs, masterStones, rateMap.diamond_rd_rate || 65000);
           stonesList = [
-            { id: 'd1', name: 'Diamond', weight: num(data.dai_wt), pcs: num(data.dai_pcs), rate: num(rateMap.diamond_rd_rate || 65000), category: 'Diamond' },
+            { id: 'd1', name: 'Diamond', weight: daiWt, pcs: daiPcs, rate: daiRate, category: 'Diamond' },
             { id: 's1', name: 'Color Stone', weight: num(data.clr_stone_wt), pcs: num(data.clr_stone_pcs), rate: num(rateMap.stone_rate || 3500), category: 'Stone' }
           ];
         }
@@ -305,8 +326,11 @@ export default function BillingScreen() {
     const goldValue = cartItem.net_wt * (1 + (cartItem.wastage / 100)) * cartItem.gold_rate;
     
     const stonesValue = cartItem.stones.reduce((sum: number, s: any) => {
-      const isPerPc = s.weight === 0;
-      return sum + (isPerPc ? s.pcs * s.rate : s.weight * s.rate);
+      let sRate = num(s.rate);
+      if (sRate === 0) {
+        sRate = getDynamicStoneRate(s.name || s.category, s.category || 'Diamond', s.weight, s.pcs, masterStones, rateMap.diamond_rd_rate || 65000);
+      }
+      return sum + calculateStoneAmount(s.weight, s.pcs, sRate);
     }, 0);
 
     // Tiered labor logic

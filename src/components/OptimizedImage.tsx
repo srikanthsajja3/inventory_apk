@@ -6,6 +6,7 @@ import { Theme } from '../theme';
 
 interface OptimizedImageProps {
   url: string;
+  fallbackUrl?: string;
   width?: number;
   height?: number;
   quality?: number;
@@ -16,6 +17,7 @@ interface OptimizedImageProps {
 
 const OptimizedImage: React.FC<OptimizedImageProps> = ({
   url,
+  fallbackUrl,
   width = 400,
   height = 400,
   quality = 80,
@@ -23,16 +25,20 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   resizeMode = 'contain',
   shouldLoad = true,
 }) => {
+  const [currentUrl, setCurrentUrl] = useState(url);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [hasTriedFallback, setHasTriedFallback] = useState(false);
   const [loadTriggered, setLoadTriggered] = useState(shouldLoad);
 
-  // Reset states when the source URL or dimensions change
+  // Reset states when source URL, fallback URL or dimensions change
   useEffect(() => {
+    setCurrentUrl(url);
     setLoading(true);
     setError(false);
+    setHasTriedFallback(false);
     setLoadTriggered(shouldLoad);
-  }, [url, width, height, quality, shouldLoad]);
+  }, [url, fallbackUrl, width, height, quality, shouldLoad]);
 
   // Synchronize loadTriggered with shouldLoad updates (mount/unmount image)
   useEffect(() => {
@@ -40,10 +46,22 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
   }, [shouldLoad]);
 
   const imageUrl = useMemo(() => {
-    return getOptimizedImageUrl(url, { width, height, quality });
-  }, [url, width, height, quality]);
+    return getOptimizedImageUrl(currentUrl, { width, height, quality });
+  }, [currentUrl, width, height, quality]);
 
   const source = useMemo(() => ({ uri: imageUrl }), [imageUrl]);
+
+  const handleImageError = () => {
+    if (fallbackUrl && !hasTriedFallback && fallbackUrl !== currentUrl) {
+      setHasTriedFallback(true);
+      setCurrentUrl(fallbackUrl);
+      setLoading(true);
+      setError(false);
+    } else {
+      setError(true);
+      setLoading(false);
+    }
+  };
 
   if (!loadTriggered) {
     return <View style={[styles.container, style]} />;
@@ -60,11 +78,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
           source={source}
           style={[styles.image, style]}
           onLoadEnd={() => setLoading(false)}
-          onError={(e) => {
-            console.error(`[OptimizedImage] Failed to load: ${imageUrl}`, e.nativeEvent);
-            setError(true);
-            setLoading(false);
-          }}
+          onError={handleImageError}
           // @ts-ignore - React Native Web supports these HTML attributes
           loading="lazy"
           decoding="async"

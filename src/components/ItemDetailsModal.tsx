@@ -1032,6 +1032,14 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                     <Text style={styles.adminLabel}>Net Wt</Text>
                     <Text style={styles.adminValue}>{item.net_wt ? `${item.net_wt}g` : '0g'}</Text>
                   </View>
+                  {role === 'admin' && (
+                    <View style={[styles.adminGridItem, { backgroundColor: Theme.colors.primary + '15', borderColor: Theme.colors.primary }]}>
+                      <Text style={[styles.adminLabel, { color: Theme.colors.primary }]}>Purchase Cost Price</Text>
+                      <Text style={[styles.adminValue, { color: Theme.colors.primary, fontSize: 16, fontWeight: '900' }]}>
+                        { (item.cost_price || item.prc_amount) ? `₹${parseFloat(String(item.cost_price || item.prc_amount)).toLocaleString('en-IN')}` : 'Not Recorded' }
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Stones Summary inside Admin Block */}

@@ -848,10 +848,24 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
           )}
         </View>
       </View>
-      <View style={styles.statsRow}>
-        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.primary + '20' }]}><Package size={24} color={Theme.colors.primary} /></View><Text style={styles.statValue}>{stats.total}</Text><Text style={styles.statLabel}>Total Items</Text></View>
-        <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}><View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}><ShoppingBag size={24} color={Theme.colors.status.success} /></View><Text style={styles.statValue}>₹{stats.salesToday.toLocaleString('en-IN')}</Text><Text style={styles.statLabel}>Today's Sales</Text></View>
-      </View>
+      {role === 'admin' && (
+        <View style={styles.statsRow}>
+          <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}>
+            <View style={[styles.iconBadge, { backgroundColor: Theme.colors.primary + '20' }]}>
+              <Package size={24} color={Theme.colors.primary} />
+            </View>
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total Items</Text>
+          </View>
+          <View style={[styles.statCard, { backgroundColor: Theme.colors.surface }]}>
+            <View style={[styles.iconBadge, { backgroundColor: Theme.colors.status.success + '20' }]}>
+              <ShoppingBag size={24} color={Theme.colors.status.success} />
+            </View>
+            <Text style={styles.statValue}>₹{stats.salesToday.toLocaleString('en-IN')}</Text>
+            <Text style={styles.statLabel}>Today's Sales</Text>
+          </View>
+        </View>
+      )}
       {role === 'admin' && (
         <View style={{ marginBottom: 15 }}><View style={[styles.adminActionCard, { backgroundColor: Theme.colors.primary, borderColor: Theme.colors.primary }]}><View style={[styles.iconBadge, { backgroundColor: 'rgba(255,255,255,0.2)' }]}><Coins size={24} color="white" /></View><View style={{ flex: 1, marginLeft: 15 }}><Text style={[styles.adminActionTitle, { color: 'white' }]}>Total Inventory Value</Text><Text style={[styles.adminActionSub, { color: 'rgba(255,255,255,0.8)' }]}>Estimated worth of current stock</Text></View>
           {calculatingValue ? (

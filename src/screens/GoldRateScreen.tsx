@@ -144,10 +144,10 @@ export default function GoldRateScreen({ onBack }: { onBack: () => void }) {
           <Text style={styles.title}>Update Gold Rates</Text>
         </View>
         <View style={styles.card}>
-          <View style={styles.infoRow}><TrendingUp size={20} color={Theme.colors.primary} /><Text style={styles.infoText}>Enter rates per gram (₹)</Text></View>
-          <RateInput label="24K Gold Rate" value={rates.gold_24kt} onChange={handle24KChange} color={Theme.colors.status.info} />
-          <RateInput label="22K Gold Rate" value={rates.gold_22kt} onChange={(v: string) => setRates({...rates, gold_22kt: v})} color={Theme.colors.primary} />
-          <RateInput label="18K Gold Rate" value={rates.gold_18kt} onChange={(v: string) => setRates({...rates, gold_18kt: v})} color="#ca8a04" />
+          <View style={styles.infoRow}><TrendingUp size={20} color={Theme.colors.primary} /><Text style={styles.infoText}>Enter gold rates per gram (₹)</Text></View>
+          <RateInput label="24K Gold Rate (per gram)" value={rates.gold_24kt} onChange={handle24KChange} color={Theme.colors.status.info} />
+          <RateInput label="22K Gold Rate (per gram)" value={rates.gold_22kt} onChange={(v: string) => setRates({...rates, gold_22kt: v})} color={Theme.colors.primary} />
+          <RateInput label="18K Gold Rate (per gram)" value={rates.gold_18kt} onChange={(v: string) => setRates({...rates, gold_18kt: v})} color="#ca8a04" />
           <TouchableOpacity style={[styles.saveBtn, saving && styles.saveBtnDisabled]} onPress={handleSave} disabled={saving}>
             {saving ? <ActivityIndicator color={Theme.colors.background} /> : <><Save size={20} color={Theme.colors.background} /><Text style={styles.saveBtnText}>Update Rates</Text></>}
           </TouchableOpacity>

@@ -585,12 +585,13 @@ const ItemCard = React.memo(({ item, onShowOptions, onPress, selectionMode, isSe
       </View>
     )}
     <View style={viewMode === 'grid' ? styles.itemIconGrid : styles.itemIcon}>
-      {(item.image_url || item.thumbnail_url) ? (
+      {(item.thumbnail_url || item.image_url) ? (
         <OptimizedImage 
-          url={item.image_url || item.thumbnail_url} 
+          url={item.thumbnail_url || item.image_url} 
+          fallbackUrl={item.thumbnail_url && item.image_url ? item.image_url : undefined}
           width={viewMode === 'grid' ? 120 : 44} 
           height={viewMode === 'grid' ? 120 : 44} 
-          shouldLoad={shouldLoad}
+          shouldLoad={shouldLoad ?? true}
           resizeMode={viewMode === 'grid' ? 'cover' : 'contain'}
         />
       ) : (
@@ -1388,7 +1389,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         onSelect={toggleSelect} 
         viewMode={viewModeRef.current} 
         role={roleRef.current} 
-        shouldLoad={activeIdsRef.current.has(item.id)}
+        shouldLoad={item.thumbnail_url ? true : activeIdsRef.current.has(item.id)}
       />
     );
   }, [navigateToFolder, handleShowOptions, toggleSelect, showDetails]);
@@ -1400,7 +1401,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
           {currentFolder && <TouchableOpacity onPress={navigateBack} style={styles.backBtn}><ArrowLeft size={24} color={Theme.colors.text.primary} /></TouchableOpacity>}
-          <View><Text style={styles.title}>{currentFolder ? currentFolder.name : 'Home'}</Text><Text style={styles.subtitle}>{folders.length} Folders • {items.length} Items</Text></View>
+          <View>
+            <Text style={styles.title}>{currentFolder ? currentFolder.name : 'Home'}</Text>
+            <Text style={styles.subtitle}>
+              {role === 'admin' ? `${folders.length} Folders • ${items.length} Items` : `${folders.length} Folders`}
+            </Text>
+          </View>
         </View>
         <View style={styles.headerActions}>
           {currentFolder?.id === 'virtual-exhibition' && <TouchableOpacity onPress={() => setIsScanning(true)} style={[styles.refreshButton, { backgroundColor: Theme.colors.primary }]}><QrCode size={20} color={Theme.colors.text.black} /></TouchableOpacity>}
@@ -1413,7 +1419,12 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       <View style={styles.summaryBar}>
         <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Folders</Text><Text style={styles.summaryValue}>{stats.folders}</Text></View>
-        <View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Items</Text><Text style={styles.summaryValue}>{stats.items}</Text></View>
+        {role === 'admin' && (
+          <>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}><Text style={styles.summaryLabel}>Items</Text><Text style={styles.summaryValue}>{stats.items}</Text></View>
+          </>
+        )}
         <View style={styles.summaryDivider} /><View style={styles.summaryItem}><Text style={styles.summaryLabel}>Total Value</Text><Text style={styles.summaryValue}>₹{stats.totalValue.toLocaleString()}</Text></View>
       </View>
 

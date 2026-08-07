@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../supabase';
+import { getDynamicStoneRate, calculateStoneAmount } from '../utils/diamondCalc';
 
 export interface JewelryItem {
   name?: string | null;
@@ -35,22 +36,31 @@ export interface MasterRates {
 
 export function useJewelryCalc() {
   const [rates, setRates] = useState<MasterRates>({});
+  const [masterStones, setMasterStones] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchRates = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('master_rates').select('key, value');
-      if (error) throw error;
-      if (data) {
+      const [ratesRes, stonesRes] = await Promise.all([
+        supabase.from('master_rates').select('key, value'),
+        supabase.from('stone_master').select('*')
+      ]);
+
+      if (ratesRes.error) throw ratesRes.error;
+      if (ratesRes.data) {
         const rateMap: MasterRates = {};
-        data.forEach(r => {
+        ratesRes.data.forEach(r => {
           if (r.key) rateMap[r.key] = r.value;
         });
         setRates(rateMap);
       }
+
+      if (stonesRes.data) {
+        setMasterStones(stonesRes.data);
+      }
     } catch (e) {
-      console.error('Error fetching master rates:', e);
+      console.error('Error fetching master rates or stone master:', e);
     } finally {
       setLoading(false);
     }
@@ -67,8 +77,8 @@ export function useJewelryCalc() {
     const num = (v: any) => parseFloat(String(v)) || 0;
     
     const goldRate = activeRates.gold_18kt || 0;
-    const diamondRate = activeRates.diamond_rd_rate || 65000;
-    const stoneRate = activeRates.stone_rate || 3500;
+    const defaultDiamondRate = activeRates.diamond_rd_rate || 65000;
+    const defaultStoneRate = activeRates.stone_rate || 3500;
     const certRate = activeRates.cert_rate_per_ct || 950;
     const taxPct = activeRates.tax_gst_pct || 3;
 
@@ -117,14 +127,20 @@ export function useJewelryCalc() {
         stonesValue = stones.reduce((acc: number, s: any) => {
           const sWt = num(s.weight);
           const sPcs = num(s.pcs);
-          const sRate = num(s.rate);
-          return acc + (sWt === 0 ? sPcs * sRate : sWt * sRate);
+          let sRate = num(s.rate);
+          if (sRate === 0) {
+            sRate = getDynamicStoneRate(s.name || s.label || 'Diamond', s.category || 'Diamond', sWt, sPcs, masterStones, defaultDiamondRate);
+          }
+          return acc + calculateStoneAmount(sWt, sPcs, sRate);
         }, 0);
       } else {
-        stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
+        const daiWt = num(item.dai_wt);
+        const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, 1, masterStones, defaultDiamondRate);
+        stonesValue = calculateStoneAmount(daiWt, 1, daiRate) + calculateStoneAmount(num(item.clr_stone_wt), num(item.clr_stone_pcs), defaultStoneRate);
       }
     } catch (e) {
-      stonesValue = (num(item.dai_wt) * diamondRate) + (num(item.clr_stone_wt) * stoneRate);
+      const daiWt = num(item.dai_wt);
+      stonesValue = calculateStoneAmount(daiWt, 1, defaultDiamondRate) + calculateStoneAmount(num(item.clr_stone_wt), num(item.clr_stone_pcs), defaultStoneRate);
     }
 
     const certCharges = isDiamond ? (num(item.dai_wt) > 0 ? Math.max(num(item.dai_wt) * certRate, certRate) : 0) : 0;
@@ -134,7 +150,7 @@ export function useJewelryCalc() {
     const totalWithTax = totalBeforeTax * (1 + (taxPct / 100));
 
     return totalWithTax;
-  }, [rates]);
+  }, [rates, masterStones]);
 
-  return { rates, loading, calculateEstimation, refreshRates: fetchRates };
+  return { rates, masterStones, loading, calculateEstimation, refreshRates: fetchRates };
 }

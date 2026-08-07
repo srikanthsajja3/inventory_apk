@@ -3,6 +3,7 @@ import { StyleSheet, View, Text, Modal, TextInput, TouchableOpacity, ScrollView,
 import { X, Save, Plus, Trash2, Scale, Tag, Hash, Package, Gem, Calculator, Info, IndianRupee, Search, ChevronDown, ChevronRight } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { Theme } from '../theme';
+import { getDynamicStoneRate, calculateStoneAmount } from '../utils/diamondCalc';
 
 interface StoneEntryModalProps {
   isVisible: boolean;
@@ -63,7 +64,29 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
   };
 
   const updateStone = (id: string, field: string, value: string) => {
-    setStones(stones.map(s => s.id === id ? { ...s, [field]: value } : s));
+    setStones(stones.map(s => {
+      if (s.id === id) {
+        const updated = { ...s, [field]: value };
+        // Auto-calculate dynamic rate if rate is currently unassigned or 0
+        if (!updated.isManualRate) {
+          const autoRate = getDynamicStoneRate(
+            updated.name,
+            updated.category,
+            updated.weight,
+            updated.pcs,
+            masterStones
+          );
+          if (autoRate > 0 && (!updated.rate || parseFloat(updated.rate) === 0)) {
+            updated.rate = String(autoRate);
+          }
+        }
+        if (field === 'rate') {
+          updated.isManualRate = true;
+        }
+        return updated;
+      }
+      return s;
+    }));
   };
 
   const removeStone = (id: string) => {
@@ -71,12 +94,28 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
   };
 
   const selectStoneFromMaster = (rowId: string, masterStone: any) => {
-    setStones(stones.map(s => s.id === rowId ? { 
-      ...s, 
-      name: masterStone.name, 
-      category: masterStone.category,
-      rate: String(masterStone.rate || '')
-    } : s));
+    setStones(stones.map(s => {
+      if (s.id === rowId) {
+        const w = parseFloat(s.weight) || 0;
+        const p = parseFloat(s.pcs) || 0;
+        const dynamicRate = getDynamicStoneRate(
+          masterStone.name,
+          masterStone.category,
+          w,
+          p,
+          masterStones,
+          masterStone.rate
+        );
+        return {
+          ...s,
+          name: masterStone.name,
+          category: masterStone.category,
+          rate: String(dynamicRate || masterStone.rate || ''),
+          isManualRate: false
+        };
+      }
+      return s;
+    }));
     setShowPicker(null);
     setSearchQuery('');
   };
@@ -224,6 +263,13 @@ export default function StoneEntryModal({ isVisible, onClose, onSave, initialSku
                         />
                       </View>
                     </View>
+                  </View>
+
+                  <View style={{ marginTop: 8, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Theme.colors.background, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: Theme.colors.border }}>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: Theme.colors.text.secondary }}>Calculated Amount:</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '900', color: Theme.colors.primary }}>
+                      ₹{calculateStoneAmount(stone.weight, stone.pcs, stone.rate).toLocaleString('en-IN')}
+                    </Text>
                   </View>
                 </View>
               ))
