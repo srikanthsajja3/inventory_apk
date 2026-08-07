@@ -338,7 +338,7 @@ const calculateDynamicStoneRate = (
 };
 
 
-const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
+const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange, showPcsColumn = false, onTogglePcsColumn, pcs, onPcsChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
   const headerFontSize = isTablet ? 12 : 9;
   const rowHeight = isHeader 
@@ -1196,7 +1196,7 @@ Billed By: ${soldBy}
                 setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: ds.isManualRate ? ds.rate : String(autoRate)} : ds));
               }} 
               onPcsChange={(v: any) => {
-                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster, calcData.name);
+                const newRate = calculateDynamicStoneRate(s.label, s.category, num(s.weight), num(v), stoneMaster, rateMap, calcData.name);
                 setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
               }}
               onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v, isManualRate: true} : ds))} 

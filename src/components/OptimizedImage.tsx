@@ -45,6 +45,8 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     setLoadTriggered(shouldLoad);
   }, [shouldLoad]);
 
+  const prevUrlRef = useRef(url);
+
   const imageUrl = useMemo(() => {
     return getOptimizedImageUrl(currentUrl, { width, height, quality });
   }, [currentUrl, width, height, quality]);
@@ -82,7 +84,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
         </View>
       ) : (
         <Image
-          source={source}
+          source={{ uri: imageUrl }}
           style={[styles.image, style]}
           onLoadStart={() => {
             // Only set loading if needed
