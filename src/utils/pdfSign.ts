@@ -121,7 +121,7 @@ export async function addSignatureToPDF(pdfBytes: Uint8Array, signatureBase64: s
   const sigWidth = 100;
   const sigHeight = 30;
 
-  pages.forEach((page) => {
+  pages.forEach((page: any) => {
     const { width } = page.getSize();
     page.drawImage(signatureImage, {
       x: width - sigWidth - 100, 

@@ -341,24 +341,54 @@ const calculateDynamicStoneRate = (
 const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange }: any) => {
   const fontSize = isTablet ? 15 : 10;
   const headerFontSize = isTablet ? 12 : 9;
-  const rowHeight = isHeader ? (isTablet ? 45 : 30) : (subLabel ? (isTablet ? 90 : 65) : (isTablet ? 60 : 40));
+  const rowHeight = isHeader 
+    ? (isTablet ? 45 : 30) 
+    : (subLabel ? (isTablet ? 90 : 65) : (isTablet ? 60 : 40));
   const rowBg = bg || Theme.colors.surface;
   const textColor = labelColor || Theme.colors.text.primary;
 
   if (isHeader) {
     return (
       <View style={[styles.ssRow, { backgroundColor: Theme.colors.muted, height: rowHeight }]}>
-        <View style={[styles.ssCell, { flex: 2.0 }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize }]}>PARTICULARS</Text></View>
-        <View style={[styles.ssCell, { flex: 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>CT/WT</Text></View>
-        <View style={[styles.ssCell, { flex: 1.3, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text></View>
-        <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}><Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'right' }]}>AMOUNT (₹)</Text></View>
+        <View style={[styles.ssCell, { flex: showPcsColumn ? 1.8 : 2.0 }]}>
+          <Text style={[styles.headerLabel, { fontSize: headerFontSize }]}>PARTICULARS</Text>
+        </View>
+
+        <View style={[styles.ssCell, { flex: showPcsColumn ? 0.9 : 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border, flexDirection: 'row', alignItems: 'center' }]}>
+          <Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center', flex: 1 }]}>CT/WT</Text>
+          {!showPcsColumn && (
+            <TouchableOpacity 
+              onPress={onTogglePcsColumn}
+              style={{ width: 20, height: '100%' }}
+              activeOpacity={1}
+            />
+          )}
+        </View>
+
+        {showPcsColumn && (
+          <TouchableOpacity 
+            onPress={onTogglePcsColumn}
+            style={[styles.ssCell, { flex: 0.9, borderLeftWidth: 1, borderLeftColor: Theme.colors.border, backgroundColor: Theme.colors.primary + '20', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 2 }]}
+          >
+            <Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center', color: Theme.colors.primary }]}>PCS</Text>
+            <X size={10} color={Theme.colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        <View style={[styles.ssCell, { flex: showPcsColumn ? 1.2 : 1.2, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+          <Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'center' }]}>RATE</Text>
+        </View>
+
+        <View style={[styles.ssCell, { flex: showPcsColumn ? 1.4 : 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+          <Text style={[styles.headerLabel, { fontSize: headerFontSize, textAlign: 'right' }]}>AMOUNT (₹)</Text>
+        </View>
       </View>
     );
   }
 
   return (
     <View style={[styles.ssRow, { backgroundColor: rowBg, height: rowHeight }]}>
-      <View style={[styles.ssCell, { flex: 2.0, overflow: 'hidden' }]}>
+      <View style={[styles.ssCell, { flex: showPcsColumn ? 1.8 : 2.0, overflow: 'hidden' }]}>
         <Text style={[styles.ssLabel, { color: textColor, fontSize: fontSize, fontWeight: '800' }]} numberOfLines={1}>{label}</Text>
         {subLabel && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
@@ -380,10 +410,10 @@ const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange,
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+      <View style={[styles.ssCell, { flex: showPcsColumn ? 0.9 : 1.0, borderLeftWidth: 1, borderLeftColor: Theme.colors.border, flexDirection: 'row', alignItems: 'center' }]}>
         {editable ? (
           <TextInput 
-            style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
+            style={[styles.ssInput, { fontSize: fontSize, flex: 1, textAlign: 'center', fontWeight: '800' }]} 
             value={String(weight || '')} 
             onChangeText={onWeightChange} 
             keyboardType="numeric" 
@@ -392,11 +422,38 @@ const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange,
             selectTextOnFocus
           />
         ) : (
-          <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]}>{weight}</Text>
+          <Text style={[styles.ssText, { fontSize: fontSize, flex: 1, textAlign: 'center', fontWeight: '800' }]}>{weight}</Text>
+        )}
+        {!showPcsColumn && (
+          <TouchableOpacity 
+            onPress={onTogglePcsColumn}
+            style={{ width: 16, height: '100%' }} 
+            activeOpacity={1}
+          />
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 1.3, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+      {showPcsColumn && (
+        <View style={[styles.ssCell, { flex: 0.9, borderLeftWidth: 1, borderLeftColor: Theme.colors.border, backgroundColor: Theme.colors.primary + '08' }]}>
+          {editable && onPcsChange ? (
+            <TextInput 
+              style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800', color: Theme.colors.primary }]} 
+              value={String(pcs !== undefined ? pcs : '')} 
+              onChangeText={onPcsChange} 
+              keyboardType="numeric" 
+              placeholder="0"
+              placeholderTextColor={Theme.colors.text.muted}
+              selectTextOnFocus
+            />
+          ) : (
+            <Text style={[styles.ssText, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800', color: Theme.colors.primary }]}>
+              {pcs !== undefined ? pcs : '-'}
+            </Text>
+          )}
+        </View>
+      )}
+
+      <View style={[styles.ssCell, { flex: showPcsColumn ? 1.2 : 1.2, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         {editable && onRateChange ? (
           <TextInput 
             style={[styles.ssInput, { fontSize: fontSize, width: '100%', textAlign: 'center', fontWeight: '800' }]} 
@@ -412,7 +469,7 @@ const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange,
         )}
       </View>
 
-      <View style={[styles.ssCell, { flex: 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+      <View style={[styles.ssCell, { flex: showPcsColumn ? 1.4 : 1.5, borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
         <Text style={[styles.ssText, { textAlign: 'right', fontWeight: '800', fontSize: fontSize, color: Theme.colors.text.primary }]} numberOfLines={1}>
           {amount}
         </Text>
@@ -430,6 +487,7 @@ export default function EstimationScreen({ route, navigation }: any) {
   const [stoneMaster, setStoneMaster] = useState<StoneMaster[]>([]);
   const [goldRate, setGoldRate] = useState(0);
   const [rateMap, setRateMap] = useState<any>({});
+  const [showPcsColumn, setShowPcsColumn] = useState(false);
 
   const getInitialCalcData = (currentRateMap: any) => {
     const isDiamond = item.name && item.name.trim().toUpperCase().startsWith('D');
@@ -1109,7 +1167,7 @@ Billed By: ${soldBy}
         </View>
 
         <View style={styles.tableContainer}>
-          <SpreadsheetRow isHeader isTablet={isTablet} />
+          <SpreadsheetRow isHeader isTablet={isTablet} showPcsColumn={showPcsColumn} onTogglePcsColumn={() => setShowPcsColumn(!showPcsColumn)} />
           <SpreadsheetRow 
             label="GOLD (NET WT)" 
             subLabel="Wastage"
@@ -1123,21 +1181,28 @@ Billed By: ${soldBy}
             bg={Theme.colors.surface} 
             labelColor={Theme.colors.primary}
             isTablet={isTablet} 
+            showPcsColumn={showPcsColumn}
           />
           {dynamicStones.map((s, idx) => (
             <SpreadsheetRow 
               key={s.id} 
               label={s.label} 
               weight={s.weight} 
+              pcs={s.pcs}
               rate={s.rate} 
               amount={formatNum(calculateStoneAmount(s.weight, s.pcs, s.rate))} 
               onWeightChange={(v: any) => {
                 const autoRate = calculateDynamicStoneRate(s.label, s.category, v, s.pcs, stoneMaster, rateMap, calcData.name);
                 setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, weight: v, rate: ds.isManualRate ? ds.rate : String(autoRate)} : ds));
               }} 
+              onPcsChange={(v: any) => {
+                const newRate = getDynamicRate(s.label, num(s.weight), num(v), stoneMaster, calcData.name);
+                setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, pcs: v, rate: newRate ? String(newRate) : ds.rate, isManualRate: false} : ds));
+              }}
               onRateChange={(v: any) => setDynamicStones(dynamicStones.map(ds => ds.id === s.id ? {...ds, rate: v, isManualRate: true} : ds))} 
               bg={idx % 2 === 0 ? Theme.colors.surface : Theme.colors.background} 
               isTablet={isTablet} 
+              showPcsColumn={showPcsColumn}
             />
           ))}
           {diamondCarats > 0 && (
@@ -1150,6 +1215,7 @@ Billed By: ${soldBy}
               bg={Theme.colors.surface} 
               labelColor={Theme.colors.primary}
               isTablet={isTablet} 
+              showPcsColumn={showPcsColumn}
             />
           )}
           <View style={styles.tableDivider} />
@@ -1161,6 +1227,7 @@ Billed By: ${soldBy}
             onRateChange={(isSpecialD || isSpecialG) ? null : (v: any) => setCalcData({...calcData, making_gold_rate: v})} 
             bg={Theme.colors.surface} 
             isTablet={isTablet} 
+            showPcsColumn={showPcsColumn}
           />
           <View style={styles.summaryContainer}>
             <View style={styles.summaryLine}>

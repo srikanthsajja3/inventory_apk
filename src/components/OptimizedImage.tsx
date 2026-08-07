@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Image, StyleSheet, View, ActivityIndicator, ImageStyle, StyleProp, ImageResizeMode } from 'react-native';
 import { ImageOff } from 'lucide-react-native';
 import { getOptimizedImageUrl } from '../utils/images';
@@ -49,7 +49,14 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
     return getOptimizedImageUrl(currentUrl, { width, height, quality });
   }, [currentUrl, width, height, quality]);
 
-  const source = useMemo(() => ({ uri: imageUrl }), [imageUrl]);
+  // Only reset loading/error state if the URL actually changes
+  useEffect(() => {
+    if (prevUrlRef.current !== url) {
+      prevUrlRef.current = url;
+      setError(false);
+      setLoading(true);
+    }
+  }, [url]);
 
   const handleImageError = () => {
     if (fallbackUrl && !hasTriedFallback && fallbackUrl !== currentUrl) {
@@ -77,6 +84,9 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
         <Image
           source={source}
           style={[styles.image, style]}
+          onLoadStart={() => {
+            // Only set loading if needed
+          }}
           onLoadEnd={() => setLoading(false)}
           onError={handleImageError}
           // @ts-ignore - React Native Web supports these HTML attributes
@@ -88,7 +98,7 @@ const OptimizedImage: React.FC<OptimizedImageProps> = ({
       )}
       {loading && !error && (
         <View style={styles.loader}>
-          <ActivityIndicator color={Theme.colors.primary} />
+          <ActivityIndicator color={Theme.colors.primary} size="small" />
         </View>
       )}
     </View>
@@ -114,7 +124,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.1)',
   },
   errorContainer: {
     flex: 1,
@@ -126,4 +136,4 @@ const styles = StyleSheet.create({
   }
 });
 
-export default OptimizedImage;
+export default React.memo(OptimizedImage);

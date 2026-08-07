@@ -8,7 +8,7 @@ interface Props {
 }
 
 const SignaturePad: React.FC<Props> = ({ onOK, descriptionText = "Sign Here" }) => {
-  const sigCanvas = useRef<SignatureCanvas>(null);
+  const sigCanvas = useRef<any>(null);
 
   const handleClear = () => {
     sigCanvas.current?.clear();

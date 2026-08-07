@@ -688,7 +688,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
   useEffect(() => {
     const loadCache = async () => {
       try {
-        let cached = null;
+        let cached: string | null = null;
         if (Platform.OS === 'web') {
           cached = localStorage.getItem(CACHE_KEY);
         } else {

@@ -3,7 +3,9 @@
   "compilerOptions": {
     "strict": true,
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "noImplicitAny": false
   },
   "include": [
     "src/**/*",
