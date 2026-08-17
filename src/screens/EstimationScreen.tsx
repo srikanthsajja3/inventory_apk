@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList, useWindowDimensions, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Printer, Share2, CheckCircle2, User, Lock, Unlock, EyeOff, ChevronUp } from 'lucide-react-native';
+import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Printer, Share2, CheckCircle2, User, Lock, Unlock, EyeOff, ChevronUp, ArrowLeft, ShieldCheck } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../../supabase';
@@ -561,9 +561,16 @@ export default function EstimationScreen({ route, navigation }: any) {
     const endY = e.nativeEvent.pageY || e.nativeEvent.clientY || (e.nativeEvent.changedTouches && e.nativeEvent.changedTouches[0]?.clientY) || 0;
     const dragDistance = startYRef.current - endY;
     
-    // Only toggle if user is ALREADY at the end of the page and swipes UP > 80px
-    if (isAtBottomRef.current && dragDistance > 80) {
-      toggleVanishMode();
+    if (showAdminInsights) {
+      // On Page 2: Swiping DOWN returns back to Page 1
+      if (dragDistance < -60) {
+        setShowAdminInsights(false);
+      }
+    } else {
+      // On Page 1: Swiping UP at the bottom of the page opens Page 2
+      if (isAtBottomRef.current && dragDistance > 80) {
+        setShowAdminInsights(true);
+      }
     }
     startYRef.current = null;
   };
@@ -1170,6 +1177,121 @@ Billed By: ${soldBy}
 
   if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={Theme.colors.primary} /></View>;
 
+  if (role === 'admin' && showAdminInsights) {
+    return (
+      <SafeAreaView style={[styles.container, { backgroundColor: Theme.colors.background }]}>
+        {/* Fresh Page 2 Header */}
+        <View style={[styles.header, { backgroundColor: Theme.colors.surface, borderBottomColor: Theme.colors.border }]}>
+          <TouchableOpacity onPress={() => setShowAdminInsights(false)} style={styles.backBtn}>
+            <ArrowLeft size={isTablet ? 28 : 20} color={Theme.colors.primary} />
+          </TouchableOpacity>
+          <View style={styles.headerTitleWrapper}>
+            <ShieldCheck size={isTablet ? 24 : 18} color={Theme.colors.primary} />
+            <Text style={[styles.headerTitle, { color: Theme.colors.primary, fontSize: isTablet ? 20 : 16 }]}>Admin Confidential Insights</Text>
+          </View>
+          <TouchableOpacity onPress={() => setShowAdminInsights(false)} style={styles.refreshBtn}>
+            <X size={isTablet ? 24 : 18} color={Theme.colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Fresh Page 2 Content */}
+        <ScrollView 
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ padding: 20 }}
+          {...Platform.select({
+            web: {
+              onMouseDown: (e: any) => handleTouchStart(e),
+              onMouseUp: (e: any) => handleTouchEnd(e),
+              onTouchStart: (e: any) => handleTouchStart(e),
+              onTouchEnd: (e: any) => handleTouchEnd(e),
+            },
+            default: {
+              onTouchStart: (e: any) => handleTouchStart(e),
+              onTouchEnd: (e: any) => handleTouchEnd(e),
+            }
+          })}
+        >
+          {/* Product Banner */}
+          <View style={{ backgroundColor: Theme.colors.surface, padding: 18, borderRadius: 18, borderLeftWidth: 5, borderLeftColor: Theme.colors.primary, marginBottom: 20, borderWidth: 1, borderColor: Theme.colors.border }}>
+            <Text style={{ fontSize: 10, fontWeight: '900', color: Theme.colors.primary, letterSpacing: 1.5, marginBottom: 4 }}>CONFIDENTIAL COST ANALYSIS</Text>
+            <Text style={{ fontSize: 22, fontWeight: '900', color: Theme.colors.text.primary }}>{calcData.name}</Text>
+            <Text style={{ fontSize: 12, color: Theme.colors.text.secondary, fontWeight: '700', marginTop: 4 }}>
+              SKU: {item.sku || 'N/A'} • Purity: {calcData.purity} • Gross Wt: {calcData.gross_wt}g
+            </Text>
+          </View>
+
+          {/* Cost Price Card */}
+          <View style={{ backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 16 }}>
+            <Text style={{ fontSize: 11, fontWeight: '800', color: Theme.colors.text.secondary, textTransform: 'uppercase', marginBottom: 8 }}>Purchase Cost Price (Cost)</Text>
+            <Text style={{ fontSize: 32, fontWeight: '900', color: Theme.colors.text.primary }}>
+              {purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}
+            </Text>
+          </View>
+
+          {/* Est Profit / Loss Card */}
+          {purchaseAmount > 0 && (
+            <View style={{ backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: isLoss ? Theme.colors.status.error : Theme.colors.status.success, marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: Theme.colors.text.secondary, textTransform: 'uppercase' }}>Estimated Gross Profit</Text>
+                {isLoss ? <TrendingDown size={22} color={Theme.colors.status.error} /> : <TrendingUp size={22} color={Theme.colors.status.success} />}
+              </View>
+              <Text style={{ fontSize: 28, fontWeight: '900', color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }}>
+                ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
+              </Text>
+              {isLoss && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, backgroundColor: 'rgba(239, 68, 68, 0.15)', padding: 10, borderRadius: 10 }}>
+                  <TrendingDown size={16} color={Theme.colors.status.error} />
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: Theme.colors.status.error }}>Warning: Item estimate total is below purchase cost price!</Text>
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* ERP Detailed Cost Breakdown Grid */}
+          <View style={{ backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: Theme.colors.border, gap: 14 }}>
+            <Text style={{ fontSize: 11, fontWeight: '900', color: Theme.colors.primary, letterSpacing: 1, marginBottom: 2 }}>ERP COST BREAKDOWN</Text>
+            
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: Theme.colors.border, paddingBottom: 10 }}>
+              <Text style={{ color: Theme.colors.text.secondary, fontSize: 12, fontWeight: '600' }}>Gold Rate Used</Text>
+              <Text style={{ color: Theme.colors.text.primary, fontSize: 13, fontWeight: '800' }}>₹{formatNum(goldRate)} / g</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: Theme.colors.border, paddingBottom: 10 }}>
+              <Text style={{ color: Theme.colors.text.secondary, fontSize: 12, fontWeight: '600' }}>Net Gold Value</Text>
+              <Text style={{ color: Theme.colors.text.primary, fontSize: 13, fontWeight: '800' }}>₹{formatNum(goldValue)}</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: Theme.colors.border, paddingBottom: 10 }}>
+              <Text style={{ color: Theme.colors.text.secondary, fontSize: 12, fontWeight: '600' }}>Making Charges (Labour)</Text>
+              <Text style={{ color: Theme.colors.text.primary, fontSize: 13, fontWeight: '800' }}>₹{formatNum(makingGoldAmt)}</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: Theme.colors.border, paddingBottom: 10 }}>
+              <Text style={{ color: Theme.colors.text.secondary, fontSize: 12, fontWeight: '600' }}>Total Stones Value</Text>
+              <Text style={{ color: Theme.colors.text.primary, fontSize: 13, fontWeight: '800' }}>₹{formatNum(stonesTotal)}</Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4 }}>
+              <Text style={{ color: Theme.colors.primary, fontSize: 13, fontWeight: '900' }}>Estimate Total (Incl. GST)</Text>
+              <Text style={{ color: Theme.colors.text.primary, fontSize: 15, fontWeight: '900' }}>₹{formatNum(totalINR)}</Text>
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Back to Estimator Footer */}
+        <View style={{ padding: 16, backgroundColor: Theme.colors.background, borderTopWidth: 1, borderTopColor: Theme.colors.border }}>
+          <TouchableOpacity 
+            style={{ backgroundColor: Theme.colors.primary, height: 48, borderRadius: Theme.radius.md, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 }}
+            onPress={() => setShowAdminInsights(false)}
+          >
+            <ArrowLeft size={18} color={Theme.colors.text.black} />
+            <Text style={{ color: Theme.colors.text.black, fontSize: 15, fontWeight: '800' }}>Return to Bill Estimator</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -1299,34 +1421,6 @@ Billed By: ${soldBy}
           </View>
         </View>
 
-        {role === 'admin' && showAdminInsights && (
-          <View style={[styles.adminSection, { width: '100%', marginTop: 20, borderColor: '#ca2c92', borderWidth: 2 }]}>
-                <View style={styles.adminHeader}>
-                  <TrendingUp size={20} color="#ca2c92" />
-                  <Text style={[styles.adminTitle, { color: '#ca2c92' }]}>ADMIN INSIGHTS (CONFIDENTIAL COST PRICE)</Text>
-                </View>
-                <View style={styles.adminGrid}>
-                  <View style={styles.adminStat}>
-                    <Text style={styles.adminLabel}>Purchase Cost Price</Text>
-                    <Text style={styles.adminValue}>{purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}</Text>
-                  </View>
-                  {purchaseAmount > 0 && (
-                    <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
-                      <Text style={styles.adminLabel}>Est. Profit</Text>
-                      <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
-                        ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                {purchaseAmount > 0 && isLoss && (
-                  <View style={styles.lossWarning}>
-                    <TrendingDown size={14} color={Theme.colors.status.error} />
-                    <Text style={styles.lossWarningText}>Currently selling at a loss</Text>
-                  </View>
-                )}
-              </View>
-        )}
         <View style={{ height: 100 }} />
       </ScrollView>
 
