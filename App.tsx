@@ -203,13 +203,20 @@ export default function App() {
   const { role, user, loading, login } = useRole();
 
   useEffect(() => {
+    // Redirect staff or cashier users if activeTab is set to inventory
+    if ((role === 'staff' || role === 'cashier') && activeTab === 'inventory') {
+      setActiveTab('dashboard');
+    }
+  }, [role, activeTab]);
+
+  useEffect(() => {
     // Web specific history handling
     if (Platform.OS === 'web') {
       const handlePopState = (event: PopStateEvent) => {
         if (event.state) {
           if (event.state.tab && event.state.tab !== activeTab) {
             setActiveTab(event.state.tab);
-          } else if (event.state.type === 'folder') {
+          } else if (event.state.type === 'folder' && role !== 'staff' && role !== 'cashier') {
             setActiveTab('inventory');
           }
         } else {
@@ -222,7 +229,7 @@ export default function App() {
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
-  }, [activeTab]);
+  }, [activeTab, role]);
 
   const changeTab = useCallback((tab: string) => {
     if (tab === activeTab) return;
@@ -387,7 +394,7 @@ export default function App() {
 
           <View style={styles.tabBar}>
             <NavItem name="dashboard" icon={LayoutDashboard} label="Home" isActive={activeTab === 'dashboard'} onPress={changeTab} />
-            <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />
+            {(role === 'admin' || role === 'inventory' || role === 'staff') && <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />}
             <NavItem name="scan" icon={Scan} label="Scan" isActive={activeTab === 'scan'} onPress={changeTab} />
             {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" isActive={activeTab === 'vendor'} onPress={changeTab} />}
             <NavItem name="history" icon={History} label="History" isActive={activeTab === 'history'} onPress={changeTab} />
