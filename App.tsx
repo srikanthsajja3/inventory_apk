@@ -394,7 +394,7 @@ export default function App() {
 
           <View style={styles.tabBar}>
             <NavItem name="dashboard" icon={LayoutDashboard} label="Home" isActive={activeTab === 'dashboard'} onPress={changeTab} />
-            {(role === 'admin' || role === 'inventory' || role === 'staff') && <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />}
+            {(role === 'admin' || role === 'inventory') && <NavItem name="inventory" icon={Package} label="Items" isActive={activeTab === 'inventory'} onPress={changeTab} />}
             <NavItem name="scan" icon={Scan} label="Scan" isActive={activeTab === 'scan'} onPress={changeTab} />
             {role === 'admin' && <NavItem name="vendor" icon={Users} label="Vendors" isActive={activeTab === 'vendor'} onPress={changeTab} />}
             <NavItem name="history" icon={History} label="History" isActive={activeTab === 'history'} onPress={changeTab} />
