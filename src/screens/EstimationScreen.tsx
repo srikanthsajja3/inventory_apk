@@ -534,12 +534,20 @@ export default function EstimationScreen({ route, navigation }: any) {
   const [calcData, setCalcData] = useState(() => getInitialCalcData({}));
   const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>([]);
 
-  // Instagram Vanish Mode State & Touch/Mouse Swipe Tracking
+  // Instagram Vanish Mode State & Touch/Mouse Swipe Tracking (Requires scroll to end of page)
   const [showAdminInsights, setShowAdminInsights] = useState(false);
   const startYRef = React.useRef<number | null>(null);
+  const isAtBottomRef = React.useRef(false);
 
   const toggleVanishMode = () => {
     setShowAdminInsights(prev => !prev);
+  };
+
+  const handleScroll = (e: any) => {
+    const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
+    // Check if scrolled near the bottom (within 40px of content end)
+    const isAtEnd = (contentOffset.y + layoutMeasurement.height) >= (contentSize.height - 40);
+    isAtBottomRef.current = isAtEnd;
   };
 
   const handleTouchStart = (e: any) => {
@@ -552,7 +560,9 @@ export default function EstimationScreen({ route, navigation }: any) {
     if (role !== 'admin' || startYRef.current === null) return;
     const endY = e.nativeEvent.pageY || e.nativeEvent.clientY || (e.nativeEvent.changedTouches && e.nativeEvent.changedTouches[0]?.clientY) || 0;
     const dragDistance = startYRef.current - endY;
-    if (dragDistance > 80) {
+    
+    // Only toggle if user is ALREADY at the end of the page and swipes UP > 80px
+    if (isAtBottomRef.current && dragDistance > 80) {
       toggleVanishMode();
     }
     startYRef.current = null;
@@ -1174,6 +1184,8 @@ Billed By: ${soldBy}
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         {...Platform.select({
           web: {
             onMouseDown: (e: any) => handleTouchStart(e),
