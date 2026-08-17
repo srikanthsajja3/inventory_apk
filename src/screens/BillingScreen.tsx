@@ -208,7 +208,7 @@ export default function BillingScreen() {
             const p = num(s.pcs);
             let r = num(s.rate);
             if (r === 0) {
-              r = getDynamicStoneRate(s.name || s.label || 'Diamond', s.category || 'Diamond', w, p, masterStones, rateMap.diamond_rd_rate || 65000);
+              r = getDynamicStoneRate(s.name || s.label || 'Diamond', s.category || 'Diamond', w, p, masterStones, 69000);
             }
             return {
               id: s.id || Math.random().toString(36).substring(2, 10),
@@ -222,7 +222,7 @@ export default function BillingScreen() {
         } else {
           const daiWt = num(data.dai_wt);
           const daiPcs = num(data.dai_pcs);
-          const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, daiPcs, masterStones, rateMap.diamond_rd_rate || 65000);
+          const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, daiPcs, masterStones, 69000);
           stonesList = [
             { id: 'd1', name: 'Diamond', weight: daiWt, pcs: daiPcs, rate: daiRate, category: 'Diamond' },
             { id: 's1', name: 'Color Stone', weight: num(data.clr_stone_wt), pcs: num(data.clr_stone_pcs), rate: num(rateMap.stone_rate || 3500), category: 'Stone' }

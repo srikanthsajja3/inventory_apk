@@ -21,7 +21,7 @@ export function getDynamicStoneRate(
   weight: number | string,
   pcs: number | string,
   masterStones: StoneMasterItem[] = [],
-  defaultRate: number = 65000
+  defaultRate: number = 69000
 ): number {
   const w = num(weight);
   const p = num(pcs);

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ActivityIndicator, Alert, Platform, TextInput, Modal, FlatList, useWindowDimensions, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Printer, Share2, CheckCircle2, User } from 'lucide-react-native';
+import { X, IndianRupee, RefreshCw, ChevronDown, Plus, Trash2, Calculator as CalcIcon, TrendingUp, TrendingDown, DollarSign, ShoppingBag, Printer, Share2, CheckCircle2, User, Lock, Unlock, EyeOff, ChevronUp } from 'lucide-react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { supabase } from '../../supabase';
@@ -311,7 +311,7 @@ const calculateDynamicStoneRate = (
   productName: string = ''
 ): number => {
   const labelLower = (stoneLabel || '').toLowerCase().trim();
-  let defaultRate = num(rateMap.diamond_rd_rate || 65000);
+  let defaultRate = 69000;
   if (labelLower.includes('color stone') || labelLower.includes('stone')) {
     defaultRate = num(rateMap.stone_rate || 3500);
   } else if (labelLower.includes('beads')) {
@@ -515,7 +515,7 @@ export default function EstimationScreen({ route, navigation }: any) {
         stones = JSON.parse(item.stones_in_detail);
       } else {
         stones = [
-          { id: 'd1', label: 'Diamond', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String(currentRateMap.diamond_rd_rate || '65000'), category: 'Diamond' },
+          { id: 'd1', label: 'Diamond', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String('69000'), category: 'Diamond' },
           { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: String(currentRateMap.stone_rate || '3500'), category: 'Stone' },
           { id: 'b1', label: 'Beads', weight: '0', pcs: '0', rate: String(currentRateMap.default_beads_rate || '850'), category: 'Beads' }
         ];
@@ -533,6 +533,30 @@ export default function EstimationScreen({ route, navigation }: any) {
 
   const [calcData, setCalcData] = useState(() => getInitialCalcData({}));
   const [dynamicStones, setDynamicStones] = useState<DynamicStone[]>([]);
+
+  // Instagram Vanish Mode State & Touch/Mouse Swipe Tracking
+  const [showAdminInsights, setShowAdminInsights] = useState(false);
+  const startYRef = React.useRef<number | null>(null);
+
+  const toggleVanishMode = () => {
+    setShowAdminInsights(prev => !prev);
+  };
+
+  const handleTouchStart = (e: any) => {
+    if (role !== 'admin') return;
+    const y = e.nativeEvent.pageY || e.nativeEvent.clientY || (e.nativeEvent.touches && e.nativeEvent.touches[0]?.clientY) || 0;
+    startYRef.current = y;
+  };
+
+  const handleTouchEnd = (e: any) => {
+    if (role !== 'admin' || startYRef.current === null) return;
+    const endY = e.nativeEvent.pageY || e.nativeEvent.clientY || (e.nativeEvent.changedTouches && e.nativeEvent.changedTouches[0]?.clientY) || 0;
+    const dragDistance = startYRef.current - endY;
+    if (dragDistance > 80) {
+      toggleVanishMode();
+    }
+    startYRef.current = null;
+  };
 
   // Billing & Invoicing State
   const [showSellModal, setShowSellModal] = useState(false);
@@ -1147,7 +1171,22 @@ Billed By: ${soldBy}
         <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color={Theme.colors.primary} /></TouchableOpacity>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      <ScrollView 
+        showsVerticalScrollIndicator={false} 
+        contentContainerStyle={styles.scrollContent}
+        {...Platform.select({
+          web: {
+            onMouseDown: (e: any) => handleTouchStart(e),
+            onMouseUp: (e: any) => handleTouchEnd(e),
+            onTouchStart: (e: any) => handleTouchStart(e),
+            onTouchEnd: (e: any) => handleTouchEnd(e),
+          },
+          default: {
+            onTouchStart: (e: any) => handleTouchStart(e),
+            onTouchEnd: (e: any) => handleTouchEnd(e),
+          }
+        })}
+      >
         <View style={[styles.infoWrapper, isTablet && styles.infoWrapperTablet]}>
           <View style={[styles.infoCard, isTablet && { flex: 1, marginBottom: 0 }]}>
             <View style={styles.infoRow}>
@@ -1248,55 +1287,45 @@ Billed By: ${soldBy}
           </View>
         </View>
 
-        {role === 'admin' && (
-          <View style={styles.adminSection}>
-            <View style={styles.adminHeader}>
-              <TrendingUp size={20} color={Theme.colors.status.success} />
-              <Text style={styles.adminTitle}>ADMIN INSIGHTS (CONFIDENTIAL)</Text>
-            </View>
-            <View style={styles.adminGrid}>
-              <View style={styles.adminStat}>
-                <Text style={styles.adminLabel}>Purchase Cost Price</Text>
-                <Text style={styles.adminValue}>{purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}</Text>
-              </View>
-              {purchaseAmount > 0 && (
-                <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
-                  <Text style={styles.adminLabel}>Est. Profit</Text>
-                  <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
-                    ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
-                  </Text>
+        {role === 'admin' && showAdminInsights && (
+          <View style={[styles.adminSection, { width: '100%', marginTop: 20, borderColor: '#ca2c92', borderWidth: 2 }]}>
+                <View style={styles.adminHeader}>
+                  <TrendingUp size={20} color="#ca2c92" />
+                  <Text style={[styles.adminTitle, { color: '#ca2c92' }]}>ADMIN INSIGHTS (CONFIDENTIAL COST PRICE)</Text>
                 </View>
-              )}
-            </View>
-            {purchaseAmount > 0 && isLoss && (
-              <View style={styles.lossWarning}>
-                <TrendingDown size={14} color={Theme.colors.status.error} />
-                <Text style={styles.lossWarningText}>Currently selling at a loss</Text>
+                <View style={styles.adminGrid}>
+                  <View style={styles.adminStat}>
+                    <Text style={styles.adminLabel}>Purchase Cost Price</Text>
+                    <Text style={styles.adminValue}>{purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}</Text>
+                  </View>
+                  {purchaseAmount > 0 && (
+                    <View style={[styles.adminStat, { borderLeftWidth: 1, borderLeftColor: Theme.colors.border }]}>
+                      <Text style={styles.adminLabel}>Est. Profit</Text>
+                      <Text style={[styles.adminValue, { color: isLoss ? Theme.colors.status.error : Theme.colors.status.success }]}>
+                        ₹{formatNum(profitAmt)} ({profitPct.toFixed(1)}%)
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                {purchaseAmount > 0 && isLoss && (
+                  <View style={styles.lossWarning}>
+                    <TrendingDown size={14} color={Theme.colors.status.error} />
+                    <Text style={styles.lossWarningText}>Currently selling at a loss</Text>
+                  </View>
+                )}
               </View>
-            )}
-          </View>
         )}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Sell sticky footer for admin & staff */}
-      <View style={[styles.footerContainer, { flexDirection: 'row', gap: 10 }]}>
+      {/* Print Estimate sticky footer */}
+      <View style={styles.footerContainer}>
         <TouchableOpacity 
-          style={[styles.sellBtn, { flex: 1, backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.primary }]} 
+          style={[styles.sellBtn, { width: '100%', backgroundColor: Theme.colors.primary }]} 
           onPress={printEstimateWithoutSaving}
         >
-          <Printer size={18} color={Theme.colors.primary} />
-          <Text style={[styles.sellBtnText, { color: Theme.colors.primary }]}>Print Estimate</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.sellBtn, { flex: 1.3 }]} 
-          onPress={() => {
-            setSaleAmount(Math.round(totalINR).toString());
-            setShowSellModal(true);
-          }}
-        >
-          <ShoppingBag size={18} color="black" />
-          <Text style={styles.sellBtnText}>Invoice & Sell</Text>
+          <Printer size={18} color={Theme.colors.text.black} />
+          <Text style={[styles.sellBtnText, { color: Theme.colors.text.black }]}>Print Estimate</Text>
         </TouchableOpacity>
       </View>
 
