@@ -326,7 +326,9 @@ export default function App() {
     </View>
   );
 
-  const handleEstimation = useCallback((item: any) => setEstimationItem(item), []);
+  const handleEstimation = useCallback((item: any) => {
+    setEstimationItem(item);
+  }, []);
   const handleUpdateGoldRate = useCallback(() => setShowGoldRate(true), []);
   const handleManageStones = useCallback(() => setShowStoneMaster(true), []);
   const handleSalesBack = useCallback(() => changeTab('dashboard'), [changeTab]);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Alert, ActivityIndicator, Image, ScrollView, Platform, TextInput, Modal, Dimensions } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem, Edit2  } from 'lucide-react-native';
+import { Scan, X, Package, Plus, Minus, Info, PlusCircle, Scale, Tag, Hash, FileText, Keyboard, IndianRupee, Calculator, Edit3, User, Clock, ShoppingBag, Gem, Edit2, Camera } from 'lucide-react-native';
 import { supabase } from '../../supabase';
 import { useRole } from '../hooks/useRole';
 import { useJewelryCalc } from '../hooks/useJewelryCalc';
@@ -716,38 +716,60 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                 </View>
 
                 <View style={styles.actionRow}>
-                  <TouchableOpacity 
-                    style={[styles.estimateBtn, { backgroundColor: Theme.colors.status.success }]}
-                    onPress={() => setShowSellModal(true)}
-                    disabled={itemFound.quantity <= 0}
-                  >
-                    <ShoppingBag size={18} color="white" />
-                    <Text style={styles.doneBtnText}>Sell</Text>
-                  </TouchableOpacity>
+                  {role === 'staff' ? (
+                    <>
+                      <TouchableOpacity 
+                        style={[styles.estimateBtn, { backgroundColor: Theme.colors.primary, flex: 1.5 }]}
+                        onPress={() => setIsEditModalVisible(true)}
+                      >
+                        <Camera size={18} color={Theme.colors.text.black} />
+                        <Text style={[styles.doneBtnText, { color: Theme.colors.text.black }]}>Upload Photo</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    style={[styles.estimateBtn, { backgroundColor: '#1e293b' }]}
-                    onPress={() => setIsAddModalVisible(true)}
-                  >
-                    <Edit3 size={18} color="white" />
-                    <Text style={styles.doneBtnText}>Stones</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.estimateBtn}
+                        onPress={() => onEstimation && onEstimation(itemFound)}
+                      >
+                        <Calculator size={18} color="white" />
+                        <Text style={styles.doneBtnText}>Est</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity 
+                        style={[styles.estimateBtn, { backgroundColor: Theme.colors.status.success }]}
+                        onPress={() => setShowSellModal(true)}
+                        disabled={itemFound.quantity <= 0}
+                      >
+                        <ShoppingBag size={18} color="white" />
+                        <Text style={styles.doneBtnText}>Sell</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    style={[styles.estimateBtn, { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border }]}
-                    onPress={() => setIsEditModalVisible(true)}
-                  >
-                    <Edit2 size={18} color={Theme.colors.primary} />
-                    <Text style={[styles.doneBtnText, { color: Theme.colors.primary }]}>Edit</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.estimateBtn, { backgroundColor: '#1e293b' }]}
+                        onPress={() => setIsAddModalVisible(true)}
+                      >
+                        <Edit3 size={18} color="white" />
+                        <Text style={styles.doneBtnText}>Stones</Text>
+                      </TouchableOpacity>
 
-                  <TouchableOpacity 
-                    style={styles.estimateBtn}
-                    onPress={() => onEstimation && onEstimation(itemFound)}
-                  >
-                    <Calculator size={18} color="white" />
-                    <Text style={styles.doneBtnText}>Est</Text>
-                  </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[styles.estimateBtn, { backgroundColor: Theme.colors.surface, borderWidth: 1, borderColor: Theme.colors.border }]}
+                        onPress={() => setIsEditModalVisible(true)}
+                      >
+                        <Edit2 size={18} color={Theme.colors.primary} />
+                        <Text style={[styles.doneBtnText, { color: Theme.colors.primary }]}>Edit</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity 
+                        style={styles.estimateBtn}
+                        onPress={() => onEstimation && onEstimation(itemFound)}
+                      >
+                        <Calculator size={18} color="white" />
+                        <Text style={styles.doneBtnText}>Est</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
 
                   <TouchableOpacity 
                     style={styles.doneBtn}
@@ -768,13 +790,15 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
               </Text>
               
               <View style={styles.notFoundActions}>
-                <TouchableOpacity 
-                  style={styles.addBtn} 
-                  onPress={() => setIsNewItemModalVisible(true)}
-                >
-                  <PlusCircle size={20} color="white" />
-                  <Text style={styles.addBtnText}>Add as New Item</Text>
-                </TouchableOpacity>
+                {role !== 'staff' && (
+                  <TouchableOpacity 
+                    style={styles.addBtn} 
+                    onPress={() => setIsNewItemModalVisible(true)}
+                  >
+                    <PlusCircle size={20} color="white" />
+                    <Text style={styles.addBtnText}>Add as New Item</Text>
+                  </TouchableOpacity>
+                )}
                 
                 <TouchableOpacity 
                   style={styles.retryBtn} 

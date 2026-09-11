@@ -77,7 +77,7 @@ export function useJewelryCalc() {
     const num = (v: any) => parseFloat(String(v)) || 0;
     
     const goldRate = activeRates.gold_18kt || 0;
-    const defaultDiamondRate = activeRates.diamond_rd_rate || 65000;
+    const defaultDiamondRate = activeRates.diamond_rd_rate || 69000;
     const defaultStoneRate = activeRates.stone_rate || 3500;
     const certRate = activeRates.cert_rate_per_ct || 950;
     const taxPct = activeRates.tax_gst_pct || 3;

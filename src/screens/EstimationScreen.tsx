@@ -514,14 +514,53 @@ export default function EstimationScreen({ route, navigation }: any) {
       if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
         stones = JSON.parse(item.stones_in_detail);
       } else {
-        stones = [
-          { id: 'd1', label: 'Diamond', weight: String(item.dai_wt || 0), pcs: String(item.dai_pcs || 0), rate: String('69000'), category: 'Diamond' },
-          { id: 's1', label: 'Color Stone', weight: String(item.clr_stone_wt || 0), pcs: String(item.clr_stone_pcs || 0), rate: String(currentRateMap.stone_rate || '3500'), category: 'Stone' },
-          { id: 'b1', label: 'Beads', weight: '0', pcs: '0', rate: String(currentRateMap.default_beads_rate || '850'), category: 'Beads' }
-        ];
+        const defaultStones: any[] = [];
+        
+        const daiWt = num(item.dai_wt || item.diamond_wt || 0);
+        const daiPcs = num(item.dai_pcs || item.diamond_pcs || 0);
+        const clrWt = num(item.clr_stone_wt || item.color_stone_wt || 0);
+        const clrPcs = num(item.clr_stone_pcs || item.color_stone_pcs || 0);
+        const beadsWt = num(item.beads_wt || 0);
+        const beadsPcs = num(item.beads_pcs || 0);
+
+        if (daiWt > 0 || daiPcs > 0 || (item.name && item.name.trim().toUpperCase().startsWith('D') && clrWt === 0 && beadsWt === 0)) {
+          defaultStones.push({
+            id: 'd1',
+            label: 'Diamond',
+            weight: String(daiWt),
+            pcs: String(daiPcs),
+            rate: String('69000'),
+            category: 'Diamond'
+          });
+        }
+        
+        if (clrWt > 0 || clrPcs > 0) {
+          defaultStones.push({
+            id: 's1',
+            label: 'Color Stone',
+            weight: String(clrWt),
+            pcs: String(clrPcs),
+            rate: String(currentRateMap.stone_rate || '3500'),
+            category: 'Stone'
+          });
+        }
+
+        if (beadsWt > 0 || beadsPcs > 0) {
+          defaultStones.push({
+            id: 'b1',
+            label: 'Beads',
+            weight: String(beadsWt),
+            pcs: String(beadsPcs),
+            rate: String(currentRateMap.default_beads_rate || '850'),
+            category: 'Beads'
+          });
+        }
+
+        stones = defaultStones;
       }
     } catch (e) { stones = []; }
-    return stones.map((s: any) => ({
+
+    const formatted = stones.map((s: any) => ({
       id: s.id || Math.random().toString(36).substr(2, 9),
       label: renameStone(s.name || s.label || 'Stone'),
       weight: String(s.weight || 0),
@@ -529,6 +568,16 @@ export default function EstimationScreen({ route, navigation }: any) {
       rate: String(s.rate || 0),
       category: s.category || 'Stone'
     }));
+
+    return formatted.filter((s: any) => {
+      const w = num(s.weight);
+      const p = num(s.pcs);
+      if (w > 0 || p > 0) return true;
+      if (s.category === 'Diamond' && item.name && item.name.trim().toUpperCase().startsWith('D') && formatted.length === 1) {
+        return true;
+      }
+      return false;
+    });
   };
 
   const [calcData, setCalcData] = useState(() => getInitialCalcData({}));
@@ -538,6 +587,8 @@ export default function EstimationScreen({ route, navigation }: any) {
   const [showAdminInsights, setShowAdminInsights] = useState(false);
   const startYRef = React.useRef<number | null>(null);
   const isAtBottomRef = React.useRef(false);
+  const layoutHeightRef = React.useRef(0);
+  const contentHeightRef = React.useRef(0);
 
   const toggleVanishMode = () => {
     setShowAdminInsights(prev => !prev);
@@ -545,9 +596,27 @@ export default function EstimationScreen({ route, navigation }: any) {
 
   const handleScroll = (e: any) => {
     const { contentOffset, layoutMeasurement, contentSize } = e.nativeEvent;
-    // Check if scrolled near the bottom (within 40px of content end)
-    const isAtEnd = (contentOffset.y + layoutMeasurement.height) >= (contentSize.height - 40);
+    layoutHeightRef.current = layoutMeasurement.height;
+    contentHeightRef.current = contentSize.height;
+    // Check if scrolled near the bottom (within 50px of content end) or if content fits without scrolling
+    const isAtEnd = (contentSize.height <= layoutMeasurement.height + 20) ||
+      ((contentOffset.y + layoutMeasurement.height) >= (contentSize.height - 50));
     isAtBottomRef.current = isAtEnd;
+  };
+
+  const handleContentSizeChange = (w: number, h: number) => {
+    contentHeightRef.current = h;
+    if (layoutHeightRef.current > 0 && h <= layoutHeightRef.current + 20) {
+      isAtBottomRef.current = true;
+    }
+  };
+
+  const handleLayout = (e: any) => {
+    const h = e.nativeEvent.layout.height;
+    layoutHeightRef.current = h;
+    if (contentHeightRef.current > 0 && contentHeightRef.current <= h + 20) {
+      isAtBottomRef.current = true;
+    }
   };
 
   const handleTouchStart = (e: any) => {
@@ -561,14 +630,17 @@ export default function EstimationScreen({ route, navigation }: any) {
     const endY = e.nativeEvent.pageY || e.nativeEvent.clientY || (e.nativeEvent.changedTouches && e.nativeEvent.changedTouches[0]?.clientY) || 0;
     const dragDistance = startYRef.current - endY;
     
+    // Check if content fits without needing scroll
+    const isUnscrollable = contentHeightRef.current > 0 && layoutHeightRef.current > 0 && contentHeightRef.current <= layoutHeightRef.current + 30;
+
     if (showAdminInsights) {
       // On Page 2: Swiping DOWN returns back to Page 1
-      if (dragDistance < -60) {
+      if (dragDistance < -50) {
         setShowAdminInsights(false);
       }
     } else {
-      // On Page 1: Swiping UP at the bottom of the page opens Page 2
-      if (isAtBottomRef.current && dragDistance > 80) {
+      // On Page 1: Swiping UP at the bottom of the page OR on short unscrollable products opens Admin Prices
+      if ((isAtBottomRef.current || isUnscrollable) && dragDistance > 50) {
         setShowAdminInsights(true);
       }
     }
@@ -1300,13 +1372,26 @@ Billed By: ${soldBy}
           <CalcIcon size={isTablet ? 24 : 18} color={Theme.colors.primary} />
           <Text style={[styles.headerTitle, { fontSize: isTablet ? 20 : 16 }]}>Bill Estimator</Text>
         </View>
-        <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color={Theme.colors.primary} /></TouchableOpacity>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {role === 'admin' && (
+            <TouchableOpacity 
+              onPress={() => setShowAdminInsights(prev => !prev)} 
+              style={[styles.refreshBtn, { backgroundColor: Theme.colors.primary + '15', borderRadius: 8 }]}
+              accessibilityLabel="Admin Prices"
+            >
+              <ShieldCheck size={isTablet ? 22 : 18} color={Theme.colors.primary} />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity onPress={fetchData} style={styles.refreshBtn}><RefreshCw size={isTablet ? 24 : 18} color={Theme.colors.primary} /></TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView 
         showsVerticalScrollIndicator={false} 
         contentContainerStyle={styles.scrollContent}
         onScroll={handleScroll}
+        onContentSizeChange={handleContentSizeChange}
+        onLayout={handleLayout}
         scrollEventThrottle={16}
         {...Platform.select({
           web: {

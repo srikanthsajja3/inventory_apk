@@ -6,6 +6,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import { supabase } from '../../supabase';
 import { decode } from 'base64-arraybuffer';
 import { Theme } from '../theme';
+import { useRole } from '../hooks/useRole';
 import ImageCropModal from './ImageCropModal';
 import { deleteImageFromStorage } from '../utils/images';
 
@@ -263,6 +264,7 @@ interface ItemFolderModalProps {
 }
 
 export default function ItemFolderModal({ isVisible, onClose, onSave, currentFolderId, initialData }: ItemFolderModalProps) {
+  const { role } = useRole();
   const [type, setType] = useState<'item' | 'folder'>('item');
   const [loading, setLoading] = useState(false);
   const [images, setImages] = useState<any[]>([]); 
@@ -633,7 +635,7 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
   };
 
   const handleSave = async () => {
-    if (!form.name) {
+    if (role !== 'staff' && !form.name) {
       Alert.alert('Error', 'Please enter a name');
       return;
     }
@@ -642,6 +644,25 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
       setLoading(true);
       
       const { urls, thumbnails } = await uploadImages(images);
+
+      if (role === 'staff') {
+        if (initialData && initialData.id) {
+          const updatePayload: any = {
+            image_url: urls[0] || null,
+            image_urls: urls,
+            thumbnail_url: thumbnails[0] || null,
+            thumbnail_urls: thumbnails,
+          };
+          const { error } = await supabase
+            .from('items')
+            .update(updatePayload)
+            .eq('id', initialData.id);
+          if (error) throw error;
+        }
+        onSave();
+        onClose();
+        return;
+      }
 
       if (type === 'folder') {
         if (isEdit) {
@@ -746,13 +767,13 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
       >
         <View style={styles.modalContent}>
           <View style={styles.header}>
-            <Text style={styles.modalTitle}>{isEdit ? 'Edit' : 'Add New'} {type === 'item' ? 'Item' : 'Folder'}</Text>
+            <Text style={styles.modalTitle}>{role === 'staff' ? 'Upload Product Photo' : `${isEdit ? 'Edit' : 'Add New'} ${type === 'item' ? 'Item' : 'Folder'}`}</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <X size={24} color="#64748b" />
             </TouchableOpacity>
           </View>
 
-          {!isEdit && (
+          {role !== 'staff' && !isEdit && (
             <View style={styles.typeSelector}>
               <TouchableOpacity 
                 style={[styles.typeBtn, type === 'item' && styles.typeBtnActive]} 
@@ -772,7 +793,40 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           )}
 
           <ScrollView style={styles.form} showsVerticalScrollIndicator={false}>
-            {type === 'item' && (
+            {role === 'staff' ? (
+              <View style={{ paddingVertical: 10 }}>
+                <View style={{ backgroundColor: Theme.colors.surface, padding: 16, borderRadius: 14, marginBottom: 20, borderWidth: 1, borderColor: Theme.colors.border }}>
+                  <Text style={{ fontSize: 10, fontWeight: '900', color: Theme.colors.primary, letterSpacing: 1, marginBottom: 4 }}>PRODUCT DETAILS</Text>
+                  <Text style={{ fontSize: 18, fontWeight: '900', color: Theme.colors.text.primary }}>{form.name || 'Product'}</Text>
+                  <Text style={{ fontSize: 12, color: Theme.colors.text.secondary, fontWeight: '700', marginTop: 4 }}>SKU: {form.sku || 'N/A'}</Text>
+                </View>
+
+                <View style={styles.imagePickerSection}>
+                  <Text style={styles.label}>Product Images (Camera / Gallery)</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.imagesScrollView}>
+                    {images.map((img, index) => (
+                      <View key={index} style={styles.imagePickerWrapper}>
+                        <TouchableOpacity style={{ flex: 1 }} onPress={() => handleImageAction(index)}>
+                          <Image source={{ uri: img.uri }} style={styles.previewImage} resizeMode="contain" />
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={styles.removeImageSmall} 
+                          onPress={() => setImages(images.filter((_, i) => i !== index))}
+                        >
+                          <X size={12} color="white" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                    <TouchableOpacity style={styles.imagePickerSmall} onPress={() => handleImageAction()}>
+                      <View style={styles.imagePlaceholderSmall}>
+                        <Camera size={24} color="#94a3b8" />
+                        <Text style={styles.imagePlaceholderTextSmall}>Add Photo</Text>
+                      </View>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              </View>
+            ) : type === 'item' && (
               <>
                 <View style={styles.imagePickerSection}>
                   <Text style={styles.label}>Product Images</Text>
@@ -1131,8 +1185,8 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 <ActivityIndicator color="white" />
               ) : (
                 <>
-                  {isEdit ? <Edit3 size={20} color="white" /> : <Save size={20} color="white" />}
-                  <Text style={styles.saveButtonText}>{isEdit ? 'Update' : 'Save'} {type === 'item' ? 'Item' : 'Folder'}</Text>
+                  {role === 'staff' ? <Camera size={20} color="white" /> : (isEdit ? <Edit3 size={20} color="white" /> : <Save size={20} color="white" />)}
+                  <Text style={styles.saveButtonText}>{role === 'staff' ? 'Save Photo' : `${isEdit ? 'Update' : 'Save'} ${type === 'item' ? 'Item' : 'Folder'}`}</Text>
                 </>
               )}
             </TouchableOpacity>

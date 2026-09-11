@@ -117,6 +117,8 @@ const styles = StyleSheet.create({
   },
 });
 
+import { importCSVContent } from '../utils/csvImporter';
+
 export default function ImportScreen() {
   const [file, setFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [loading, setLoading] = useState(false);
@@ -124,10 +126,10 @@ export default function ImportScreen() {
   const pickFile = async () => {
     try {
       const res = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+        type: ['text/csv', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', '*/*'],
       });
 
-      if (!res.canceled) {
+      if (!res.canceled && res.assets && res.assets.length > 0) {
         setFile(res.assets[0]);
       }
     } catch (err) {
@@ -140,16 +142,39 @@ export default function ImportScreen() {
 
     try {
       setLoading(true);
-      // Implementation of CSV/Excel parsing would go here
-      // For now just showing success
-      setTimeout(() => {
+      let csvContent = '';
+      
+      if (Platform.OS === 'web' && file.file) {
+        csvContent = await file.file.text();
+      } else {
+        const response = await fetch(file.uri);
+        csvContent = await response.text();
+      }
+
+      if (!csvContent.trim()) {
+        Alert.alert('Empty File', 'The selected file contains no text data.');
         setLoading(false);
-        Alert.alert('Success', 'File imported successfully');
-        setFile(null);
-      }, 1500);
+        return;
+      }
+
+      const res = await importCSVContent(csvContent);
+      setLoading(false);
+
+      if (res.success) {
+        Alert.alert(
+          'Import Successful 🎉',
+          `${res.message} (${res.count} records processed)`,
+          [{ text: 'OK', onPress: () => setFile(null) }]
+        );
+      } else {
+        Alert.alert(
+          'Import Notice',
+          `${res.message}${res.errors ? '\n' + res.errors.join('\n') : ''}`
+        );
+      }
     } catch (err: any) {
       setLoading(false);
-      Alert.alert('Error', err.message);
+      Alert.alert('Import Failed', err.message || 'An error occurred during CSV import.');
     }
   };
 

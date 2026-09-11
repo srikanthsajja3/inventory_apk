@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, FlatList, TextInput, TouchableOpacity, ActivityIndicator, Alert, Modal, ScrollView, Image, Platform, BackHandler, useWindowDimensions } from 'react-native';
-import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera, MoreVertical, Sparkles } from 'lucide-react-native';
+import { Search, Plus, Package, RefreshCcw, QrCode, X, Folder, ChevronRight, ArrowLeft, Trash2, Move, Edit2, ImageIcon, CheckCircle2, Circle, ListFilter, CheckSquare, LayoutGrid, List, MapPin, Camera, MoreVertical, Sparkles, Crop } from 'lucide-react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { supabase } from '../../supabase';
@@ -9,6 +9,7 @@ import ItemFolderModal from '../components/ItemFolderModal';
 import ItemDetailsModal from '../components/ItemDetailsModal';
 import MoveModal from '../components/MoveModal';
 import AutoOrganizeModal from '../components/AutoOrganizeModal';
+import BatchThumbnailCropperModal from '../components/BatchThumbnailCropperModal';
 import OptimizedImage from '../components/OptimizedImage';
 import { Theme } from '../theme';
 import { SCREEN_WIDTH } from '../utils/scaling';
@@ -709,6 +710,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
   const [qrModalVisible, setQrModalVisible] = useState(false);
   const [moveModalVisible, setMoveModalVisible] = useState(false);
   const [autoOrganizeVisible, setAutoOrganizeVisible] = useState(false);
+  const [batchCropperVisible, setBatchCropperVisible] = useState(false);
   const [optionsModalVisible, setOptionsModalVisible] = useState(false);
   const [activeItemForOptions, setActiveItemForOptions] = useState<{item: any, type: 'item' | 'folder'} | null>(null);
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -1357,9 +1359,14 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
         <View style={styles.headerActions}>
           {currentFolder?.id === 'virtual-exhibition' && <TouchableOpacity onPress={() => setIsScanning(true)} style={[styles.refreshButton, { backgroundColor: Theme.colors.primary }]}><QrCode size={20} color={Theme.colors.text.black} /></TouchableOpacity>}
           {role === 'admin' && (
-            <TouchableOpacity onPress={() => setAutoOrganizeVisible(true)} style={[styles.refreshButton, { backgroundColor: Theme.colors.surface, borderColor: Theme.colors.primary }]}>
-              <Sparkles size={18} color={Theme.colors.primary} />
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity onPress={() => setAutoOrganizeVisible(true)} style={[styles.refreshButton, { backgroundColor: Theme.colors.surface, borderColor: Theme.colors.primary }]}>
+                <Sparkles size={18} color={Theme.colors.primary} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setBatchCropperVisible(true)} style={[styles.refreshButton, { backgroundColor: Theme.colors.surface, borderColor: Theme.colors.primary }]}>
+                <Crop size={18} color={Theme.colors.primary} />
+              </TouchableOpacity>
+            </>
           )}
           <TouchableOpacity onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')} style={styles.refreshButton}>{viewMode === 'grid' ? <List size={20} color="white" /> : <LayoutGrid size={20} color="white" />}</TouchableOpacity>
           <TouchableOpacity onPress={toggleSelectionMode} style={[styles.refreshButton, selectionMode && styles.activeSelectionBtn]}><CheckSquare size={20} color={selectionMode ? Theme.colors.text.black : "white"} /></TouchableOpacity>
@@ -1499,6 +1506,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       <ItemDetailsModal isVisible={isDetailsVisible} onClose={() => setIsDetailsVisible(false)} item={selectedItem} onEdit={openEditModal} onEstimate={(item) => { setIsDetailsVisible(false); onEstimation(item); }} />
       <MoveModal isVisible={moveModalVisible} onClose={() => setMoveModalVisible(false)} onMove={fetchContents} itemsToMove={itemsToMove} />
       <AutoOrganizeModal isVisible={autoOrganizeVisible} onClose={() => setAutoOrganizeVisible(false)} onComplete={fetchContents} />
+      <BatchThumbnailCropperModal isVisible={batchCropperVisible} onClose={() => setBatchCropperVisible(false)} onRefreshInventory={fetchContents} />
 
       <Modal visible={optionsModalVisible} transparent animationType="slide">
         <TouchableOpacity style={styles.optionsModalOverlay} activeOpacity={1} onPress={() => setOptionsModalVisible(false)}>
