@@ -504,7 +504,19 @@ export default function EstimationScreen({ route, navigation }: any) {
       tax_pct: String(currentRateMap.tax_gst_pct || '3'),
       purity: item.purity || '18KT',
       name: item.name || 'Product',
-      prc_amount: num(item.cost_price || item.prc_amount || 0),
+      prc_amount: (() => {
+        const recPrc = num(item.cost_price || item.prc_amount || 0);
+        if (recPrc > 0) return recPrc;
+        const netWt = num(item.net_wt);
+        const purity = (item.purity || '18').toString();
+        const goldRate = purity.includes('22') ? num(currentRateMap.gold_22kt || 9000) : num(currentRateMap.gold_18kt || 8000);
+        const goldVal = netWt * goldRate;
+        const labVal = num(item.labour_amt);
+        const diaVal = num(item.dia_purchase_amt);
+        const stnVal = num(item.stone_purchase_amt);
+        const othVal = num(item.other_charges);
+        return goldVal + labVal + diaVal + stnVal + othVal;
+      })(),
     };
   };
 
@@ -1296,7 +1308,7 @@ Billed By: ${soldBy}
           <View style={{ backgroundColor: Theme.colors.surface, borderRadius: 20, padding: 20, borderWidth: 1, borderColor: Theme.colors.border, marginBottom: 16 }}>
             <Text style={{ fontSize: 11, fontWeight: '800', color: Theme.colors.text.secondary, textTransform: 'uppercase', marginBottom: 8 }}>Purchase Cost Price (Cost)</Text>
             <Text style={{ fontSize: 32, fontWeight: '900', color: Theme.colors.text.primary }}>
-              {purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}` : 'Not Recorded'}
+              {purchaseAmount > 0 ? `₹${formatNum(purchaseAmount)}${num(item.cost_price || item.prc_amount) === 0 ? ' (Est.)' : ''}` : 'Not Recorded'}
             </Text>
           </View>
 

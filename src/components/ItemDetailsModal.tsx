@@ -803,10 +803,31 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
   const [paymentMode, setPaymentMode] = useState<'Cash' | 'UPI/Bank' | 'Card' | 'Gold Exchange'>('Cash');
   const [previewGallery, setPreviewGallery] = useState<{ urls: string[], index: number } | null>(null);
   const { role, user } = useRole();
+  const { rates } = useJewelryCalc();
   const [showHistory, setShowHistory] = useState(false);
   const [showIdent, setShowIdent] = useState(false);
   const [showScan, setShowScan] = useState(false);
   const [showRef, setShowRef] = useState(false);
+  const [isEditingCost, setIsEditingCost] = useState(false);
+  const [editCostValue, setEditCostValue] = useState('');
+  const [savingCost, setSavingCost] = useState(false);
+
+  const getFallbackCostPrice = (itemObj: any) => {
+    if (!itemObj) return 0;
+    const num = (v: any) => parseFloat(String(v)) || 0;
+    const recorded = num(itemObj.cost_price || itemObj.prc_amount);
+    if (recorded > 0) return recorded;
+
+    const netWt = num(itemObj.net_wt);
+    const purity = (itemObj.purity || '18').toString();
+    const goldRate = purity.includes('22') ? (rates?.gold_22kt || 9000) : (rates?.gold_18kt || 8000);
+    const goldCost = netWt * goldRate;
+    const labour = num(itemObj.labour_amt);
+    const diaPurchase = num(itemObj.dia_purchase_amt);
+    const stonePurchase = num(itemObj.stone_purchase_amt);
+    const other = num(itemObj.other_charges);
+    return goldCost + labour + diaPurchase + stonePurchase + other;
+  };
 
   useEffect(() => {
     if (isVisible && item) {
@@ -1033,11 +1054,69 @@ export default function ItemDetailsModal({ isVisible, onClose, item, onEdit, onE
                     <Text style={styles.adminValue}>{item.net_wt ? `${item.net_wt}g` : '0g'}</Text>
                   </View>
                   {role === 'admin' && (
-                    <View style={[styles.adminGridItem, { backgroundColor: Theme.colors.primary + '15', borderColor: Theme.colors.primary }]}>
-                      <Text style={[styles.adminLabel, { color: Theme.colors.primary }]}>Purchase Cost Price</Text>
-                      <Text style={[styles.adminValue, { color: Theme.colors.primary, fontSize: 16, fontWeight: '900' }]}>
-                        { (item.cost_price || item.prc_amount) ? `₹${parseFloat(String(item.cost_price || item.prc_amount)).toLocaleString('en-IN')}` : 'Not Recorded' }
-                      </Text>
+                    <View style={[styles.adminGridItem, { backgroundColor: Theme.colors.primary + '15', borderColor: Theme.colors.primary, flexDirection: 'column', gap: 4 }]}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={[styles.adminLabel, { color: Theme.colors.primary }]}>Purchase Cost Price</Text>
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setEditCostValue(String(item.cost_price || item.prc_amount || ''));
+                            setIsEditingCost(!isEditingCost);
+                          }}
+                          style={{ padding: 2 }}
+                        >
+                          <Edit2 size={14} color={Theme.colors.primary} />
+                        </TouchableOpacity>
+                      </View>
+
+                      {isEditingCost ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                          <TextInput
+                            style={{ flex: 1, backgroundColor: Theme.colors.background, color: Theme.colors.text.primary, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: Theme.colors.primary, fontSize: 13, fontWeight: '700' }}
+                            value={editCostValue}
+                            onChangeText={setEditCostValue}
+                            keyboardType="numeric"
+                            placeholder="Cost Price"
+                            placeholderTextColor={Theme.colors.text.secondary}
+                            autoFocus
+                          />
+                          <TouchableOpacity
+                            onPress={async () => {
+                              const val = parseFloat(editCostValue);
+                              if (isNaN(val) || val < 0) {
+                                Alert.alert('Invalid Input', 'Please enter a valid cost price');
+                                return;
+                              }
+                              try {
+                                setSavingCost(true);
+                                const { error } = await supabase
+                                  .from('items')
+                                  .update({ cost_price: val, prc_amount: val })
+                                  .eq('id', item.id);
+                                if (error) throw error;
+                                item.cost_price = val;
+                                item.prc_amount = val;
+                                setIsEditingCost(false);
+                                Alert.alert('Success', 'Cost price updated successfully');
+                              } catch (err: any) {
+                                Alert.alert('Error', err.message || 'Failed to save cost price');
+                              } finally {
+                                setSavingCost(false);
+                              }
+                            }}
+                            style={{ backgroundColor: Theme.colors.primary, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 6 }}
+                            disabled={savingCost}
+                          >
+                            {savingCost ? <ActivityIndicator size="small" color="black" /> : <Text style={{ color: 'black', fontWeight: '800', fontSize: 12 }}>Save</Text>}
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <Text style={[styles.adminValue, { color: Theme.colors.primary, fontSize: 15, fontWeight: '900' }]}>
+                          { (item.cost_price || item.prc_amount) 
+                              ? `₹${parseFloat(String(item.cost_price || item.prc_amount)).toLocaleString('en-IN')}` 
+                              : (getFallbackCostPrice(item) > 0 ? `₹${Math.round(getFallbackCostPrice(item)).toLocaleString('en-IN')} (Est.)` : 'Not Recorded') 
+                          }
+                        </Text>
+                      )}
                     </View>
                   )}
                 </View>
