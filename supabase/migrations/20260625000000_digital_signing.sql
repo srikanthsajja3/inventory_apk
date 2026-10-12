@@ -12,7 +12,12 @@ CREATE TABLE IF NOT EXISTS public.documents (
 ) TABLESPACE pg_default;
 
 -- Enable Realtime for the documents table
-ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
+DO $$ 
+BEGIN 
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.documents;
+EXCEPTION 
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Enable Row Level Security on public.documents
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;

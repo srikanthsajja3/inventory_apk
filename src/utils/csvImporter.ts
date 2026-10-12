@@ -197,8 +197,6 @@ async function importVendorItems(rawMatrix: string[][]): Promise<ImportResult> {
       net_wt: netWt,
       dai_wt: daiWt,
       dai_pcs: daiPcs,
-      clr_stone_wt: clrStoneWt,
-      clr_stone_pcs: clrStonePcs,
       wastage: wastage,
       labour_amt: labourAmt,
       labour_rate: labourRate,
@@ -279,7 +277,7 @@ async function importItemsStandard(rawMatrix: string[][]): Promise<ImportResult>
   const header = rawMatrix[0].map(h => h.trim().replace(/^"|"$/g, ''));
   const numericFields = [
     'min_stock_level', 'purity', 'gross_wt', 'net_wt', 'dai_wt', 'dai_pcs',
-    'clr_stone_wt', 'clr_stone_pcs', 'wastage', 'labour_rate', 'labour_amt',
+    'wastage', 'labour_rate', 'labour_amt',
     'purch_wastage_rate', 'other_charges', 'dia_purchase_amt', 'stone_purchase_amt',
     'cost_price', 'dai_rd', 'dai_pear', 'dai_stb', 'igi_fee', 'prc_amount',
     'weight_with_tag', 'remarked_weight', 'quantity', 'pcs', 'number_of_tags'

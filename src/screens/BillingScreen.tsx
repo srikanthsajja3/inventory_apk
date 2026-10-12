@@ -223,10 +223,9 @@ export default function BillingScreen() {
           const daiWt = num(data.dai_wt);
           const daiPcs = num(data.dai_pcs);
           const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, daiPcs, masterStones, 69000);
-          stonesList = [
-            { id: 'd1', name: 'Diamond', weight: daiWt, pcs: daiPcs, rate: daiRate, category: 'Diamond' },
-            { id: 's1', name: 'Color Stone', weight: num(data.clr_stone_wt), pcs: num(data.clr_stone_pcs), rate: num(rateMap.stone_rate || 3500), category: 'Stone' }
-          ];
+          stonesList = daiWt > 0 ? [
+            { id: 'd1', name: 'Diamond', weight: daiWt, pcs: daiPcs, rate: daiRate, category: 'Diamond' }
+          ] : [];
         }
       } catch (e) {
         console.error('Error parsing stones:', e);

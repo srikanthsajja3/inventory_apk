@@ -723,7 +723,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
         supabase.from('master_rates').select('*'),
         supabase.from('sales').select('sale_amount').gte('sold_at', today.toISOString()),
         supabase.from('sales').select('sale_amount, prc_amount, sold_by').gte('sold_at', performanceCutoff.toISOString()),
-        supabase.from('transactions').select('*, items(id, name, sku, purity, image_url, net_wt, dai_wt, labour_amt, wastage, clr_stone_wt, stones_in_detail, other_charges, gross_wt, prc_amount)').order('created_at', { ascending: false }).limit(5)
+        supabase.from('transactions').select('*, items(id, name, sku, purity, image_url, net_wt, dai_wt, labour_amt, wastage, stones_in_detail, other_charges, gross_wt, prc_amount)').order('created_at', { ascending: false }).limit(5)
       ]);
 
       if (settingsRes.error) throw settingsRes.error;
@@ -764,7 +764,7 @@ export default function DashboardScreen({ onUpdateGoldRate, onManageStones, onEs
 
       // PHASE 2: Heavy Background Fetch (Non-blocking)
       setCalculatingValue(true);
-      const { data: allItems } = await supabase.from('items').select('name, gross_wt, net_wt, wastage, labour_amt, dai_wt, clr_stone_wt, stones_in_detail, other_charges');
+      const { data: allItems } = await supabase.from('items').select('name, gross_wt, net_wt, wastage, labour_amt, dai_wt, stones_in_detail, other_charges');
       
       // Use asynchronous chunking to prevent UI thread freezing during heavy calculation
       const calculateInChunks = async (itemsList: any[], rates: any): Promise<number> => {

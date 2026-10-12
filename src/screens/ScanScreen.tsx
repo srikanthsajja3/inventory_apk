@@ -686,7 +686,7 @@ export default function ScanScreen({ onEstimation }: { onEstimation?: (item: any
                 <View style={styles.detailGrid}>
                   <DetailBadge label="Net Weight" value={itemFound.net_wt ? `${itemFound.net_wt}g` : '0g'} icon={Scale} color="#6366f1" />
                   <DetailBadge label="Gross Weight" value={itemFound.gross_wt ? `${itemFound.gross_wt}g` : '0g'} icon={Scale} color="#8b5cf6" />
-                  <DetailBadge label="Stone Wt" value={itemFound.clr_stone_wt ? `${itemFound.clr_stone_wt}g` : '0g'} icon={Scale} color="#10b981" />
+                  <DetailBadge label="Diamond Wt" value={itemFound.dai_wt ? `${itemFound.dai_wt}ct` : '0ct'} icon={Scale} color="#10b981" />
                   <DetailBadge label="Wastage" value={itemFound.wastage ? `${itemFound.wastage}%` : '0%'} icon={Scale} color="#f59e0b" />
                   <DetailBadge label="Making" value={itemFound.labour_amt ? `₹${itemFound.labour_amt}` : '₹0'} icon={IndianRupee} color="#6366f1" />
                   <DetailBadge label="Purity" value={itemFound.purity} icon={Tag} color="#f59e0b" />

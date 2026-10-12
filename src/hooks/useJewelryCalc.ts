@@ -4,11 +4,10 @@ import { getDynamicStoneRate, calculateStoneAmount } from '../utils/diamondCalc'
 
 export interface JewelryItem {
   name?: string | null;
+  purity?: number | string | null;
   gross_wt?: number | string | null;
   net_wt?: number | string | null;
   dai_wt?: number | string | null;
-  clr_stone_wt?: number | string | null;
-  clr_stone_pcs?: number | string | null;
   wastage?: number | string | null;
   labour_amt?: number | string | null;
   labour_rate?: number | string | null;
@@ -76,7 +75,11 @@ export function useJewelryCalc() {
 
     const num = (v: any) => parseFloat(String(v)) || 0;
     
-    const goldRate = activeRates.gold_18kt || 0;
+    const purityStr = (item.purity || '18').toString();
+    const goldRate = purityStr.includes('24')
+      ? (activeRates.gold_24kt || 0)
+      : (purityStr.includes('22') ? (activeRates.gold_22kt || 0) : (activeRates.gold_18kt || 0));
+
     const defaultDiamondRate = activeRates.diamond_rd_rate || 69000;
     const defaultStoneRate = activeRates.stone_rate || 3500;
     const certRate = activeRates.cert_rate_per_ct || 950;
@@ -116,7 +119,7 @@ export function useJewelryCalc() {
     }
     
     // Fallback to item's own labour_amt if provided and greater
-    if (num(item.labour_amt) > 0) {
+    if (num(item.labour_amt) > 0 && num(item.labour_amt) > makingValue) {
       makingValue = num(item.labour_amt);
     }
 
@@ -127,20 +130,26 @@ export function useJewelryCalc() {
         stonesValue = stones.reduce((acc: number, s: any) => {
           const sWt = num(s.weight);
           const sPcs = num(s.pcs);
-          let sRate = num(s.rate);
-          if (sRate === 0) {
-            sRate = getDynamicStoneRate(s.name || s.label || 'Diamond', s.category || 'Diamond', sWt, sPcs, masterStones, defaultDiamondRate);
-          }
-          return acc + calculateStoneAmount(sWt, sPcs, sRate);
+          const dynamicRate = getDynamicStoneRate(
+            s.name || s.label || 'Diamond',
+            s.category || 'Diamond',
+            sWt,
+            sPcs,
+            masterStones,
+            defaultDiamondRate,
+            activeRates,
+            item.name || ''
+          );
+          return acc + calculateStoneAmount(sWt, sPcs, dynamicRate);
         }, 0);
       } else {
         const daiWt = num(item.dai_wt);
-        const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, 1, masterStones, defaultDiamondRate);
-        stonesValue = calculateStoneAmount(daiWt, 1, daiRate) + calculateStoneAmount(num(item.clr_stone_wt), num(item.clr_stone_pcs), defaultStoneRate);
+        const daiRate = getDynamicStoneRate('Diamond', 'Diamond', daiWt, 1, masterStones, defaultDiamondRate, activeRates, item.name || '');
+        stonesValue = calculateStoneAmount(daiWt, 1, daiRate);
       }
     } catch (e) {
       const daiWt = num(item.dai_wt);
-      stonesValue = calculateStoneAmount(daiWt, 1, defaultDiamondRate) + calculateStoneAmount(num(item.clr_stone_wt), num(item.clr_stone_pcs), defaultStoneRate);
+      stonesValue = calculateStoneAmount(daiWt, 1, defaultDiamondRate);
     }
 
     const certCharges = isDiamond ? (num(item.dai_wt) > 0 ? Math.max(num(item.dai_wt) * certRate, certRate) : 0) : 0;

@@ -1,4 +1,4 @@
-﻿export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -95,6 +95,33 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          created_at: string | null
+          customer_email: string
+          customer_name: string
+          details: Json | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          customer_email: string
+          customer_name: string
+          details?: Json | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          customer_email?: string
+          customer_name?: string
+          details?: Json | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: []
+      }
       employees: {
         Row: {
           created_at: string
@@ -120,8 +147,6 @@ export type Database = {
         Row: {
           barcode: string | null
           category_id: string | null
-          clr_stone_pcs: number | null
-          clr_stone_wt: number | null
           cost_price: number | null
           created_at: string
           dai_pcs: number | null
@@ -152,6 +177,7 @@ export type Database = {
           min_stock_level: number | null
           name: string
           net_wt: number | null
+          number_of_tags: number
           other_charges: number | null
           pcs: number | null
           prc_amount: number | null
@@ -167,6 +193,8 @@ export type Database = {
           stones_in_detail: string | null
           supplier_contact: string | null
           supplier_name: string | null
+          thumbnail_url: string | null
+          thumbnail_urls: string[] | null
           unit: string | null
           updated_at: string
           wastage: number | null
@@ -175,8 +203,6 @@ export type Database = {
         Insert: {
           barcode?: string | null
           category_id?: string | null
-          clr_stone_pcs?: number | null
-          clr_stone_wt?: number | null
           cost_price?: number | null
           created_at?: string
           dai_pcs?: number | null
@@ -207,6 +233,7 @@ export type Database = {
           min_stock_level?: number | null
           name: string
           net_wt?: number | null
+          number_of_tags?: number
           other_charges?: number | null
           pcs?: number | null
           prc_amount?: number | null
@@ -222,6 +249,8 @@ export type Database = {
           stones_in_detail?: string | null
           supplier_contact?: string | null
           supplier_name?: string | null
+          thumbnail_url?: string | null
+          thumbnail_urls?: string[] | null
           unit?: string | null
           updated_at?: string
           wastage?: number | null
@@ -230,8 +259,6 @@ export type Database = {
         Update: {
           barcode?: string | null
           category_id?: string | null
-          clr_stone_pcs?: number | null
-          clr_stone_wt?: number | null
           cost_price?: number | null
           created_at?: string
           dai_pcs?: number | null
@@ -262,6 +289,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string
           net_wt?: number | null
+          number_of_tags?: number
           other_charges?: number | null
           pcs?: number | null
           prc_amount?: number | null
@@ -277,6 +305,8 @@ export type Database = {
           stones_in_detail?: string | null
           supplier_contact?: string | null
           supplier_name?: string | null
+          thumbnail_url?: string | null
+          thumbnail_urls?: string[] | null
           unit?: string | null
           updated_at?: string
           wastage?: number | null
@@ -485,6 +515,7 @@ export type Database = {
           min_stock_level: number | null
           name: string | null
           net_wt: number | null
+          number_of_tags: number | null
           pcs: number | null
           purity: string | null
           quantity: number | null
@@ -511,6 +542,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string | null
           net_wt?: number | null
+          number_of_tags?: number | null
           pcs?: number | null
           purity?: string | null
           quantity?: number | null
@@ -537,6 +569,7 @@ export type Database = {
           min_stock_level?: number | null
           name?: string | null
           net_wt?: number | null
+          number_of_tags?: number | null
           pcs?: number | null
           purity?: string | null
           quantity?: number | null
@@ -578,12 +611,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -607,11 +640,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -632,11 +665,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -657,11 +690,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -674,11 +707,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

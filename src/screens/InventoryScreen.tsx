@@ -889,7 +889,7 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
       const now = Date.now();
 
       if (currentFolder?.id === 'virtual-exhibition') {
-        let exStatsQuery = supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id').eq('in_exhibition', true);
+        let exStatsQuery = supabase.from('items').select('name, gross_wt, net_wt, dai_wt, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id').eq('in_exhibition', true);
         let exItemsQuery = supabase.from('items').select('*').eq('in_exhibition', true);
 
         if (selectedLocation !== 'All Locations') {
@@ -935,9 +935,9 @@ export default function InventoryScreen({ onEstimation }: { onEstimation: (item:
 
       // Fetch all items (minimal columns) in normal folder for stats computation
       let statsQuery = parentId
-        ? supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
+        ? supabase.from('items').select('name, gross_wt, net_wt, dai_wt, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
             .eq('category_id', parentId).gt('quantity', 0)
-        : supabase.from('items').select('name, gross_wt, net_wt, dai_wt, clr_stone_wt, clr_stone_pcs, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
+        : supabase.from('items').select('name, gross_wt, net_wt, dai_wt, wastage, labour_amt, labour_rate, other_charges, stones_in_detail, in_exhibition, exhibition_added_at, id')
             .is('category_id', null).gt('quantity', 0);
 
       // Fetch first page of items (all columns) in normal folder for rendering

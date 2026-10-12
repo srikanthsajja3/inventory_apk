@@ -294,12 +294,7 @@ const styles = StyleSheet.create({
   },
 });
 
-const renameStone = (name: string) => {
-  const n = name.toUpperCase().trim();
-  if (n.includes('VVS') || n.includes('EF') || n.includes('RD') || n === 'DIAMOND') return 'Diamond';
-  if (n.includes('SHAPE')) return 'Shape Diamonds';
-  return name;
-};
+const renameStone = (name: string) => (name || '').trim();
 
 const calculateDynamicStoneRate = (
   stoneLabel: string,
@@ -310,32 +305,18 @@ const calculateDynamicStoneRate = (
   rateMap: any = {},
   productName: string = ''
 ): number => {
-  const labelLower = (stoneLabel || '').toLowerCase().trim();
-  let defaultRate = 69000;
-  if (labelLower.includes('color stone') || labelLower.includes('stone')) {
-    defaultRate = num(rateMap.stone_rate || 3500);
-  } else if (labelLower.includes('beads')) {
-    defaultRate = num(rateMap.default_beads_rate || 850);
-  }
-
-  let calculatedRate = getDynamicStoneRate(
+  return getDynamicStoneRate(
     stoneLabel,
     category || 'Diamond',
     weight,
     pcs,
     masterStones,
-    defaultRate
+    69000,
+    rateMap,
+    productName
   );
-
-  // Apply Emerald / Ruby discount for non-diamond items
-  const normalizedProductName = (productName || '').toLowerCase().trim();
-  const discount = num(rateMap.emerald_ruby_discount || 1000);
-  if ((labelLower.includes('emerald') || labelLower.includes('ruby')) && !normalizedProductName.startsWith('d')) {
-    calculatedRate = Math.max(0, calculatedRate - discount);
-  }
-
-  return calculatedRate;
 };
+
 
 
 const SpreadsheetRow = ({ label, subLabel, weight, rate, amount, onWeightChange, onRateChange, editable = true, bg, labelColor, isHeader = false, isTablet, showSubInput, subValue, onSubValueChange, showPcsColumn = false, onTogglePcsColumn, pcs, onPcsChange }: any) => {
@@ -520,7 +501,7 @@ export default function EstimationScreen({ route, navigation }: any) {
     };
   };
 
-  const getInitialStones = (currentRateMap: any) => {
+  const getInitialStones = (currentRateMap: any, currentStoneMaster: any[] = stoneMaster) => {
     let stones: any[] = [];
     try {
       if (item.stones_in_detail && item.stones_in_detail.startsWith('[')) {
@@ -530,30 +511,16 @@ export default function EstimationScreen({ route, navigation }: any) {
         
         const daiWt = num(item.dai_wt || item.diamond_wt || 0);
         const daiPcs = num(item.dai_pcs || item.diamond_pcs || 0);
-        const clrWt = num(item.clr_stone_wt || item.color_stone_wt || 0);
-        const clrPcs = num(item.clr_stone_pcs || item.color_stone_pcs || 0);
         const beadsWt = num(item.beads_wt || 0);
         const beadsPcs = num(item.beads_pcs || 0);
 
-        if (daiWt > 0 || daiPcs > 0 || (item.name && item.name.trim().toUpperCase().startsWith('D') && clrWt === 0 && beadsWt === 0)) {
+        if (daiWt > 0 || daiPcs > 0 || (item.name && item.name.trim().toUpperCase().startsWith('D') && beadsWt === 0)) {
           defaultStones.push({
             id: 'd1',
             label: 'Diamond',
             weight: String(daiWt),
             pcs: String(daiPcs),
-            rate: String('69000'),
             category: 'Diamond'
-          });
-        }
-        
-        if (clrWt > 0 || clrPcs > 0) {
-          defaultStones.push({
-            id: 's1',
-            label: 'Color Stone',
-            weight: String(clrWt),
-            pcs: String(clrPcs),
-            rate: String(currentRateMap.stone_rate || '3500'),
-            category: 'Stone'
           });
         }
 
@@ -563,7 +530,6 @@ export default function EstimationScreen({ route, navigation }: any) {
             label: 'Beads',
             weight: String(beadsWt),
             pcs: String(beadsPcs),
-            rate: String(currentRateMap.default_beads_rate || '850'),
             category: 'Beads'
           });
         }
@@ -572,14 +538,32 @@ export default function EstimationScreen({ route, navigation }: any) {
       }
     } catch (e) { stones = []; }
 
-    const formatted = stones.map((s: any) => ({
-      id: s.id || Math.random().toString(36).substr(2, 9),
-      label: renameStone(s.name || s.label || 'Stone'),
-      weight: String(s.weight || 0),
-      pcs: String(s.pcs || 0),
-      rate: String(s.rate || 0),
-      category: s.category || 'Stone'
-    }));
+    // Completely ignore any stored rates in item (s.rate) - ALWAYS compute dynamically
+    const formatted = stones.map((s: any) => {
+      const stoneLabel = renameStone(s.name || s.label || 'Stone');
+      const stoneCat = s.category || 'Stone';
+      const sWeight = num(s.weight || 0);
+      const sPcs = num(s.pcs || 0);
+      const autoRate = calculateDynamicStoneRate(
+        stoneLabel,
+        stoneCat,
+        sWeight,
+        sPcs,
+        currentStoneMaster,
+        currentRateMap,
+        item.name || ''
+      );
+
+      return {
+        id: s.id || Math.random().toString(36).substr(2, 9),
+        label: stoneLabel,
+        weight: String(s.weight || 0),
+        pcs: String(s.pcs || 0),
+        rate: String(autoRate || 0),
+        category: stoneCat,
+        isManualRate: false,
+      };
+    });
 
     return formatted.filter((s: any) => {
       const w = num(s.weight);
@@ -676,9 +660,9 @@ export default function EstimationScreen({ route, navigation }: any) {
   useEffect(() => {
     if (Object.keys(rateMap).length > 0) {
       setCalcData(getInitialCalcData(rateMap));
-      setDynamicStones(getInitialStones(rateMap));
+      setDynamicStones(getInitialStones(rateMap, stoneMaster));
     }
-  }, [rateMap]);
+  }, [rateMap, stoneMaster]);
 
   useEffect(() => {
     if ((stoneMaster.length > 0 || Object.keys(rateMap).length > 0) && dynamicStones.length > 0) {
@@ -716,11 +700,14 @@ export default function EstimationScreen({ route, navigation }: any) {
         supabase.from('stone_master').select('*'),
         supabase.from('employees').select('name').eq('is_active', true).order('name')
       ]);
-      setStoneMaster(stonesRes.data || []);
-      setEmployees(employeesRes.data || []);
+      const fetchedStones = stonesRes.data || [];
       const newRateMap: any = {};
       ratesRes.data?.forEach(r => { newRateMap[r.key] = r.value; });
+      setStoneMaster(fetchedStones);
+      setEmployees(employeesRes.data || []);
       setRateMap(newRateMap);
+      setCalcData(getInitialCalcData(newRateMap));
+      setDynamicStones(getInitialStones(newRateMap, fetchedStones));
     } catch (error) { console.error(error); } finally { setLoading(false); }
   };
 

@@ -283,8 +283,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
     net_wt: '0',
     dai_wt: '0',
     dai_pcs: '0',
-    clr_stone_wt: '0',
-    clr_stone_pcs: '0',
     wastage: '0',
     labour_rate: '0',
     labour_amt: '0',
@@ -324,8 +322,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           net_wt: String(initialData.net_wt || 0),
           dai_wt: String(initialData.dai_wt || 0),
           dai_pcs: String(initialData.dai_pcs || 0),
-          clr_stone_wt: String(initialData.clr_stone_wt || 0),
-          clr_stone_pcs: String(initialData.clr_stone_pcs || 0),
           wastage: String(initialData.wastage || 0),
           labour_rate: String(initialData.labour_rate || 0),
           labour_amt: String(initialData.labour_amt || 0),
@@ -367,8 +363,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           net_wt: '0',
           dai_wt: '0',
           dai_pcs: '0',
-          clr_stone_wt: '0',
-          clr_stone_pcs: '0',
           wastage: '0',
           labour_rate: '0',
           labour_amt: '0',
@@ -694,8 +688,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
           net_wt: parseFloat(form.net_wt) || 0,
           dai_wt: parseFloat(form.dai_wt) || 0,
           dai_pcs: parseInt(form.dai_pcs) || 0,
-          clr_stone_wt: parseFloat(form.clr_stone_wt) || 0,
-          clr_stone_pcs: parseInt(form.clr_stone_pcs) || 0,
           wastage: parseFloat(form.wastage) || 0,
           labour_rate: parseFloat(form.labour_rate) || 0,
           labour_amt: parseFloat(form.labour_amt) || 0,
@@ -1010,26 +1002,6 @@ export default function ItemFolderModal({ isVisible, onClose, onSave, currentFol
                 </Row>
 
                 <SectionHeader title="Stone Details" icon={Tag} />
-                <Row>
-                  <View style={{ flex: 1, marginRight: 8 }}>
-                    <InputField 
-                      label="Stone Wt" 
-                      icon={Scale} 
-                      value={form.clr_stone_wt} 
-                      onChangeText={(t: string) => setForm({...form, clr_stone_wt: t})} 
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 8 }}>
-                    <InputField 
-                      label="Stone Pcs" 
-                      icon={Hash} 
-                      value={form.clr_stone_pcs} 
-                      onChangeText={(t: string) => setForm({...form, clr_stone_pcs: t})} 
-                      keyboardType="numeric"
-                    />
-                  </View>
-                </Row>
                 <InputField 
                   label="Stones in Detail" 
                   icon={Tag} 

@@ -21,86 +21,141 @@ export function getDynamicStoneRate(
   weight: number | string,
   pcs: number | string,
   masterStones: StoneMasterItem[] = [],
-  defaultRate: number = 69000
+  defaultRate: number = 69000,
+  masterRates: Record<string, any> = {},
+  productName: string = ''
 ): number {
   const w = num(weight);
   const p = num(pcs);
-  const normalizedName = (stoneName || '').toLowerCase().trim();
-  const normalizedCat = (category || 'Diamond').toLowerCase().trim();
+  const avgSize = (p > 0 && w > 0) ? (w / p) : w;
+
+  const rawName = (stoneName || '').trim();
+  const normName = rawName.toUpperCase();
+  let normCat = (category || '').trim().toUpperCase();
 
   // If master list is empty, fallback
   if (!masterStones || masterStones.length === 0) {
     return defaultRate;
   }
 
-  // Calculate average weight per piece (carats per stone)
-  const avgSize = (p > 0 && w > 0) ? (w / p) : w;
-
-  const isShapeQuery = normalizedName.includes('shape') || normalizedName.includes('fancy') || normalizedName.includes('marquise') || normalizedName.includes('oval') || normalizedName.includes('pear') || normalizedName.includes('princess') || normalizedName.includes('baguette');
-  const isRDQuery = !isShapeQuery && (normalizedCat === 'diamond' || normalizedName.includes('vvs') || normalizedName.includes('ef') || normalizedName.includes('rd') || normalizedName.includes('round') || normalizedName.includes('diamond'));
-
-  // Search for matches in stone_master
-  const matches = masterStones.filter(s => {
-    const mName = (s.name || '').toLowerCase().trim();
-    const mCat = (s.category || '').toLowerCase().trim();
-    const mSubCat = (s.sub_category || '').toUpperCase().trim();
-
-    const minW = num(s.min_wt);
-    const maxW = num(s.max_wt) || 999;
-    const inBracket = avgSize === 0 || (avgSize >= minW && avgSize <= maxW);
-
-    if (!inBracket) return false;
-
-    if (isRDQuery) {
-      // Exclude SHAPE master items for RD queries
-      if (mSubCat === 'SHAPE') return false;
-      if (mSubCat === 'RD') return true;
-      return mName.includes(normalizedName) || normalizedName.includes(mName);
+  // Infer category if not provided or vague
+  if (!normCat || normCat === 'UNKNOWN' || normCat === 'OTHER') {
+    if (normName.includes('DIAMOND') || normName.includes('VVS') || normName.includes('EF') || normName.includes('RD') || normName.includes('POLKI') || normName === 'D3') {
+      normCat = 'DIAMOND';
+    } else if (normName.includes('BEAD') || normName.includes('PEARL') || normName.includes('DROP') || normName.includes('MOTI')) {
+      normCat = 'BEADS';
+    } else {
+      normCat = 'STONE';
     }
+  }
 
-    if (isShapeQuery) {
-      // Exclude RD master items for SHAPE queries
-      if (mSubCat === 'RD') return false;
-      if (mSubCat === 'SHAPE') return true;
-      return mName.includes(normalizedName) || normalizedName.includes(mName);
-    }
+  // 1. Identify Diamond Sub-Categories
+  const isPolki = normName.includes('POLKI');
+  const isShape = !isPolki && (
+    normName.includes('SHAPE') || normName.includes('FANCY') || normName.includes('MARQUISE') ||
+    normName.includes('OVAL') || (normName.includes('PEAR') && !normName.includes('PEARL')) || normName.includes('PRINCESS') ||
+    normName.includes('BAGUETTE') || normName.includes('HEART')
+  );
+  const isRD = !isPolki && !isShape && (
+    normCat === 'DIAMOND' && (
+      normName.includes('VVS') || normName.includes('EF') || normName.includes('RD') ||
+      normName.includes('ROUND') || normName === 'DIAMOND' || normName.startsWith('DIAMOND (')
+    )
+  );
 
-    // Generic match for other categories (e.g. Color Stones, Beads)
-    return mName.includes(normalizedName) || normalizedName.includes(mName) || mCat === normalizedCat;
-  });
+  // Exact name alias mapping for common variations
+  const aliasName = (name: string) => {
+    if (name === 'EMBRALD') return 'EMERALD';
+    if (name === 'RUBY POTAS') return 'RUBY POTA';
+    if (name === 'KUNDAN') return 'KUNDHAN STONE';
+    if (name === 'S SEA PEARL') return 'PEARLS';
+    if (name === 'CS') return 'C.S (COLOR STONE)';
+    if (name === 'STRING (DORI)' || name === 'DORI' || name === 'WAX') return 'BLACKBEADS'; // 0 rate
+    return name;
+  };
+  const targetName = aliasName(normName);
 
-  if (matches.length > 0) {
-    // Sort by sub_category match first, then exact name match, then narrowest bracket range
-    matches.sort((a, b) => {
-      const aSubCat = (a.sub_category || '').toUpperCase().trim();
-      const bSubCat = (b.sub_category || '').toUpperCase().trim();
-
-      if (isRDQuery) {
-        if (aSubCat === 'RD' && bSubCat !== 'RD') return -1;
-        if (aSubCat !== 'RD' && bSubCat === 'RD') return 1;
-      } else if (isShapeQuery) {
-        if (aSubCat === 'SHAPE' && bSubCat !== 'SHAPE') return -1;
-        if (aSubCat !== 'SHAPE' && bSubCat === 'SHAPE') return 1;
-      }
-
-      const aExact = (a.name || '').toLowerCase().trim() === normalizedName;
-      const bExact = (b.name || '').toLowerCase().trim() === normalizedName;
-      if (aExact && !bExact) return -1;
-      if (!aExact && bExact) return 1;
-
-      const rangeA = (num(a.max_wt) || 999) - num(a.min_wt);
-      const rangeB = (num(b.max_wt) || 999) - num(b.min_wt);
-      return rangeA - rangeB;
+  // 2. Bracket lookup for Polki
+  if (isPolki) {
+    const polkiMatches = masterStones.filter(s => {
+      const sub = (s.sub_category || '').toUpperCase().trim();
+      const sName = (s.name || '').toUpperCase().trim();
+      if (sub !== 'POLKI' && !sName.includes('POLKI')) return false;
+      const minW = num(s.min_wt);
+      const maxW = num(s.max_wt) || 999;
+      return avgSize === 0 || (avgSize >= minW && avgSize <= maxW);
     });
-
-    return num(matches[0].rate) || defaultRate;
+    if (polkiMatches.length > 0) {
+      polkiMatches.sort((a, b) => ((num(a.max_wt) || 999) - num(a.min_wt)) - ((num(b.max_wt) || 999) - num(b.min_wt)));
+      return num(polkiMatches[0].rate);
+    }
+    return 30000;
   }
 
-  // Generic category fallback from masterStones
-  const categoryMatch = masterStones.find(s => (s.category || '').toLowerCase().trim() === normalizedCat);
-  if (categoryMatch) {
-    return num(categoryMatch.rate) || defaultRate;
+  // 3. Bracket lookup for Shape Diamonds
+  if (isShape) {
+    const shapeMatches = masterStones.filter(s => {
+      const sub = (s.sub_category || '').toUpperCase().trim();
+      if (sub !== 'SHAPE') return false;
+      const minW = num(s.min_wt);
+      const maxW = num(s.max_wt) || 999;
+      return avgSize === 0 || (avgSize >= minW && avgSize <= maxW);
+    });
+    if (shapeMatches.length > 0) {
+      shapeMatches.sort((a, b) => ((num(a.max_wt) || 999) - num(a.min_wt)) - ((num(b.max_wt) || 999) - num(b.min_wt)));
+      return num(shapeMatches[0].rate);
+    }
+    return 80000;
   }
+
+  // 4. Bracket lookup for RD Diamonds
+  if (isRD) {
+    const rdMatches = masterStones.filter(s => {
+      const sub = (s.sub_category || '').toUpperCase().trim();
+      if (sub !== 'RD') return false;
+      const minW = num(s.min_wt);
+      const maxW = num(s.max_wt) || 999;
+      return avgSize === 0 || (avgSize >= minW && avgSize <= maxW);
+    });
+    if (rdMatches.length > 0) {
+      rdMatches.sort((a, b) => ((num(a.max_wt) || 999) - num(a.min_wt)) - ((num(b.max_wt) || 999) - num(b.min_wt)));
+      return num(rdMatches[0].rate);
+    }
+    return 69000;
+  }
+
+  // 5. Direct Master Stones lookup by exact name
+  const exactMatch = masterStones.find(s => (s.name || '').toUpperCase().trim() === targetName);
+  if (exactMatch) {
+    let rate = num(exactMatch.rate);
+    // Apply Emerald / Ruby discount on non-diamond products
+    const prodName = (productName || '').trim().toUpperCase();
+    if ((targetName.includes('EMERALD') || targetName.includes('RUBY')) && !prodName.startsWith('D')) {
+      const discount = num(masterRates.emerald_ruby_discount || 1000);
+      rate = Math.max(0, rate - discount);
+    }
+    return rate;
+  }
+
+  // Partial name match in masterStones
+  const partialMatch = masterStones.find(s => {
+    const sName = (s.name || '').toUpperCase().trim();
+    return targetName.includes(sName) || sName.includes(targetName);
+  });
+  if (partialMatch) {
+    let rate = num(partialMatch.rate);
+    const prodName = (productName || '').trim().toUpperCase();
+    if ((targetName.includes('EMERALD') || targetName.includes('RUBY')) && !prodName.startsWith('D')) {
+      const discount = num(masterRates.emerald_ruby_discount || 1000);
+      rate = Math.max(0, rate - discount);
+    }
+    return rate;
+  }
+
+  // 6. Category fallbacks
+  if (normCat === 'BEADS') return num(masterRates.default_beads_rate || 850);
+  if (normCat === 'STONE') return num(masterRates.stone_rate || 3500);
+  if (normCat === 'DIAMOND') return 69000;
 
   return defaultRate;
 }
